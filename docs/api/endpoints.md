@@ -26,6 +26,7 @@
 ### Servers
 - `GET /api/v1/cmdb/servers/`
 - `POST /api/v1/cmdb/servers/`
+- `GET /api/v1/cmdb/servers/tool-query/` (normalized read-only tool query)
 - `GET /api/v1/cmdb/servers/{id}/`
 - `PUT /api/v1/cmdb/servers/{id}/`
 - `PATCH /api/v1/cmdb/servers/{id}/`

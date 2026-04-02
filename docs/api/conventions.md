@@ -105,6 +105,24 @@
 - `agent`
 - `api`
 
+## CMDB tool query baseline
+- Tool query endpoint: `GET /api/v1/cmdb/servers/tool-query/`
+- Tool query filters:
+  - `q`
+  - `hostname`
+  - `internal_ip`
+  - `environment`
+  - `lifecycle_status`
+  - `idc_code`
+  - `limit` (default `10`, max `20`)
+- Tool query response shape:
+  - `ok`
+  - `request_id`
+  - `query`
+  - `summary`
+  - `items`
+- Tool query is read-only and requires at least one filter.
+
 ## Audit baseline
 - Mutating server operations write audit entries.
 - High-risk automation job create/update/approve/reject operations write audit entries.
