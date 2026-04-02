@@ -219,24 +219,32 @@ def op_create_record(args, config):
     project_id = require_project_id(args, config)
     if args.status not in RECORD_STATUSES:
         fail('invalid_record_status', 'Record status must be one of todo, in_progress, done, blocked')
+
+    payload = {
+        'occurredAt': args.occurred_at,
+        'title': args.title,
+        'content': args.content,
+        'result': args.result,
+        'nextStep': args.next_step,
+        'risk': args.risk,
+        'status': args.status,
+    }
+    optional_fields = {
+        'branchName': args.branch_name,
+        'commitHash': args.commit_hash,
+        'prUrl': args.pr_url,
+        'changedFiles': args.changed_files,
+        'diffSummary': args.diff_summary,
+    }
+    for key, value in optional_fields.items():
+        if value not in (None, ''):
+            payload[key] = value
+
     status, body = http_request(
         'POST',
         build_url(base_url, f'/api/projects/{project_id}/records'),
         headers={'content-type': 'application/json', 'x-role-key': role_key},
-        body=json.dumps({
-            'occurredAt': args.occurred_at,
-            'title': args.title,
-            'content': args.content,
-            'result': args.result,
-            'nextStep': args.next_step,
-            'risk': args.risk,
-            'status': args.status,
-            'branchName': args.branch_name,
-            'commitHash': args.commit_hash,
-            'prUrl': args.pr_url,
-            'changedFiles': args.changed_files,
-            'diffSummary': args.diff_summary,
-        }).encode('utf-8'),
+        body=json.dumps(payload).encode('utf-8'),
         timeout_ms=config.get('timeouts', {}).get('requestMs', 15000),
     )
     if status >= 400:
