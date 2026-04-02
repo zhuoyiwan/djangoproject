@@ -210,6 +210,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuditLog'
           description: ''
+  /api/v1/audit/logs/tool-query/:
+    get:
+      operationId: v1_audit_logs_tool_query_retrieve
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+      - in: query
+        name: actor_username
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: query
+        name: target
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogToolQueryResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '401':
+          description: Authentication required
+        '403':
+          description: Forbidden
   /api/v1/auth/login/:
     post:
       operationId: v1_auth_login_create
@@ -1339,6 +1380,74 @@ components:
       - id
       - target
       - updated_at
+    AuditLogToolQuery:
+      type: object
+      properties:
+        q:
+          type: string
+          maxLength: 255
+        action:
+          type: string
+          maxLength: 128
+        target:
+          type: string
+          maxLength: 255
+        actor_username:
+          type: string
+          maxLength: 150
+        limit:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 10
+    AuditLogToolQueryResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        request_id:
+          type: string
+        query:
+          $ref: '#/components/schemas/AuditLogToolQuery'
+        summary:
+          type: object
+          additionalProperties: {}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogToolResult'
+      required:
+      - items
+      - ok
+      - query
+      - request_id
+      - summary
+    AuditLogToolResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        action:
+          type: string
+          maxLength: 128
+        target:
+          type: string
+          maxLength: 255
+        actor_username:
+          type: string
+          readOnly: true
+        detail: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor_username
+      - created_at
+      - id
+      - target
     EnvironmentEnum:
       enum:
       - dev

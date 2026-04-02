@@ -109,6 +109,20 @@
 - Mutating server operations write audit entries.
 - High-risk automation job create/update/approve/reject operations write audit entries.
 - Audit read endpoint is restricted to `auditor` and `platform_admin`.
+- Tool query endpoint: `GET /api/v1/audit/logs/tool-query/`
+- Tool query filters:
+  - `q`
+  - `action`
+  - `target`
+  - `actor_username`
+  - `limit` (default `10`, max `20`)
+- Tool query response shape:
+  - `ok`
+  - `request_id`
+  - `query`
+  - `summary`
+  - `items`
+- Audit tool query is read-only and requires at least one filter.
 
 ## Automation approval baseline
 - `Job.risk_level` enum values:

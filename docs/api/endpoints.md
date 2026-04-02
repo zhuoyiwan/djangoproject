@@ -34,6 +34,7 @@
 
 ## Audit
 - `GET /api/v1/audit/logs/`
+- `GET /api/v1/audit/logs/tool-query/` (normalized read-only tool query)
 - `GET /api/v1/audit/logs/{id}/`
 
 ## Automation
