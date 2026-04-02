@@ -3,6 +3,8 @@ from rest_framework import generics, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from core.permissions import IsPlatformAdmin
+
 from .serializers import RegisterSerializer, UserSerializer
 
 
@@ -14,6 +16,11 @@ class RegisterView(generics.CreateAPIView):
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserSerializer
     queryset = get_user_model().objects.order_by("id")
+
+    def get_permissions(self):
+        if self.action == "me":
+            return [permissions.IsAuthenticated()]
+        return [IsPlatformAdmin()]
 
     @action(detail=False, methods=["get"])
     def me(self, request):

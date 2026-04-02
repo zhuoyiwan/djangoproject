@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from audit.models import AuditLog
+from core.permissions import IsAuthenticatedReadOnlyOrOps
 
 from .authentication import AgentHMACAuthentication
 from .models import IDC, Server
@@ -13,6 +14,7 @@ from .serializers import AgentIngestResponseSerializer, AgentServerIngestSeriali
 class IDCViewSet(viewsets.ModelViewSet):
     queryset = IDC.objects.order_by("code")
     serializer_class = IDCSerializer
+    permission_classes = [IsAuthenticatedReadOnlyOrOps]
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("code", "name", "location", "status")
     ordering_fields = ("created_at", "code", "name", "status")
@@ -21,6 +23,7 @@ class IDCViewSet(viewsets.ModelViewSet):
 class ServerViewSet(viewsets.ModelViewSet):
     queryset = Server.objects.select_related("idc").order_by("-created_at")
     serializer_class = ServerSerializer
+    permission_classes = [IsAuthenticatedReadOnlyOrOps]
     filterset_fields = (
         "hostname",
         "internal_ip",

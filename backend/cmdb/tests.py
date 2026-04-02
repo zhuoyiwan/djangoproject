@@ -5,6 +5,7 @@ import time
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -74,6 +75,36 @@ class ServerApiTests(TestCase):
         response = self.client.get("/api/v1/cmdb/servers/?environment=prod")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
+
+    def test_non_ops_cannot_create_server(self):
+        payload = {
+            "hostname": "db-new",
+            "internal_ip": "10.0.0.13",
+            "os_version": "Ubuntu 22.04",
+            "cpu_cores": 4,
+            "memory_gb": "8.00",
+            "lifecycle_status": "online",
+            "environment": "dev",
+            "idc": self.idc.id,
+        }
+        response = self.client.post("/api/v1/cmdb/servers/", payload, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_ops_admin_can_create_server(self):
+        ops_group = Group.objects.create(name="ops_admin")
+        self.user.groups.add(ops_group)
+        payload = {
+            "hostname": "db-new",
+            "internal_ip": "10.0.0.13",
+            "os_version": "Ubuntu 22.04",
+            "cpu_cores": 4,
+            "memory_gb": "8.00",
+            "lifecycle_status": "online",
+            "environment": "dev",
+            "idc": self.idc.id,
+        }
+        response = self.client.post("/api/v1/cmdb/servers/", payload, format="json")
+        self.assertEqual(response.status_code, 201)
 
 
 @override_settings(

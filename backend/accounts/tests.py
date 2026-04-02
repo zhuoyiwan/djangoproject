@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -36,3 +37,20 @@ class AuthenticationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
+
+
+class UserApiPermissionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="alice", password="password123")
+        self.client.force_authenticate(self.user)
+
+    def test_non_admin_cannot_list_users(self):
+        response = self.client.get("/api/v1/users/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_platform_admin_can_list_users(self):
+        admin_group = Group.objects.create(name="platform_admin")
+        self.user.groups.add(admin_group)
+        response = self.client.get("/api/v1/users/")
+        self.assertEqual(response.status_code, 200)

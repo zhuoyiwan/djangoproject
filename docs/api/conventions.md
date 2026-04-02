@@ -14,6 +14,12 @@
 - Protected endpoints require header:
   - `Authorization: Bearer <access_token>`
 
+### RBAC roles
+- `platform_admin`: full management (including user list and audit query)
+- `ops_admin`: operational write privileges on CMDB resources
+- `auditor`: read audit logs
+- `viewer`: authenticated read-only access to CMDB endpoints
+
 ### Agent signed ingestion authentication
 - Endpoint: `POST /api/v1/cmdb/servers/agent-ingest/`
 - Required headers:
@@ -100,4 +106,10 @@
 
 ## Audit baseline
 - Mutating server operations write audit entries.
-- Audit read endpoint is backend-managed and should be restricted to privileged roles in subsequent iterations.
+- Audit read endpoint is restricted to `auditor` and `platform_admin`.
+
+## RBAC access summary
+- `GET /api/v1/users/` requires `platform_admin`
+- `GET /api/v1/audit/logs/` requires `auditor` or `platform_admin`
+- CMDB write operations (`POST/PUT/PATCH/DELETE`) require `ops_admin` or `platform_admin`
+- CMDB read operations remain available to authenticated users (`viewer` and above)
