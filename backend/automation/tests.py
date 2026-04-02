@@ -1318,6 +1318,47 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
         self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").exists())
 
+    def test_agent_report_rejects_unknown_key_id(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload, key_id="unknown-agent")
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+        audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.detail["reason"], "unknown_key_id")
+
+    def test_agent_report_rejects_invalid_timestamp_format(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+        headers["HTTP_X_AGENT_TIMESTAMP"] = "not-a-timestamp"
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+        audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.detail["reason"], "invalid_timestamp")
+
     def test_agent_report_rejects_replay_request(self):
         job = Job.objects.create(
             name="sync-assets",
