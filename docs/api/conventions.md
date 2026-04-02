@@ -222,6 +222,8 @@
 - Tool query endpoint: `GET /api/v1/automation/jobs/tool-query/`
 - Handoff endpoint: `GET /api/v1/automation/jobs/handoff/`
 - Handoff filters:
+  - `q`
+  - `name`
   - `status` (`ready` or `claimed`)
   - `risk_level`
   - `approval_status`
