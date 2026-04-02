@@ -200,6 +200,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.execution_metadata, {})
         self.assertIsNone(job.completed_at)
         self.assertIsNone(job.failed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
         audit = AuditLog.objects.get(action="automation.job.approved")
@@ -243,6 +244,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.execution_metadata, {})
         self.assertIsNone(job.completed_at)
         self.assertIsNone(job.failed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
         audit = AuditLog.objects.get(action="automation.job.rejected")
