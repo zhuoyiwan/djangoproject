@@ -158,6 +158,16 @@
 ## Audit baseline
 - Mutating server operations write audit entries.
 - High-risk automation job create/update/approve/reject operations write audit entries.
+- Security events also write audit entries for denied access flows:
+  - `security.auth.failed` for authenticated/anonymous requests that return `401`
+  - `security.permission.denied` for authenticated requests that return `403`
+  - `server.agent_ingest.auth_failed` for signed ingest authentication failures
+- Audit `target` for request-driven security events uses `"<METHOD> <PATH>"`.
+- Audit `detail` fields vary by event type and may include:
+  - `request_id`
+  - `status_code`
+  - `username` (for authenticated `403` permission denials)
+  - `reason` and `path` (for signed ingest auth failures)
 - Audit read endpoint is restricted to `auditor` and `platform_admin`.
 - Tool query endpoint: `GET /api/v1/audit/logs/tool-query/`
 - Tool query filters:

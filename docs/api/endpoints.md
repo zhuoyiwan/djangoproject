@@ -39,6 +39,15 @@
 - `GET /api/v1/audit/logs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`; filters: `q`, `action`, `target`, `actor_username`, `detail_reason`, `detail_path`, `detail_status_code`, `limit`)
 - `GET /api/v1/audit/logs/{id}/` (throttle scope: `audit_read`)
 
+Audit log behavior:
+- Includes CMDB write events, automation approval/execution events, and security events.
+- Canonical security event actions:
+  - `security.auth.failed` for `401` responses
+  - `security.permission.denied` for authenticated `403` responses
+  - `server.agent_ingest.auth_failed` for signed ingest auth failures
+- Security audit entries use `target="<METHOD> <PATH>"` for request-driven denial events.
+- Security event `detail` payloads may include `request_id`, `status_code`, `username`, `reason`, and `path`.
+
 ## Automation
 - `GET /api/v1/automation/jobs/` (throttle scope: `api_read`)
 - `GET /api/v1/automation/jobs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`)

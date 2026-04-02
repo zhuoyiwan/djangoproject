@@ -111,20 +111,20 @@ Already in place:
 - write audit trail for server mutations
 - local secret exclusion via `.gitignore`
 
-Next hardening steps:
-1. enforce role-based permissions for audit and write endpoints
-2. add API throttling policies by endpoint class
-3. add security event audit category (auth failures / permission denies)
-4. require strong JWT signing key via environment validation
+Hardening updates implemented:
+1. role-based permissions enforced for audit and write endpoints
+2. API throttling policies added by endpoint class
+3. security event audit category added for auth failures and permission denies
+4. strong JWT signing key validation required via environment settings
 
 ---
 
 ## 6. Near-term milestones
 
-### M1: API stabilization (current)
-- freeze endpoint naming and response conventions
-- freeze enum values for CMDB statuses
-- keep schema synced with code
+### M1: API stabilization (implemented)
+- endpoint naming and response conventions frozen
+- CMDB status enum values frozen
+- schema and audit/security contract kept synced with code
 
 ### M2: Collector-ready ingestion (implemented)
 - signed ingestion endpoint added: `POST /api/v1/cmdb/servers/agent-ingest/`
