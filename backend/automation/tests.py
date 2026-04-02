@@ -2431,13 +2431,32 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "validation_error")
         self.assertEqual(response.data["error"]["details"]["agent_key_id"], ["Only agent-claimed jobs can be reported by an agent."])
 
-    def test_agent_report_rejects_unassigned_agent_key(self):
+    def test_agent_report_rejects_human_claimed_job_with_assigned_agent_key(self):
         job = Job.objects.create(
             name="sync-assets",
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
             claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertEqual(response.data["error"]["details"]["agent_key_id"], ["Only agent-claimed jobs can be reported by an agent."])
+
+    def test_agent_report_rejects_unassigned_agent_key(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=None,
             assigned_agent_key_id="automation-agent-blue",
         )
         payload = {"outcome": JobExecutionStatus.COMPLETED}
