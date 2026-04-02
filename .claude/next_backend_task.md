@@ -4,15 +4,16 @@ Read this file first in unattended backend sessions.
 
 ## Task
 
-Start by reading `docs/architecture/backend-roadmap.md` and continue with the next unfinished backend milestone after the work represented by commit `cfee01d Add unattended Claude backend workflow.`.
-Use the latest repo state plus the changed areas below to pick the smallest complete backend increment.
+Start the first M4 slice from `docs/architecture/backend-roadmap.md`.
+Implement one small, safe, backend-only increment for the OpenClaw integration boundary:
 
-## Changed context from previous session
+- add a read-only tool-facing CMDB query capability
+- keep it authenticated and safe-by-default
+- prefer existing CMDB data instead of introducing new runtime integrations
+- expose a normalized response shape suitable for LLM/tool consumers
+- include tests and OpenAPI updates if the contract changes
 
-- claude/bin/auto_finish_backend.py
-- .claude/bin/night_backend_loop.sh
-- .claude/bin/write_next_backend_task.py
-- .claude/next_backend_task.md
+If that exact slice is too large after inspection, narrow it to the smallest complete backend increment that moves M4 forward without touching the frontend.
 
 ## Constraints
 
