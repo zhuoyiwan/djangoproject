@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from audit.models import AuditLog
 from core.permissions import IsAuthenticatedReadOnlyOrOps
+from core.tool_responses import build_normalized_tool_response
 
 from .authentication import AgentHMACAuthentication
 from .models import IDC, Server
@@ -51,18 +52,7 @@ class IDCViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         idcs = serializer.filter_queryset(self.get_queryset())
         items = IDCToolResultSerializer(idcs, many=True).data
-        response_data = {
-            "ok": True,
-            "request_id": getattr(request, "request_id", ""),
-            "query": serializer.validated_data,
-            "summary": {
-                "count": len(items),
-                "returned": len(items),
-                "truncated": len(items) == serializer.validated_data["limit"],
-            },
-            "items": items,
-        }
-        return Response(response_data)
+        return build_normalized_tool_response(request, serializer.validated_data, items)
 
 
 class ServerViewSet(viewsets.ModelViewSet):
@@ -185,15 +175,4 @@ class ServerViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         servers = serializer.filter_queryset(self.get_queryset())
         items = ServerToolResultSerializer(servers, many=True).data
-        response_data = {
-            "ok": True,
-            "request_id": getattr(request, "request_id", ""),
-            "query": serializer.validated_data,
-            "summary": {
-                "count": len(items),
-                "returned": len(items),
-                "truncated": len(items) == serializer.validated_data["limit"],
-            },
-            "items": items,
-        }
-        return Response(response_data)
+        return build_normalized_tool_response(request, serializer.validated_data, items)

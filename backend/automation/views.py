@@ -7,6 +7,7 @@ from rest_framework.response import Response
 
 from audit.models import AuditLog
 from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
+from core.tool_responses import build_normalized_tool_response
 
 from .adapters import build_job_handoff_response
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
@@ -316,18 +317,7 @@ class JobViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         jobs = serializer.filter_queryset(self.get_queryset())
         items = JobToolResultSerializer(jobs, many=True).data
-        response_data = {
-            "ok": True,
-            "request_id": getattr(request, "request_id", ""),
-            "query": serializer.validated_data,
-            "summary": {
-                "count": len(items),
-                "returned": len(items),
-                "truncated": len(items) == serializer.validated_data["limit"],
-            },
-            "items": items,
-        }
-        return Response(response_data)
+        return build_normalized_tool_response(request, serializer.validated_data, items)
 
     @extend_schema(
         parameters=[
