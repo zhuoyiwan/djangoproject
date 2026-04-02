@@ -578,7 +578,34 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["items"][0]["assigned_agent_key_id"], "automation-agent-blue")
         self.assertEqual(response.data["query"]["assigned_agent_key_id"], "automation-agent-blue")
+
+    def test_tool_query_supports_last_reported_by_agent_key_filter(self):
+        matching_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.COMPLETED,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            last_reported_by_agent_key="automation-agent-blue",
+        )
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.FAILED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            last_reported_by_agent_key="automation-agent-default",
+        )
+
+        response = self.client.get(
+            "/api/v1/automation/jobs/tool-query/?last_reported_by_agent_key=automation-agent-blue"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["items"][0]["last_reported_by_agent_key"], "automation-agent-blue")
+        self.assertEqual(response.data["query"]["last_reported_by_agent_key"], "automation-agent-blue")
 
     def test_tool_query_does_not_mark_exact_limit_as_truncated(self):
         Job.objects.create(

@@ -911,6 +911,10 @@ paths:
         schema:
           type: string
       - in: query
+        name: last_reported_by_agent_key
+        schema:
+          type: string
+      - in: query
         name: limit
         schema:
           type: integer
@@ -2171,6 +2175,9 @@ components:
         assigned_agent_key_id:
           type: string
           maxLength: 255
+        last_reported_by_agent_key:
+          type: string
+          maxLength: 255
         limit:
           type: integer
           maximum: 20
@@ -2228,6 +2235,12 @@ components:
         claimed_by_username:
           type: string
           readOnly: true
+        assigned_agent_key_id:
+          type: string
+          maxLength: 255
+        last_reported_by_agent_key:
+          type: string
+          maxLength: 255
         created_at:
           type: string
           format: date-time
