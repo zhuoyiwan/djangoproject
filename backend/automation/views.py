@@ -249,7 +249,12 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = now
             job.claimed_by = None
             job.claimed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "updated_at"])
+            job.execution_summary = ""
+            job.execution_metadata = {}
+            job.completed_at = None
+            job.failed_at = None
+            job.last_reported_by_agent_key = ""
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "completed_at", "failed_at", "last_reported_by_agent_key", "updated_at"])
             self._audit(
                 "automation.job.ready_marked",
                 job,
@@ -263,9 +268,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.status != JobExecutionStatus.READY:
                 raise ValidationError({"status": ["Only ready jobs can be claimed."]})
             job.status = JobExecutionStatus.CLAIMED
+            job.ready_by = None
+            job.ready_at = None
             job.claimed_by = request.user
             job.claimed_at = now
-            job.save(update_fields=["status", "claimed_by", "claimed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "updated_at"])
             self._audit(
                 "automation.job.claimed",
                 job,
@@ -278,53 +285,68 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         elif action_name == "complete":
             if job.status != JobExecutionStatus.CLAIMED:
                 raise ValidationError({"status": ["Only claimed jobs can be completed."]})
-            if job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            claimant_id = job.claimed_by_id
+            if claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can complete a claimed job.")
             job.status = JobExecutionStatus.COMPLETED
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
             job.completed_at = now
             job.failed_at = None
-            job.save(update_fields=["status", "completed_at", "failed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "completed_at", "failed_at", "updated_at"])
             self._audit(
                 "automation.job.completed",
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
                 status=job.status,
-                claimed_by=job.claimed_by_id,
+                claimed_by=claimant_id,
                 comment=comment,
             )
         elif action_name == "fail":
             if job.status != JobExecutionStatus.CLAIMED:
                 raise ValidationError({"status": ["Only claimed jobs can be failed."]})
-            if job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            claimant_id = job.claimed_by_id
+            if claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can fail a claimed job.")
             job.status = JobExecutionStatus.FAILED
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
             job.failed_at = now
             job.completed_at = None
-            job.save(update_fields=["status", "failed_at", "completed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "failed_at", "completed_at", "updated_at"])
             self._audit(
                 "automation.job.failed",
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
                 status=job.status,
-                claimed_by=job.claimed_by_id,
+                claimed_by=claimant_id,
                 comment=comment,
             )
         else:
             if job.status not in {JobExecutionStatus.READY, JobExecutionStatus.CLAIMED}:
                 raise ValidationError({"status": ["Only ready or claimed jobs can be canceled."]})
-            if job.status == JobExecutionStatus.CLAIMED and job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            claimant_id = job.claimed_by_id
+            if job.status == JobExecutionStatus.CLAIMED and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can cancel a claimed job.")
             job.status = JobExecutionStatus.CANCELED
-            job.save(update_fields=["status", "updated_at"])
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "updated_at"])
             self._audit(
                 "automation.job.canceled",
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
                 status=job.status,
-                claimed_by=job.claimed_by_id,
+                claimed_by=claimant_id,
                 comment=comment,
             )
 
@@ -400,17 +422,26 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
 
         outcome = serializer.validated_data["outcome"]
         now = timezone.now()
+        claimed_by_id = job.claimed_by_id
         job.execution_summary = serializer.validated_data.get("summary", "")
         job.execution_metadata = serializer.validated_data.get("metadata", {})
         job.last_reported_by_agent_key = getattr(request, "agent_key_id", "")
 
         if outcome == JobExecutionStatus.COMPLETED:
             job.status = JobExecutionStatus.COMPLETED
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
             job.completed_at = now
             job.failed_at = None
             action_name = "automation.job.agent_reported_completed"
         else:
             job.status = JobExecutionStatus.FAILED
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
             job.failed_at = now
             job.completed_at = None
             action_name = "automation.job.agent_reported_failed"
@@ -418,6 +449,10 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         job.save(
             update_fields=[
                 "status",
+                "ready_by",
+                "ready_at",
+                "claimed_by",
+                "claimed_at",
                 "execution_summary",
                 "execution_metadata",
                 "last_reported_by_agent_key",
@@ -432,7 +467,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             target=self._job_target(job),
             detail={
                 "request_id": self._request_id(),
-                "claimed_by": job.claimed_by_id,
+                "claimed_by": claimed_by_id,
                 "status": job.status,
                 "agent_key_id": getattr(request, "agent_key_id", ""),
                 "summary": job.execution_summary,
