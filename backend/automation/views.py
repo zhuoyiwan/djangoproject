@@ -9,13 +9,11 @@ from audit.models import AuditLog
 from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
 from core.tool_responses import build_normalized_tool_response
 
-from .adapters import build_job_handoff_response
+from .adapters import JobHandoffQuerySerializer, JobHandoffResponseSerializer, build_job_handoff_response
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from .serializers import (
     JobApprovalActionSerializer,
     JobExecutionActionSerializer,
-    JobHandoffQuerySerializer,
-    JobHandoffResponseSerializer,
     JobSerializer,
     JobToolQueryResponseSerializer,
     JobToolQuerySerializer,

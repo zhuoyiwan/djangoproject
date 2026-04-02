@@ -192,7 +192,7 @@
   - `summary`
   - `items`
 - Handoff is read-only, requires at least one filter, and exposes only execution-ready adapter fields.
-- Response assembly is isolated in `backend/automation/adapters.py` to keep adapter-facing formatting separate from the main viewset.
+- The OpenClaw-facing execution boundary lives in `backend/automation/adapters.py`; adapter query validation, handoff serialization, and response assembly stay separate from the main viewset and outside the CMDB domain.
 - Tool query filters:
   - `q`
   - `name`

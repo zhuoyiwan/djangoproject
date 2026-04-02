@@ -146,10 +146,10 @@ Next hardening steps:
 - keep execution lifecycle separate from approval lifecycle
 - block mutation of already claimed jobs
 
-### M4: OpenClaw integration boundary (in progress)
-- define tool-facing query endpoints (safe read-first)
-- add normalized response templates for LLM tool calls
-- isolate OpenClaw execution adapter from CMDB core domain
+### M4: OpenClaw integration boundary (implemented)
+- tool-facing query endpoints are defined and kept safe/read-first
+- normalized response templates are exposed for LLM tool calls
+- OpenClaw execution adapter boundary is isolated in the automation layer, separate from CMDB core domain
 
 ---
 
