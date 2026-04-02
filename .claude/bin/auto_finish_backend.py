@@ -158,7 +158,7 @@ def main() -> int:
         print_json(f"Autoflow: validated, pushed, and recorded {commit_hash[:7]} on {branch}.")
         return 0
     except Exception as exc:
-        print_json("Autoflow failed. Session end blocked until backend workflow succeeds.", continue_value=False, stop_reason=str(exc))
+        print_json("Autoflow failed. Stop blocked until backend workflow succeeds.", continue_value=False, stop_reason=str(exc))
         return 0
 
 
