@@ -185,6 +185,15 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         now = timezone.now()
 
         job.approval_comment = comment
+        job.ready_by = None
+        job.ready_at = None
+        job.claimed_by = None
+        job.claimed_at = None
+        job.execution_summary = ""
+        job.execution_metadata = {}
+        job.completed_at = None
+        job.failed_at = None
+        job.last_reported_by_agent_key = ""
         if approved:
             job.approval_status = JobApprovalStatus.APPROVED
             job.status = JobExecutionStatus.DRAFT
@@ -192,11 +201,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.approved_at = now
             job.rejected_by = None
             job.rejected_at = None
-            job.ready_by = None
-            job.ready_at = None
-            job.claimed_by = None
-            job.claimed_at = None
-            job.save(update_fields=["approval_status", "status", "approved_by", "approved_at", "rejected_by", "rejected_at", "ready_by", "ready_at", "claimed_by", "claimed_at", "approval_comment", "updated_at"])
+            job.save(update_fields=["approval_status", "status", "approved_by", "approved_at", "rejected_by", "rejected_at", "ready_by", "ready_at", "claimed_by", "claimed_at", "approval_comment", "execution_summary", "execution_metadata", "completed_at", "failed_at", "last_reported_by_agent_key", "updated_at"])
             self._audit(
                 "automation.job.approved",
                 job,
@@ -213,11 +218,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.rejected_at = now
             job.approved_by = None
             job.approved_at = None
-            job.ready_by = None
-            job.ready_at = None
-            job.claimed_by = None
-            job.claimed_at = None
-            job.save(update_fields=["approval_status", "status", "rejected_by", "rejected_at", "approved_by", "approved_at", "ready_by", "ready_at", "claimed_by", "claimed_at", "approval_comment", "updated_at"])
+            job.save(update_fields=["approval_status", "status", "rejected_by", "rejected_at", "approved_by", "approved_at", "ready_by", "ready_at", "claimed_by", "claimed_at", "approval_comment", "execution_summary", "execution_metadata", "completed_at", "failed_at", "last_reported_by_agent_key", "updated_at"])
             self._audit(
                 "automation.job.rejected",
                 job,

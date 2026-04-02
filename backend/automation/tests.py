@@ -154,6 +154,11 @@ class JobApiTests(TestCase):
             status=JobExecutionStatus.AWAITING_APPROVAL,
             approval_status=JobApprovalStatus.PENDING,
             approval_requested_by=self.user,
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-123"},
+            completed_at=timezone.now(),
+            failed_at=timezone.now(),
+            last_reported_by_agent_key="stale-agent",
         )
         self.client.force_authenticate(self.approver)
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/approve/", {"comment": "approved"}, format="json")
@@ -172,6 +177,11 @@ class JobApiTests(TestCase):
         self.assertIsNotNone(job.approved_at)
         self.assertIsNone(job.rejected_by_id)
         self.assertIsNone(job.rejected_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertIsNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
         audit = AuditLog.objects.get(action="automation.job.approved")
         self.assertEqual(audit.actor_id, self.approver.id)
@@ -187,6 +197,11 @@ class JobApiTests(TestCase):
             status=JobExecutionStatus.AWAITING_APPROVAL,
             approval_status=JobApprovalStatus.PENDING,
             approval_requested_by=self.user,
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-456"},
+            completed_at=timezone.now(),
+            failed_at=timezone.now(),
+            last_reported_by_agent_key="stale-agent",
         )
         self.client.force_authenticate(self.approver)
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/reject/", {"comment": "missing change window"}, format="json")
@@ -205,6 +220,11 @@ class JobApiTests(TestCase):
         self.assertIsNotNone(job.rejected_at)
         self.assertIsNone(job.approved_by_id)
         self.assertIsNone(job.approved_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertIsNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
         audit = AuditLog.objects.get(action="automation.job.rejected")
         self.assertEqual(audit.actor_id, self.approver.id)
