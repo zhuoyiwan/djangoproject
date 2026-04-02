@@ -12,6 +12,7 @@ class JobHandoffQuerySerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=(JobExecutionStatus.READY, JobExecutionStatus.CLAIMED), required=False)
     risk_level = serializers.ChoiceField(choices=Job._meta.get_field("risk_level").choices, required=False)
     approval_status = serializers.ChoiceField(choices=Job._meta.get_field("approval_status").choices, required=False)
+    assigned_agent_key_id = serializers.CharField(required=False, allow_blank=False, max_length=255)
     limit = serializers.IntegerField(required=False, min_value=1, max_value=20, default=10)
 
     def validate(self, attrs):
@@ -38,6 +39,8 @@ class JobHandoffQuerySerializer(serializers.Serializer):
             queryset = queryset.filter(risk_level=risk_level)
         if approval_status := data.get("approval_status"):
             queryset = queryset.filter(approval_status=approval_status)
+        if assigned_agent_key_id := data.get("assigned_agent_key_id"):
+            queryset = queryset.filter(assigned_agent_key_id=assigned_agent_key_id)
         return queryset[: data["limit"] + 1]
 
 

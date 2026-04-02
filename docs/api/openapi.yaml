@@ -860,6 +860,10 @@ paths:
         schema:
           type: string
       - in: query
+        name: assigned_agent_key_id
+        schema:
+          type: string
+      - in: query
         name: limit
         schema:
           type: integer
@@ -900,6 +904,10 @@ paths:
       parameters:
       - in: query
         name: approval_status
+        schema:
+          type: string
+      - in: query
+        name: assigned_agent_key_id
         schema:
           type: string
       - in: query
@@ -2104,6 +2112,9 @@ components:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
           $ref: '#/components/schemas/ApprovalStatusEnum'
+        assigned_agent_key_id:
+          type: string
+          maxLength: 255
         limit:
           type: integer
           maximum: 20
@@ -2154,6 +2165,9 @@ components:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
           $ref: '#/components/schemas/ApprovalStatusEnum'
+        assigned_agent_key_id:
+          type: string
+          maxLength: 255
         limit:
           type: integer
           maximum: 20

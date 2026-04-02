@@ -50,8 +50,8 @@ Audit log behavior:
 
 ## Automation
 - `GET /api/v1/automation/jobs/` (throttle scope: `api_read`)
-- `GET /api/v1/automation/jobs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`)
-- `GET /api/v1/automation/jobs/handoff/` (read-only execution handoff feed for OpenClaw/adapter consumers, throttle scope: `handoff`; filters: `q`, `name`, `status`, `risk_level`, `approval_status`, `limit`)
+- `GET /api/v1/automation/jobs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`; filters: `q`, `name`, `status`, `risk_level`, `approval_status`, `assigned_agent_key_id`, `limit`)
+- `GET /api/v1/automation/jobs/handoff/` (read-only execution handoff feed for OpenClaw/adapter consumers, throttle scope: `handoff`; filters: `q`, `name`, `status`, `risk_level`, `approval_status`, `assigned_agent_key_id`, `limit`)
 - `POST /api/v1/automation/jobs/` (throttle scope: `api_write`)
 - `GET /api/v1/automation/jobs/{id}/` (throttle scope: `api_read`)
 - `PUT /api/v1/automation/jobs/{id}/` (throttle scope: `api_write`)
