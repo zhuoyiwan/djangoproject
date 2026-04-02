@@ -9,6 +9,7 @@ from pathlib import Path
 REPO_ROOT = Path("/Users/zhuoyiwan/Code/django")
 PYTHON = REPO_ROOT / ".venv/bin/python"
 INFO_CLIENT = REPO_ROOT / "info-exchange-api/scripts/info_client.py"
+NEXT_TASK_WRITER = REPO_ROOT / ".claude/bin/write_next_backend_task.py"
 DRY_RUN = os.environ.get("CLAUDE_AUTOFLOW_DRY_RUN") == "1"
 EXCLUDED_PREFIXES = (
     ".env",
@@ -123,6 +124,8 @@ def main() -> int:
             git("push", "-u", "origin", branch)
 
         occurred_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        next_step = "Continue backend roadmap implementation in the next autonomous iteration."
+        run([str(PYTHON), str(NEXT_TASK_WRITER)])
         run(
             [
                 str(PYTHON),
@@ -133,11 +136,11 @@ def main() -> int:
                 "--title",
                 subject,
                 "--content",
-                "Validated backend changes, synced with origin, committed, pushed, and recorded the update.",
+                "Validated backend changes, synced with origin, committed, pushed, recorded the update, and prepared the next-session handoff.",
                 "--result",
                 f"Pushed {commit_hash[:7]} on {branch}.",
                 "--next-step",
-                "Continue backend roadmap implementation in the next autonomous iteration.",
+                next_step,
                 "--risk",
                 "medium",
                 "--status",
@@ -155,7 +158,7 @@ def main() -> int:
             ]
         )
 
-        print_json(f"Autoflow: validated, pushed, and recorded {commit_hash[:7]} on {branch}.")
+        print_json(f"Autoflow: validated, pushed, recorded {commit_hash[:7]} on {branch}, and wrote next-session handoff.")
         return 0
     except Exception as exc:
         print_json("Autoflow failed. Stop blocked until backend workflow succeeds.", continue_value=False, stop_reason=str(exc))
