@@ -57,6 +57,7 @@ class JobHandoffAdapterTests(TestCase):
         self.assertFalse(response.data["summary"]["truncated"])
         self.assertEqual(response.data["items"][0]["id"], job.id)
         self.assertEqual(response.data["items"][0]["ready_by_username"], "alice")
+        self.assertEqual(response.data["items"][0]["assigned_agent_key_id"], "")
         self.assertEqual(response.data["items"][0]["payload"], {"target": "prod"})
 
 
@@ -879,6 +880,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["name"], "restart-prod")
         self.assertEqual(response.data["items"][0]["status"], JobExecutionStatus.READY)
         self.assertEqual(response.data["items"][0]["ready_by_username"], "alice")
+        self.assertEqual(response.data["items"][0]["assigned_agent_key_id"], "")
         self.assertEqual(response.data["items"][0]["payload"], {"target": "prod"})
         self.assertNotEqual(response.data["items"][0]["id"], claimed_job.id)
 
@@ -904,6 +906,7 @@ class JobApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["id"], claimed_job.id)
         self.assertEqual(response.data["items"][0]["claimed_by_username"], "alice")
+        self.assertEqual(response.data["items"][0]["assigned_agent_key_id"], "")
 
     def test_handoff_supports_risk_and_approval_filters(self):
         matching_job = Job.objects.create(
@@ -1035,6 +1038,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["items"][0]["assigned_agent_key_id"], "automation-agent-blue")
         self.assertEqual(response.data["query"]["assigned_agent_key_id"], "automation-agent-blue")
 
     def test_handoff_does_not_mark_exact_limit_as_truncated(self):

@@ -60,6 +60,7 @@ class JobHandoffItemSerializer(serializers.ModelSerializer):
             "ready_by_username",
             "claimed_at",
             "claimed_by_username",
+            "assigned_agent_key_id",
             "payload",
             "updated_at",
         )

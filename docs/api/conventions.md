@@ -248,6 +248,19 @@
   - `query`
   - `summary`
   - `items`
+- Handoff items include:
+  - `id`
+  - `name`
+  - `status`
+  - `risk_level`
+  - `approval_status`
+  - `ready_at`
+  - `ready_by_username`
+  - `claimed_at`
+  - `claimed_by_username`
+  - `assigned_agent_key_id`
+  - `payload`
+  - `updated_at`
 - Handoff is read-only, requires at least one filter, and exposes only execution-ready adapter fields.
 - The OpenClaw-facing execution boundary lives in `backend/automation/adapters.py`; adapter query validation, handoff serialization, and response assembly stay separate from the main viewset and outside the CMDB domain.
 - Tool query filters:

@@ -2086,6 +2086,9 @@ components:
         claimed_by_username:
           type: string
           readOnly: true
+        assigned_agent_key_id:
+          type: string
+          maxLength: 255
         payload: {}
         updated_at:
           type: string
