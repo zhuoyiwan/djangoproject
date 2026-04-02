@@ -442,6 +442,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             OpenApiParameter(name="risk_level", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="approval_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="assigned_agent_key_id", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="last_reported_by_agent_key", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
         ],
         responses={

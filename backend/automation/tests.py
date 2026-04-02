@@ -1103,6 +1103,43 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["assigned_agent_key_id"], "automation-agent-blue")
         self.assertEqual(response.data["query"]["assigned_agent_key_id"], "automation-agent-blue")
 
+    def test_handoff_supports_last_reported_by_agent_key_filter(self):
+        matching_job = Job.objects.create(
+            name="claimed-blue",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-blue",
+            last_reported_by_agent_key="automation-agent-blue",
+        )
+        Job.objects.create(
+            name="claimed-default",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
+            last_reported_by_agent_key="automation-agent-default",
+        )
+        Job.objects.create(
+            name="ready-job",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        response = self.client.get(
+            "/api/v1/automation/jobs/handoff/?last_reported_by_agent_key=automation-agent-blue"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["items"][0]["last_reported_by_agent_key"], "automation-agent-blue")
+        self.assertEqual(response.data["query"]["last_reported_by_agent_key"], "automation-agent-blue")
+
     def test_handoff_does_not_mark_exact_limit_as_truncated(self):
         Job.objects.create(
             name="ready-job-1",
