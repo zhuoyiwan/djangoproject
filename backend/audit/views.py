@@ -3,6 +3,7 @@ from rest_framework import filters, mixins, viewsets
 from rest_framework.decorators import action
 
 from core.permissions import IsAuditorOrPlatformAdmin
+from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
 
 from .models import AuditLog
@@ -14,10 +15,12 @@ from .serializers import (
 )
 
 
-class AuditLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+class AuditLogViewSet(ScopedActionThrottleMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = AuditLog.objects.select_related("actor").order_by("-created_at")
     serializer_class = AuditLogSerializer
     permission_classes = [IsAuditorOrPlatformAdmin]
+    throttle_scope = "audit_read"
+    throttle_scope_map = {"tool_query": "tool_query"}
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("action", "target", "actor__username")
     ordering_fields = ("created_at", "action", "target")

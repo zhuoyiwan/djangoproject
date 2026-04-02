@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from audit.models import AuditLog
@@ -12,8 +14,17 @@ class UserModelTests(TestCase):
         self.assertEqual(str(user), "alice")
 
 
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "accounts-auth-tests",
+        }
+    }
+)
 class AuthenticationApiTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
 
     def test_me_without_auth_writes_security_auth_failure_audit_log(self):
@@ -48,9 +59,29 @@ class AuthenticationApiTests(TestCase):
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
 
+    def test_login_endpoint_is_throttled_after_rate_limit(self):
+        get_user_model().objects.create_user(username="alice", password="password123")
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "auth": "2/min"}}):
+            first = self.client.post("/api/v1/auth/login/", {"username": "alice", "password": "password123"}, format="json")
+            second = self.client.post("/api/v1/auth/login/", {"username": "alice", "password": "password123"}, format="json")
+            third = self.client.post("/api/v1/auth/login/", {"username": "alice", "password": "password123"}, format="json")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
 
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "accounts-user-api-tests",
+        }
+    }
+)
 class UserApiPermissionTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.client.force_authenticate(self.user)

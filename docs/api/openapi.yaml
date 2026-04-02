@@ -271,6 +271,8 @@ paths:
             schema:
               $ref: '#/components/schemas/TokenObtainPair'
         required: true
+      security:
+      - {}
       responses:
         '200':
           content:
@@ -312,6 +314,8 @@ paths:
             schema:
               $ref: '#/components/schemas/TokenRefresh'
         required: true
+      security:
+      - {}
       responses:
         '200':
           content:

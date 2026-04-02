@@ -145,6 +145,18 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": (
         "core.renderers.APIRenderer",
     ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "api_read": os.getenv("API_THROTTLE_RATE_API_READ", "120/min"),
+        "api_write": os.getenv("API_THROTTLE_RATE_API_WRITE", "30/min"),
+        "auth": os.getenv("API_THROTTLE_RATE_AUTH", "10/min"),
+        "tool_query": os.getenv("API_THROTTLE_RATE_TOOL_QUERY", "60/min"),
+        "handoff": os.getenv("API_THROTTLE_RATE_HANDOFF", "60/min"),
+        "audit_read": os.getenv("API_THROTTLE_RATE_AUDIT_READ", "30/min"),
+        "agent_ingest": os.getenv("API_THROTTLE_RATE_AGENT_INGEST", "120/min"),
+    },
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     "PAGE_SIZE": 20,
 }

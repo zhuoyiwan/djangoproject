@@ -4,6 +4,7 @@ import json
 import time
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
@@ -35,8 +36,17 @@ class ServerModelTests(TestCase):
         self.assertIn("db-primary", str(server))
 
 
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "idc-api-tests",
+        }
+    }
+)
 class IDCApiTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.client.force_authenticate(self.user)
@@ -71,9 +81,29 @@ class IDCApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["code"], "cn-hz-1")
 
+    def test_tool_query_is_throttled_after_rate_limit(self):
+        IDC.objects.create(code="cn-hz-1", name="Hangzhou IDC", location="Hangzhou", status="active")
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "tool_query": "2/min"}}):
+            first = self.client.get("/api/v1/cmdb/idcs/tool-query/?q=hang")
+            second = self.client.get("/api/v1/cmdb/idcs/tool-query/?q=hang")
+            third = self.client.get("/api/v1/cmdb/idcs/tool-query/?q=hang")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
 
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "server-api-tests",
+        }
+    }
+)
 class ServerApiTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.client.force_authenticate(self.user)
@@ -215,6 +245,26 @@ class ServerApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["internal_ip"], "10.0.0.31")
 
+    def test_server_tool_query_is_throttled_after_rate_limit(self):
+        Server.objects.create(
+            hostname="db-prod-01",
+            internal_ip="10.0.0.31",
+            os_version="Ubuntu 22.04",
+            cpu_cores=8,
+            memory_gb=Decimal("32.00"),
+            environment="prod",
+            lifecycle_status="online",
+            idc=self.idc,
+        )
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "tool_query": "2/min"}}):
+            first = self.client.get("/api/v1/cmdb/servers/tool-query/?q=prod")
+            second = self.client.get("/api/v1/cmdb/servers/tool-query/?q=prod")
+            third = self.client.get("/api/v1/cmdb/servers/tool-query/?q=prod")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
+
 
 @override_settings(
     AGENT_INGEST_ENABLED=True,
@@ -328,3 +378,17 @@ class AgentIngestApiTests(TestCase):
         response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_agent_ingest_is_throttled_after_rate_limit(self):
+        payload = self._base_payload()
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "agent_ingest": "2/min"}}):
+            headers1, body1 = self._signed_headers(payload, timestamp=int(time.time()))
+            headers2, body2 = self._signed_headers(payload, timestamp=int(time.time()) + 1)
+            headers3, body3 = self._signed_headers(payload, timestamp=int(time.time()) + 2)
+            first = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body1, **headers1)
+            second = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body2, **headers2)
+            third = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body3, **headers3)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")

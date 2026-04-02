@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from audit.models import AuditLog
 from core.permissions import IsAuthenticatedReadOnlyOrOps
+from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
 
 from .authentication import AgentHMACAuthentication
@@ -23,10 +24,12 @@ from .serializers import (
 )
 
 
-class IDCViewSet(viewsets.ModelViewSet):
+class IDCViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     queryset = IDC.objects.order_by("code")
     serializer_class = IDCSerializer
     permission_classes = [IsAuthenticatedReadOnlyOrOps]
+    throttle_scope = "api_read"
+    throttle_scope_map = {"tool_query": "tool_query"}
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("code", "name", "location", "status")
     ordering_fields = ("created_at", "code", "name", "status")
@@ -55,10 +58,12 @@ class IDCViewSet(viewsets.ModelViewSet):
         return build_normalized_tool_response(request, serializer.validated_data, items)
 
 
-class ServerViewSet(viewsets.ModelViewSet):
+class ServerViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     queryset = Server.objects.select_related("idc").order_by("-created_at")
     serializer_class = ServerSerializer
     permission_classes = [IsAuthenticatedReadOnlyOrOps]
+    throttle_scope = "api_read"
+    throttle_scope_map = {"tool_query": "tool_query", "agent_ingest": "agent_ingest"}
     filterset_fields = (
         "hostname",
         "internal_ip",

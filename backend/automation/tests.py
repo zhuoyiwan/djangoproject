@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
@@ -45,8 +47,17 @@ class JobHandoffAdapterTests(TestCase):
         self.assertEqual(response.data["items"][0]["payload"], {"target": "prod"})
 
 
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "automation-job-api-tests",
+        }
+    }
+)
 class JobApiTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.approver = get_user_model().objects.create_user(username="bob", password="password123")
@@ -221,6 +232,22 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["name"], "restart-prod")
+
+    def test_tool_query_is_throttled_after_rate_limit(self):
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "tool_query": "2/min"}}):
+            first = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart")
+            second = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart")
+            third = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
 
     def test_handoff_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/automation/jobs/handoff/")

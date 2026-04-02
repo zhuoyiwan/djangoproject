@@ -36,6 +36,16 @@
   - server rejects duplicate signed payloads in tolerance window via cache key
 
 ## Response and error format
+- API throttling is enabled by endpoint class via DRF scoped throttles.
+- Default throttle scopes and rates:
+  - `auth`: `10/min`
+  - `api_read`: `120/min`
+  - `api_write`: `30/min`
+  - `tool_query`: `60/min`
+  - `handoff`: `60/min`
+  - `audit_read`: `30/min`
+  - `agent_ingest`: `120/min`
+- Rates can be overridden with environment variables named `API_THROTTLE_RATE_<SCOPE>`.
 - List endpoints follow DRF page response shape:
   - `count`
   - `next`

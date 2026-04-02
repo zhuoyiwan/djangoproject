@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from .models import AuditLog
@@ -12,8 +14,17 @@ class AuditLogModelTests(TestCase):
         self.assertEqual(str(entry), "server.created")
 
 
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "audit-log-api-tests",
+        }
+    }
+)
 class AuditLogApiTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.client.force_authenticate(self.user)
@@ -55,6 +66,19 @@ class AuditLogApiTests(TestCase):
         self.assertEqual(response.data["query"]["limit"], 5)
         self.assertEqual(response.data["items"][0]["action"], "server.created")
         self.assertEqual(response.data["items"][0]["actor_username"], "alice")
+
+    def test_audit_tool_query_is_throttled_after_rate_limit(self):
+        auditor_group = Group.objects.create(name="auditor")
+        self.user.groups.add(auditor_group)
+        AuditLog.objects.create(actor=self.user, action="server.created", target="db-primary@10.0.0.10")
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "tool_query": "2/min"}}):
+            first = self.client.get("/api/v1/audit/logs/tool-query/?q=server")
+            second = self.client.get("/api/v1/audit/logs/tool-query/?q=server")
+            third = self.client.get("/api/v1/audit/logs/tool-query/?q=server")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
 
     def test_tool_query_supports_structured_filters(self):
         auditor_group = Group.objects.create(name="auditor")

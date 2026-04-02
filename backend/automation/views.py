@@ -7,6 +7,7 @@ from rest_framework.response import Response
 
 from audit.models import AuditLog
 from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
+from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
 
 from .adapters import JobHandoffQuerySerializer, JobHandoffResponseSerializer, build_job_handoff_response
@@ -21,7 +22,9 @@ from .serializers import (
 )
 
 
-class JobViewSet(viewsets.ModelViewSet):
+class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
+    throttle_scope = "api_read"
+    throttle_scope_map = {"tool_query": "tool_query", "handoff": "handoff"}
     queryset = Job.objects.select_related(
         "approval_requested_by",
         "approved_by",

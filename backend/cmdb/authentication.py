@@ -15,6 +15,7 @@ class AgentPrincipal:
 
     def __init__(self, key_id: str):
         self.key_id = key_id
+        self.pk = key_id
 
 
 class AgentHMACAuthentication(authentication.BaseAuthentication):
