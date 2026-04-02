@@ -91,3 +91,43 @@ class AuditLogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["target"], "db-replica@10.0.0.11")
+
+    def test_tool_query_supports_security_event_detail_filters(self):
+        auditor_group = Group.objects.create(name="auditor")
+        self.user.groups.add(auditor_group)
+        AuditLog.objects.create(
+            actor=None,
+            action="server.agent_ingest.auth_failed",
+            target="agent:unknown",
+            detail={"reason": "missing_headers", "path": "/api/v1/cmdb/servers/agent-ingest/", "status_code": 401},
+        )
+        AuditLog.objects.create(
+            actor=self.user,
+            action="security.permission.denied",
+            target="GET /api/v1/users/",
+            detail={"reason": "role_missing", "path": "/api/v1/users/", "status_code": 403},
+        )
+
+        response = self.client.get(
+            "/api/v1/audit/logs/tool-query/?detail_reason=missing_headers&detail_path=/api/v1/cmdb/servers/agent-ingest/&detail_status_code=401"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["action"], "server.agent_ingest.auth_failed")
+
+    def test_tool_query_keyword_search_matches_security_event_details(self):
+        auditor_group = Group.objects.create(name="auditor")
+        self.user.groups.add(auditor_group)
+        AuditLog.objects.create(
+            actor=None,
+            action="server.agent_ingest.auth_failed",
+            target="agent:unknown",
+            detail={"reason": "missing_headers", "path": "/api/v1/cmdb/servers/agent-ingest/", "request_id": "req-123"},
+        )
+
+        response = self.client.get("/api/v1/audit/logs/tool-query/?q=missing_headers")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["target"], "agent:unknown")

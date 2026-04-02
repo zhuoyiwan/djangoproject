@@ -31,6 +31,9 @@ class AuditLogViewSet(ScopedActionThrottleMixin, mixins.ListModelMixin, mixins.R
             OpenApiParameter(name="action", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="target", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="actor_username", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="detail_reason", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="detail_path", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="detail_status_code", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
         ],
         responses={

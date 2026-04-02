@@ -36,7 +36,7 @@
 
 ## Audit
 - `GET /api/v1/audit/logs/` (throttle scope: `audit_read`)
-- `GET /api/v1/audit/logs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`)
+- `GET /api/v1/audit/logs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`; filters: `q`, `action`, `target`, `actor_username`, `detail_reason`, `detail_path`, `detail_status_code`, `limit`)
 - `GET /api/v1/audit/logs/{id}/` (throttle scope: `audit_read`)
 
 ## Automation

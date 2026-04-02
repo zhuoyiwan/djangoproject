@@ -165,6 +165,9 @@
   - `action`
   - `target`
   - `actor_username`
+  - `detail_reason`
+  - `detail_path`
+  - `detail_status_code`
   - `limit` (default `10`, max `20`)
 - Tool query response shape:
   - `ok`

@@ -18,6 +18,9 @@ class AuditLogToolQuerySerializer(serializers.Serializer):
     action = serializers.CharField(required=False, allow_blank=False, max_length=128)
     target = serializers.CharField(required=False, allow_blank=False, max_length=255)
     actor_username = serializers.CharField(required=False, allow_blank=False, max_length=150)
+    detail_reason = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    detail_path = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    detail_status_code = serializers.IntegerField(required=False, min_value=100, max_value=599)
     limit = serializers.IntegerField(required=False, min_value=1, max_value=20, default=10)
 
     def validate(self, attrs):
@@ -33,6 +36,9 @@ class AuditLogToolQuerySerializer(serializers.Serializer):
                 Q(action__icontains=q)
                 | Q(target__icontains=q)
                 | Q(actor__username__icontains=q)
+                | Q(detail__reason__icontains=q)
+                | Q(detail__path__icontains=q)
+                | Q(detail__request_id__icontains=q)
             )
         if action := data.get("action"):
             queryset = queryset.filter(action=action)
@@ -40,6 +46,12 @@ class AuditLogToolQuerySerializer(serializers.Serializer):
             queryset = queryset.filter(target=target)
         if actor_username := data.get("actor_username"):
             queryset = queryset.filter(actor__username=actor_username)
+        if detail_reason := data.get("detail_reason"):
+            queryset = queryset.filter(detail__reason=detail_reason)
+        if detail_path := data.get("detail_path"):
+            queryset = queryset.filter(detail__path=detail_path)
+        if detail_status_code := data.get("detail_status_code"):
+            queryset = queryset.filter(detail__status_code=detail_status_code)
         return queryset[: data["limit"]]
 
 

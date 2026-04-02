@@ -223,6 +223,18 @@ paths:
         schema:
           type: string
       - in: query
+        name: detail_path
+        schema:
+          type: string
+      - in: query
+        name: detail_reason
+        schema:
+          type: string
+      - in: query
+        name: detail_status_code
+        schema:
+          type: integer
+      - in: query
         name: limit
         schema:
           type: integer
@@ -1595,6 +1607,16 @@ components:
         actor_username:
           type: string
           maxLength: 150
+        detail_reason:
+          type: string
+          maxLength: 255
+        detail_path:
+          type: string
+          maxLength: 255
+        detail_status_code:
+          type: integer
+          maximum: 599
+          minimum: 100
         limit:
           type: integer
           maximum: 20
