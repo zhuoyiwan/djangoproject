@@ -272,6 +272,8 @@
   - `status`
   - `risk_level`
   - `approval_status`
+  - `assigned_agent_key_id`
+  - `last_reported_by_agent_key`
   - `limit` (default `10`, max `20`)
 - Tool query response shape:
   - `ok`
@@ -279,6 +281,9 @@
   - `query`
   - `summary`
   - `items`
+- Tool query items include runner assignment/report visibility fields:
+  - `assigned_agent_key_id`
+  - `last_reported_by_agent_key`
 - Tool query is read-only and requires at least one filter.
 - `Job.status` enum values:
   - `draft`
