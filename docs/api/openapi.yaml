@@ -864,6 +864,10 @@ paths:
         schema:
           type: string
       - in: query
+        name: last_reported_by_agent_key
+        schema:
+          type: string
+      - in: query
         name: limit
         schema:
           type: integer
@@ -2093,6 +2097,9 @@ components:
         assigned_agent_key_id:
           type: string
           maxLength: 255
+        last_reported_by_agent_key:
+          type: string
+          maxLength: 255
         payload: {}
         updated_at:
           type: string
@@ -2120,6 +2127,9 @@ components:
         approval_status:
           $ref: '#/components/schemas/ApprovalStatusEnum'
         assigned_agent_key_id:
+          type: string
+          maxLength: 255
+        last_reported_by_agent_key:
           type: string
           maxLength: 255
         limit:

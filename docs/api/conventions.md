@@ -241,6 +241,8 @@
   - `status` (`ready` or `claimed`)
   - `risk_level`
   - `approval_status`
+  - `assigned_agent_key_id`
+  - `last_reported_by_agent_key`
   - `limit` (default `10`, max `20`)
 - Handoff response shape:
   - `ok`
@@ -259,6 +261,7 @@
   - `claimed_at`
   - `claimed_by_username`
   - `assigned_agent_key_id`
+  - `last_reported_by_agent_key`
   - `payload`
   - `updated_at`
 - Handoff is read-only, requires at least one filter, and exposes only execution-ready adapter fields.
