@@ -17,9 +17,17 @@ This frontend is a contract-first React + Vite workspace for the ChatOps CMDB pr
 
 ## Current scope
 
-- health check
-- JWT login
+- routed workspace shell
+- JWT login and token validation
 - current user lookup
-- CMDB server list query with documented filters
+- overview page with backend health probe
+- CMDB server list query with selectable detail panel
 - RBAC summary synced from backend conventions
 - embedded API contract summary for frontend collaboration
+
+## Current routes
+
+- `/login`
+- `/overview`
+- `/servers`
+- `/contract`

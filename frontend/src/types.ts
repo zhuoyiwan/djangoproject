@@ -8,6 +8,8 @@ export type ApiErrorShape = {
   request_id?: string;
 };
 
+export type RequestState = "idle" | "loading" | "success" | "error";
+
 export type PaginatedResponse<T> = {
   count: number;
   next: string | null;
