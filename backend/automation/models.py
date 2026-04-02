@@ -17,9 +17,19 @@ class JobApprovalStatus(models.TextChoices):
     REJECTED = "rejected", "Rejected"
 
 
+class JobExecutionStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    AWAITING_APPROVAL = "awaiting_approval", "Awaiting approval"
+    READY = "ready", "Ready"
+    CLAIMED = "claimed", "Claimed"
+    COMPLETED = "completed", "Completed"
+    FAILED = "failed", "Failed"
+    CANCELED = "canceled", "Canceled"
+
+
 class Job(TimeStampedModel):
     name = models.CharField(max_length=255)
-    status = models.CharField(max_length=32, default="pending")
+    status = models.CharField(max_length=32, choices=JobExecutionStatus.choices, default=JobExecutionStatus.DRAFT)
     risk_level = models.CharField(max_length=16, choices=JobRiskLevel.choices, default=JobRiskLevel.LOW)
     approval_status = models.CharField(
         max_length=32,
@@ -50,6 +60,22 @@ class Job(TimeStampedModel):
         related_name="rejected_automation_jobs",
     )
     rejected_at = models.DateTimeField(null=True, blank=True)
+    ready_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="readied_automation_jobs",
+    )
+    ready_at = models.DateTimeField(null=True, blank=True)
+    claimed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="claimed_automation_jobs",
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
     approval_comment = models.TextField(blank=True)
     payload = models.JSONField(default=dict, blank=True)
 

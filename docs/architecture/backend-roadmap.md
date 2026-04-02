@@ -140,6 +140,12 @@ Next hardening steps:
 - automation approve/reject actions require `approver` or `platform_admin`
 - approval lifecycle is written to audit logs and exposed in OpenAPI
 
+### M3.5: Execution-ready automation (implemented)
+- formalize automation execution states on `Job.status`
+- add explicit `mark-ready` and `claim` actions for execution handoff
+- keep execution lifecycle separate from approval lifecycle
+- block mutation of already claimed jobs
+
 ### M4: OpenClaw integration boundary
 - define tool-facing query endpoints (safe read-first)
 - add normalized response templates for LLM tool calls

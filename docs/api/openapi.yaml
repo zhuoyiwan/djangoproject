@@ -505,6 +505,78 @@ paths:
           description: Approval state validation error
         '403':
           description: Forbidden
+  /api/v1/automation/jobs/{id}/claim/:
+    post:
+      operationId: v1_automation_jobs_claim_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Execution state validation error
+        '403':
+          description: Forbidden
+  /api/v1/automation/jobs/{id}/mark-ready/:
+    post:
+      operationId: v1_automation_jobs_mark_ready_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Execution state validation error
+        '403':
+          description: Forbidden
   /api/v1/automation/jobs/{id}/reject/:
     post:
       operationId: v1_automation_jobs_reject_create
@@ -1203,7 +1275,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/IDCStatusEnum'
         description:
           type: string
         created_at:
@@ -1220,6 +1292,16 @@ components:
       - id
       - name
       - updated_at
+    IDCStatusEnum:
+      enum:
+      - active
+      - maintenance
+      - inactive
+      type: string
+      description: |-
+        * `active` - active
+        * `maintenance` - maintenance
+        * `inactive` - inactive
     Job:
       type: object
       properties:
@@ -1230,8 +1312,7 @@ components:
           type: string
           maxLength: 255
         status:
-          type: string
-          maxLength: 32
+          $ref: '#/components/schemas/JobStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -1274,6 +1355,30 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        ready_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        ready_by_username:
+          type: string
+          readOnly: true
+        ready_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        claimed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        claimed_by_username:
+          type: string
+          readOnly: true
+        claimed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         approval_comment:
           type: string
           readOnly: true
@@ -1295,9 +1400,15 @@ components:
       - approved_at
       - approved_by
       - approved_by_username
+      - claimed_at
+      - claimed_by
+      - claimed_by_username
       - created_at
       - id
       - name
+      - ready_at
+      - ready_by
+      - ready_by_username
       - rejected_at
       - rejected_by
       - rejected_by_username
@@ -1307,6 +1418,29 @@ components:
       properties:
         comment:
           type: string
+    JobExecutionAction:
+      type: object
+      properties:
+        comment:
+          type: string
+    JobStatusEnum:
+      enum:
+      - draft
+      - awaiting_approval
+      - ready
+      - claimed
+      - completed
+      - failed
+      - canceled
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `awaiting_approval` - Awaiting approval
+        * `ready` - Ready
+        * `claimed` - Claimed
+        * `completed` - Completed
+        * `failed` - Failed
+        * `canceled` - Canceled
     LifecycleStatusEnum:
       enum:
       - online
@@ -1450,7 +1584,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/IDCStatusEnum'
         description:
           type: string
         created_at:
@@ -1471,8 +1605,7 @@ components:
           type: string
           maxLength: 255
         status:
-          type: string
-          maxLength: 32
+          $ref: '#/components/schemas/JobStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -1511,6 +1644,30 @@ components:
           type: string
           readOnly: true
         rejected_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        ready_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        ready_by_username:
+          type: string
+          readOnly: true
+        ready_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        claimed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        claimed_by_username:
+          type: string
+          readOnly: true
+        claimed_at:
           type: string
           format: date-time
           readOnly: true
@@ -1704,16 +1861,6 @@ components:
         * `manual` - manual
         * `agent` - agent
         * `api` - api
-    StatusEnum:
-      enum:
-      - active
-      - maintenance
-      - inactive
-      type: string
-      description: |-
-        * `active` - active
-        * `maintenance` - maintenance
-        * `inactive` - inactive
     TokenObtainPair:
       type: object
       properties:

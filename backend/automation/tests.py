@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from audit.models import AuditLog
 from core.permissions import ROLE_APPROVER, ROLE_OPS_ADMIN
 
-from .models import Job, JobApprovalStatus, JobRiskLevel
+from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 
 
 class JobModelTests(TestCase):
@@ -40,23 +40,25 @@ class JobApiTests(TestCase):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         response = self.client.post(
             "/api/v1/automation/jobs/",
-            {"name": "sync-assets", "status": "pending", "risk_level": JobRiskLevel.LOW, "payload": {}},
+            {"name": "sync-assets", "status": JobExecutionStatus.DRAFT, "risk_level": JobRiskLevel.LOW, "payload": {}},
             format="json",
         )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["approval_status"], JobApprovalStatus.NOT_REQUIRED)
         self.assertEqual(response.data["risk_level"], JobRiskLevel.LOW)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
 
     def test_ops_admin_can_create_high_risk_job_pending_approval(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         response = self.client.post(
             "/api/v1/automation/jobs/",
-            {"name": "restart-prod", "status": "pending", "risk_level": JobRiskLevel.HIGH, "payload": {"target": "prod"}},
+            {"name": "restart-prod", "status": JobExecutionStatus.DRAFT, "risk_level": JobRiskLevel.HIGH, "payload": {"target": "prod"}},
             format="json",
         )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["approval_status"], JobApprovalStatus.PENDING)
         self.assertEqual(response.data["approval_requested_by"], self.user.id)
+        self.assertEqual(response.data["status"], JobExecutionStatus.AWAITING_APPROVAL)
 
     def test_non_approver_cannot_approve_job(self):
         job = Job.objects.create(
@@ -74,6 +76,7 @@ class JobApiTests(TestCase):
         job = Job.objects.create(
             name="restart-prod",
             risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
             approval_status=JobApprovalStatus.PENDING,
             approval_requested_by=self.user,
         )
@@ -82,12 +85,14 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["approval_status"], JobApprovalStatus.APPROVED)
         self.assertEqual(response.data["approved_by"], self.approver.id)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
 
     def test_approver_can_reject_pending_high_risk_job(self):
         self.approver.groups.add(Group.objects.create(name=ROLE_APPROVER))
         job = Job.objects.create(
             name="restart-prod",
             risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
             approval_status=JobApprovalStatus.PENDING,
             approval_requested_by=self.user,
         )
@@ -96,6 +101,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["approval_status"], JobApprovalStatus.REJECTED)
         self.assertEqual(response.data["rejected_by"], self.approver.id)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
 
     def test_requester_cannot_self_approve(self):
         self.user.groups.add(Group.objects.create(name=ROLE_APPROVER))
@@ -125,9 +131,125 @@ class JobApiTests(TestCase):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         response = self.client.post(
             "/api/v1/automation/jobs/",
-            {"name": "restart-prod", "status": "pending", "risk_level": JobRiskLevel.HIGH, "payload": {"target": "prod"}},
+            {"name": "restart-prod", "status": JobExecutionStatus.DRAFT, "risk_level": JobRiskLevel.HIGH, "payload": {"target": "prod"}},
             format="json",
         )
         self.assertEqual(response.status_code, 201)
         self.assertTrue(AuditLog.objects.filter(action="automation.job.created").exists())
         self.assertTrue(AuditLog.objects.filter(action="automation.job.approval_requested").exists())
+
+    def test_ops_admin_can_mark_low_risk_job_ready(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["ready_by"], self.user.id)
+
+    def test_cannot_mark_pending_high_risk_job_ready(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_ops_admin_can_mark_approved_high_risk_job_ready(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.APPROVED,
+            approved_by=self.approver,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+
+    def test_non_ops_cannot_mark_ready(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_ops_admin_can_claim_ready_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["claimed_by"], self.user.id)
+
+    def test_cannot_claim_non_ready_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_claimed_job_cannot_be_updated(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        response = self.client.patch(f"/api/v1/automation/jobs/{job.id}/", {"name": "sync-assets-2"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_claimed_job_cannot_be_deleted(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        response = self.client.delete(f"/api/v1/automation/jobs/{job.id}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_ready_and_claim_actions_write_audit_entries(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        ready = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(ready.status_code, 200)
+        claim = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
+        self.assertEqual(claim.status_code, 200)
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.ready_marked").exists())
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.claimed").exists())

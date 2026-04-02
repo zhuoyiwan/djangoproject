@@ -127,6 +127,26 @@
   - `POST /api/v1/automation/jobs/{id}/reject/`
 - Requesters cannot approve or reject their own pending job.
 
+## Automation execution baseline
+- `Job.status` enum values:
+  - `draft`
+  - `awaiting_approval`
+  - `ready`
+  - `claimed`
+  - `completed`
+  - `failed`
+  - `canceled`
+- `approval_status` controls policy approval; `status` controls execution lifecycle.
+- Low/medium-risk jobs are created/updated as `draft`.
+- High-risk jobs are created/updated as `awaiting_approval` until approved.
+- Approving or rejecting a pending high-risk job returns it to `draft`.
+- Execution actions:
+  - `POST /api/v1/automation/jobs/{id}/mark-ready/`
+  - `POST /api/v1/automation/jobs/{id}/claim/`
+- Only draft jobs can be marked ready.
+- Only ready jobs can be claimed.
+- Claimed jobs cannot be updated or deleted.
+
 ## RBAC access summary
 - `GET /api/v1/users/` requires `platform_admin`
 - `GET /api/v1/audit/logs/` requires `auditor` or `platform_admin`
@@ -135,3 +155,4 @@
 - Automation read operations remain available to authenticated users (`viewer` and above)
 - Automation create/update/delete require `ops_admin` or `platform_admin`
 - Automation approve/reject requires `approver` or `platform_admin`
+- Automation mark-ready/claim requires `ops_admin` or `platform_admin`

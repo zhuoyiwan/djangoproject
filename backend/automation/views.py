@@ -6,10 +6,10 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from audit.models import AuditLog
-from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps
+from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
 
-from .models import Job, JobApprovalStatus, JobRiskLevel
-from .serializers import JobApprovalActionSerializer, JobSerializer
+from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
+from .serializers import JobApprovalActionSerializer, JobExecutionActionSerializer, JobSerializer
 
 
 class JobViewSet(viewsets.ModelViewSet):
@@ -17,6 +17,8 @@ class JobViewSet(viewsets.ModelViewSet):
         "approval_requested_by",
         "approved_by",
         "rejected_by",
+        "ready_by",
+        "claimed_by",
     ).order_by("-created_at")
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticatedReadOnlyOrOps]
@@ -27,6 +29,8 @@ class JobViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in {"approve", "reject"}:
             return [permissions.IsAuthenticated(), IsApproverOrPlatformAdmin()]
+        if self.action in {"mark_ready", "claim"}:
+            return [permissions.IsAuthenticated(), IsOpsOrPlatformAdmin()]
         return [permission() for permission in self.permission_classes]
 
     def _request_id(self):
@@ -51,8 +55,14 @@ class JobViewSet(viewsets.ModelViewSet):
         )
         now = timezone.now()
 
+        serializer.validated_data["ready_by"] = None
+        serializer.validated_data["ready_at"] = None
+        serializer.validated_data["claimed_by"] = None
+        serializer.validated_data["claimed_at"] = None
+
         if risk_level != JobRiskLevel.HIGH:
             serializer.validated_data["approval_status"] = JobApprovalStatus.NOT_REQUIRED
+            serializer.validated_data["status"] = JobExecutionStatus.DRAFT
             serializer.validated_data["approval_requested_by"] = None
             serializer.validated_data["approval_requested_at"] = None
             serializer.validated_data["approved_by"] = None
@@ -63,6 +73,7 @@ class JobViewSet(viewsets.ModelViewSet):
             return False
 
         serializer.validated_data["approval_status"] = JobApprovalStatus.PENDING
+        serializer.validated_data["status"] = JobExecutionStatus.AWAITING_APPROVAL
         serializer.validated_data["approval_requested_by"] = self.request.user
         serializer.validated_data["approval_requested_at"] = now
         serializer.validated_data["approved_by"] = None
@@ -92,6 +103,8 @@ class JobViewSet(viewsets.ModelViewSet):
             )
 
     def perform_update(self, serializer):
+        if serializer.instance.status == JobExecutionStatus.CLAIMED:
+            raise ValidationError({"status": ["Claimed jobs cannot be modified."]})
         approval_requested = self._apply_risk_state(serializer)
         job = serializer.save()
         self._audit(
@@ -99,6 +112,7 @@ class JobViewSet(viewsets.ModelViewSet):
             job,
             risk_level=job.risk_level,
             approval_status=job.approval_status,
+            status=job.status,
             approval_requested_by=job.approval_requested_by_id,
         )
         if approval_requested:
@@ -107,8 +121,21 @@ class JobViewSet(viewsets.ModelViewSet):
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
+                status=job.status,
                 approval_requested_by=job.approval_requested_by_id,
             )
+
+    def perform_destroy(self, instance):
+        if instance.status == JobExecutionStatus.CLAIMED:
+            raise ValidationError({"status": ["Claimed jobs cannot be deleted."]})
+        self._audit(
+            "automation.job.deleted",
+            instance,
+            risk_level=instance.risk_level,
+            approval_status=instance.approval_status,
+            status=instance.status,
+        )
+        instance.delete()
 
     def _transition_approval(self, request, pk, approved):
         job = self.get_object()
@@ -125,33 +152,93 @@ class JobViewSet(viewsets.ModelViewSet):
         job.approval_comment = comment
         if approved:
             job.approval_status = JobApprovalStatus.APPROVED
+            job.status = JobExecutionStatus.DRAFT
             job.approved_by = request.user
             job.approved_at = now
             job.rejected_by = None
             job.rejected_at = None
-            job.save(update_fields=["approval_status", "approved_by", "approved_at", "rejected_by", "rejected_at", "approval_comment", "updated_at"])
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
+            job.save(update_fields=["approval_status", "status", "approved_by", "approved_at", "rejected_by", "rejected_at", "ready_by", "ready_at", "claimed_by", "claimed_at", "approval_comment", "updated_at"])
             self._audit(
                 "automation.job.approved",
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
+                status=job.status,
                 approved_by=job.approved_by_id,
                 approval_comment=job.approval_comment,
             )
         else:
             job.approval_status = JobApprovalStatus.REJECTED
+            job.status = JobExecutionStatus.DRAFT
             job.rejected_by = request.user
             job.rejected_at = now
             job.approved_by = None
             job.approved_at = None
-            job.save(update_fields=["approval_status", "rejected_by", "rejected_at", "approved_by", "approved_at", "approval_comment", "updated_at"])
+            job.ready_by = None
+            job.ready_at = None
+            job.claimed_by = None
+            job.claimed_at = None
+            job.save(update_fields=["approval_status", "status", "rejected_by", "rejected_at", "approved_by", "approved_at", "ready_by", "ready_at", "claimed_by", "claimed_at", "approval_comment", "updated_at"])
             self._audit(
                 "automation.job.rejected",
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
+                status=job.status,
                 rejected_by=job.rejected_by_id,
                 approval_comment=job.approval_comment,
+            )
+
+        return Response(JobSerializer(job).data)
+
+    def _transition_execution(self, request, action_name):
+        job = self.get_object()
+        serializer = JobExecutionActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.validated_data.get("comment", "")
+        now = timezone.now()
+
+        if action_name == "mark_ready":
+            if job.status != JobExecutionStatus.DRAFT:
+                raise ValidationError({"status": ["Only draft jobs can be marked ready."]})
+            if job.risk_level == JobRiskLevel.HIGH and job.approval_status != JobApprovalStatus.APPROVED:
+                raise ValidationError({"approval_status": ["High-risk jobs must be approved before they can be marked ready."]})
+            if job.risk_level != JobRiskLevel.HIGH and job.approval_status != JobApprovalStatus.NOT_REQUIRED:
+                raise ValidationError({"approval_status": ["Only approval-free draft jobs can be marked ready."]})
+            job.status = JobExecutionStatus.READY
+            job.ready_by = request.user
+            job.ready_at = now
+            job.claimed_by = None
+            job.claimed_at = None
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "updated_at"])
+            self._audit(
+                "automation.job.ready_marked",
+                job,
+                risk_level=job.risk_level,
+                approval_status=job.approval_status,
+                status=job.status,
+                ready_by=job.ready_by_id,
+                comment=comment,
+            )
+        else:
+            if job.status != JobExecutionStatus.READY:
+                raise ValidationError({"status": ["Only ready jobs can be claimed."]})
+            job.status = JobExecutionStatus.CLAIMED
+            job.claimed_by = request.user
+            job.claimed_at = now
+            job.save(update_fields=["status", "claimed_by", "claimed_at", "updated_at"])
+            self._audit(
+                "automation.job.claimed",
+                job,
+                risk_level=job.risk_level,
+                approval_status=job.approval_status,
+                status=job.status,
+                claimed_by=job.claimed_by_id,
+                comment=comment,
             )
 
         return Response(JobSerializer(job).data)
@@ -179,3 +266,27 @@ class JobViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         return self._transition_approval(request, pk, approved=False)
+
+    @extend_schema(
+        request=JobExecutionActionSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Execution state validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="mark-ready")
+    def mark_ready(self, request, pk=None):
+        return self._transition_execution(request, "mark_ready")
+
+    @extend_schema(
+        request=JobExecutionActionSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Execution state validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def claim(self, request, pk=None):
+        return self._transition_execution(request, "claim")
