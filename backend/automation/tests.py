@@ -1416,6 +1416,44 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
 
+    def test_claim_clears_stale_execution_result_fields(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.other_ops,
+            ready_at=timezone.now(),
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-123"},
+            completed_at=timezone.now(),
+            failed_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
+            last_reported_by_agent_key="automation-agent-default",
+        )
+
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["claimed_by"], self.user.id)
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertIsNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
+
+        job.refresh_from_db()
+        self.assertEqual(job.claimed_by_id, self.user.id)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertIsNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
+        self.assertEqual(job.last_reported_by_agent_key, "")
+
     def test_cannot_claim_non_ready_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(

@@ -280,8 +280,13 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = None
             job.claimed_by = request.user
             job.claimed_at = now
+            job.execution_summary = ""
+            job.execution_metadata = {}
+            job.completed_at = None
+            job.failed_at = None
             job.assigned_agent_key_id = agent_key_id
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "assigned_agent_key_id", "updated_at"])
+            job.last_reported_by_agent_key = ""
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "completed_at", "failed_at", "assigned_agent_key_id", "last_reported_by_agent_key", "updated_at"])
             self._audit(
                 "automation.job.claimed",
                 job,
