@@ -2243,6 +2243,25 @@ class JobApiTests(TestCase):
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
 
+    @override_settings(AUTOMATION_AGENT_CLAIM_HMAC_KEYS=None)
+    def test_agent_claim_accepts_legacy_single_key_settings(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        payload = {"summary": "claiming with fallback key settings"}
+        headers, body = self._agent_claim_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-claim/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["assigned_agent_key_id"], "automation-agent-default")
+
     def test_agent_report_completes_claimed_job_and_records_metadata(self):
         job = Job.objects.create(
             name="sync-assets",
@@ -2617,3 +2636,22 @@ class JobApiTests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
+
+    @override_settings(AUTOMATION_AGENT_REPORT_HMAC_KEYS=None)
+    def test_agent_report_accepts_legacy_single_key_settings(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-default",
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED, "summary": "completed with fallback key settings"}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+        self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
