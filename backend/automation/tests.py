@@ -2076,6 +2076,7 @@ class JobApiTests(TestCase):
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
         self.assertEqual(audit.detail["reason"], "invalid_signature")
+        self.assertEqual(audit.detail["status_code"], 401)
 
     def test_agent_claim_rejects_unknown_key_id(self):
         job = Job.objects.create(
@@ -2450,6 +2451,7 @@ class JobApiTests(TestCase):
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
         self.assertEqual(audit.detail["reason"], "invalid_signature")
+        self.assertEqual(audit.detail["status_code"], 401)
 
     def test_agent_report_rejects_unknown_key_id(self):
         job = Job.objects.create(

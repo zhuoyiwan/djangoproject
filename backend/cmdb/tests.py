@@ -376,6 +376,7 @@ class AgentIngestApiTests(TestCase):
         entries = AuditLog.objects.filter(action="server.agent_ingest.auth_failed")
         self.assertEqual(entries.count(), 1)
         self.assertEqual(entries.get().detail["reason"], "missing_headers")
+        self.assertEqual(entries.get().detail["status_code"], 401)
         self.assertFalse(AuditLog.objects.filter(action="security.auth.failed").exists())
 
     def test_agent_ingest_rejects_invalid_signature(self):

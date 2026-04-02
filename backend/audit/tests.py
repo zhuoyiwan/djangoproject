@@ -102,6 +102,12 @@ class AuditLogApiTests(TestCase):
             detail={"reason": "missing_headers", "path": "/api/v1/cmdb/servers/agent-ingest/", "status_code": 401},
         )
         AuditLog.objects.create(
+            actor=None,
+            action="automation.job.agent_claim.auth_failed",
+            target="agent:automation-agent-default",
+            detail={"reason": "invalid_signature", "path": "/api/v1/automation/jobs/1/agent-claim/", "status_code": 401},
+        )
+        AuditLog.objects.create(
             actor=self.user,
             action="security.permission.denied",
             target="GET /api/v1/users/",
@@ -109,12 +115,12 @@ class AuditLogApiTests(TestCase):
         )
 
         response = self.client.get(
-            "/api/v1/audit/logs/tool-query/?detail_reason=missing_headers&detail_path=/api/v1/cmdb/servers/agent-ingest/&detail_status_code=401"
+            "/api/v1/audit/logs/tool-query/?detail_reason=invalid_signature&detail_path=/api/v1/automation/jobs/1/agent-claim/&detail_status_code=401"
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["items"]), 1)
-        self.assertEqual(response.data["items"][0]["action"], "server.agent_ingest.auth_failed")
+        self.assertEqual(response.data["items"][0]["action"], "automation.job.agent_claim.auth_failed")
 
     def test_tool_query_keyword_search_matches_security_event_details(self):
         auditor_group = Group.objects.create(name="auditor")

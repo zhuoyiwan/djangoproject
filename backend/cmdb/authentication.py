@@ -80,5 +80,6 @@ class AgentHMACAuthentication(authentication.BaseAuthentication):
                 "reason": reason,
                 "request_id": getattr(request, "request_id", ""),
                 "path": getattr(request, "path", ""),
+                "status_code": 401,
             },
         )
