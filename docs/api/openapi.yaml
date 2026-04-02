@@ -1041,6 +1041,63 @@ paths:
                 type: object
                 additionalProperties: {}
           description: Authentication/signature error
+  /api/v1/cmdb/servers/tool-query/:
+    get:
+      operationId: v1_cmdb_servers_tool_query_retrieve
+      parameters:
+      - in: query
+        name: environment
+        schema:
+          type: string
+      - in: query
+        name: hostname
+        schema:
+          type: string
+      - in: query
+        name: idc_code
+        schema:
+          type: string
+      - in: query
+        name: internal_ip
+        schema:
+          type: string
+      - in: query
+        name: lifecycle_status
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: q
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerToolQueryResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Validation error
+        '401':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Authentication required
   /api/v1/health/:
     get:
       operationId: v1_health_retrieve
@@ -1851,6 +1908,92 @@ components:
       - memory_gb
       - os_version
       - updated_at
+    ServerToolQuery:
+      type: object
+      properties:
+        q:
+          type: string
+          maxLength: 255
+        hostname:
+          type: string
+          maxLength: 255
+        internal_ip:
+          type: string
+          format: ipv4
+        environment:
+          $ref: '#/components/schemas/EnvironmentEnum'
+        lifecycle_status:
+          $ref: '#/components/schemas/LifecycleStatusEnum'
+        idc_code:
+          type: string
+          maxLength: 64
+        limit:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 10
+    ServerToolQueryResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        request_id:
+          type: string
+        query:
+          $ref: '#/components/schemas/ServerToolQuery'
+        summary:
+          type: object
+          additionalProperties: {}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServerToolResult'
+      required:
+      - items
+      - ok
+      - query
+      - request_id
+      - summary
+    ServerToolResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        hostname:
+          type: string
+          maxLength: 255
+        internal_ip:
+          type: string
+        external_ip:
+          type: string
+          nullable: true
+        environment:
+          $ref: '#/components/schemas/EnvironmentEnum'
+        lifecycle_status:
+          $ref: '#/components/schemas/LifecycleStatusEnum'
+        source:
+          $ref: '#/components/schemas/SourceEnum'
+        os_version:
+          type: string
+          maxLength: 255
+        idc_code:
+          type: string
+          readOnly: true
+        idc_name:
+          type: string
+          readOnly: true
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - hostname
+      - id
+      - idc_code
+      - idc_name
+      - internal_ip
+      - os_version
     SourceEnum:
       enum:
       - manual

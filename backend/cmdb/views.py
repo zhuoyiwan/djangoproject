@@ -1,4 +1,4 @@
-from drf_spectacular.utils import OpenApiResponse, OpenApiTypes, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,7 +8,15 @@ from core.permissions import IsAuthenticatedReadOnlyOrOps
 
 from .authentication import AgentHMACAuthentication
 from .models import IDC, Server
-from .serializers import AgentIngestResponseSerializer, AgentServerIngestSerializer, IDCSerializer, ServerSerializer
+from .serializers import (
+    AgentIngestResponseSerializer,
+    AgentServerIngestSerializer,
+    IDCSerializer,
+    ServerSerializer,
+    ServerToolQueryResponseSerializer,
+    ServerToolQuerySerializer,
+    ServerToolResultSerializer,
+)
 
 
 class IDCViewSet(viewsets.ModelViewSet):
@@ -117,3 +125,38 @@ class ServerViewSet(viewsets.ModelViewSet):
         }
         response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(response_data, status=response_status)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="hostname", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="internal_ip", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="environment", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="lifecycle_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="idc_code", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
+        ],
+        responses={
+            200: ServerToolQueryResponseSerializer,
+            400: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Validation error"),
+            401: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Authentication required"),
+        },
+    )
+    @action(detail=False, methods=["get"], url_path="tool-query")
+    def tool_query(self, request):
+        serializer = ServerToolQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        servers = serializer.filter_queryset(self.get_queryset())
+        items = ServerToolResultSerializer(servers, many=True).data
+        response_data = {
+            "ok": True,
+            "request_id": getattr(request, "request_id", ""),
+            "query": serializer.validated_data,
+            "summary": {
+                "count": len(items),
+                "returned": len(items),
+                "truncated": len(items) == serializer.validated_data["limit"],
+            },
+            "items": items,
+        }
+        return Response(response_data)

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -90,3 +91,72 @@ class AgentIngestResponseSerializer(serializers.Serializer):
     result = serializers.ChoiceField(choices=("created", "updated"))
     request_id = serializers.CharField()
     server = ServerSerializer()
+
+
+class ServerToolQuerySerializer(serializers.Serializer):
+    q = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    hostname = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    internal_ip = serializers.IPAddressField(protocol="IPv4", required=False)
+    environment = serializers.ChoiceField(choices=Server._meta.get_field("environment").choices, required=False)
+    lifecycle_status = serializers.ChoiceField(choices=Server._meta.get_field("lifecycle_status").choices, required=False)
+    idc_code = serializers.CharField(required=False, allow_blank=False, max_length=64)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=20, default=10)
+
+    def validate(self, attrs):
+        filters = {key: value for key, value in attrs.items() if key != "limit"}
+        if not filters:
+            raise serializers.ValidationError("At least one query filter is required.")
+        return attrs
+
+    def filter_queryset(self, queryset):
+        data = self.validated_data
+        if q := data.get("q"):
+            queryset = queryset.filter(
+                Q(hostname__icontains=q)
+                | Q(internal_ip__icontains=q)
+                | Q(external_ip__icontains=q)
+                | Q(os_version__icontains=q)
+                | Q(idc__code__icontains=q)
+                | Q(idc__name__icontains=q)
+            )
+        if hostname := data.get("hostname"):
+            queryset = queryset.filter(hostname=hostname)
+        if internal_ip := data.get("internal_ip"):
+            queryset = queryset.filter(internal_ip=internal_ip)
+        if environment := data.get("environment"):
+            queryset = queryset.filter(environment=environment)
+        if lifecycle_status := data.get("lifecycle_status"):
+            queryset = queryset.filter(lifecycle_status=lifecycle_status)
+        if idc_code := data.get("idc_code"):
+            queryset = queryset.filter(idc__code=idc_code)
+        return queryset[: data["limit"]]
+
+
+class ServerToolResultSerializer(serializers.ModelSerializer):
+    idc_code = serializers.CharField(source="idc.code", read_only=True)
+    idc_name = serializers.CharField(source="idc.name", read_only=True)
+
+    class Meta:
+        model = Server
+        fields = (
+            "id",
+            "hostname",
+            "internal_ip",
+            "external_ip",
+            "environment",
+            "lifecycle_status",
+            "source",
+            "os_version",
+            "idc_code",
+            "idc_name",
+            "last_seen_at",
+        )
+
+
+class ServerToolQueryResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    query = ServerToolQuerySerializer()
+    summary = serializers.DictField()
+    items = ServerToolResultSerializer(many=True)
+
