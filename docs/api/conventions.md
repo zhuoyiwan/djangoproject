@@ -255,7 +255,9 @@
 - Only draft jobs can be marked ready.
 - Only ready jobs can be claimed.
 - Only claimed jobs can be completed or failed.
+- Only the claimant or a `platform_admin` can complete or fail a claimed job.
 - Only ready or claimed jobs can be canceled.
+- Only the claimant or a `platform_admin` can cancel a claimed job.
 - Claimed jobs cannot be updated or deleted.
 
 ## RBAC access summary
@@ -266,4 +268,5 @@
 - Automation read operations remain available to authenticated users (`viewer` and above)
 - Automation create/update/delete require `ops_admin` or `platform_admin`
 - Automation approve/reject requires `approver` or `platform_admin`
-- Automation mark-ready/claim/complete/fail/cancel requires `ops_admin` or `platform_admin`
+- Automation mark-ready/claim requires `ops_admin` or `platform_admin`
+- Automation complete/fail/cancel requires `ops_admin` or `platform_admin`, with claimed-job ownership enforced unless the actor is `platform_admin`

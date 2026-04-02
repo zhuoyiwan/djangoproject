@@ -8,7 +8,7 @@ from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
 from audit.models import AuditLog
-from core.permissions import ROLE_APPROVER, ROLE_OPS_ADMIN
+from core.permissions import ROLE_APPROVER, ROLE_OPS_ADMIN, ROLE_PLATFORM_ADMIN
 
 from .adapters import build_job_handoff_response
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
@@ -61,6 +61,8 @@ class JobApiTests(TestCase):
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.approver = get_user_model().objects.create_user(username="bob", password="password123")
+        self.other_ops = get_user_model().objects.create_user(username="carol", password="password123")
+        self.platform_admin = get_user_model().objects.create_user(username="dave", password="password123")
         self.client.force_authenticate(self.user)
 
     def test_list_jobs(self):
@@ -596,6 +598,36 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
 
+    def test_non_claimant_ops_admin_cannot_complete_claimed_job(self):
+        ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.other_ops.groups.add(ops_group)
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.other_ops)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error"]["code"], "forbidden")
+
+    def test_platform_admin_can_complete_other_users_claimed_job(self):
+        Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "override"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+
     def test_ops_admin_can_fail_claimed_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -606,6 +638,36 @@ class JobApiTests(TestCase):
             claimed_by=self.user,
         )
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+
+    def test_non_claimant_ops_admin_cannot_fail_claimed_job(self):
+        ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.other_ops.groups.add(ops_group)
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.other_ops)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error"]["code"], "forbidden")
+
+    def test_platform_admin_can_fail_other_users_claimed_job(self):
+        Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "override"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
 
@@ -633,6 +695,36 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_non_claimant_ops_admin_cannot_cancel_claimed_job(self):
+        ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.other_ops.groups.add(ops_group)
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.other_ops)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error"]["code"], "forbidden")
+
+    def test_platform_admin_can_cancel_other_users_claimed_job(self):
+        Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "override"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CANCELED)
 
     def test_cancel_requires_ready_or_claimed_status(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))

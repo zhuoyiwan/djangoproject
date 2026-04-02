@@ -6,7 +6,12 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from audit.models import AuditLog
-from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
+from core.permissions import (
+    ROLE_PLATFORM_ADMIN,
+    IsApproverOrPlatformAdmin,
+    IsAuthenticatedReadOnlyOrOps,
+    IsOpsOrPlatformAdmin,
+)
 from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
 
@@ -265,6 +270,8 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         elif action_name == "complete":
             if job.status != JobExecutionStatus.CLAIMED:
                 raise ValidationError({"status": ["Only claimed jobs can be completed."]})
+            if job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+                raise PermissionDenied("Only the claimant or a platform admin can complete a claimed job.")
             job.status = JobExecutionStatus.COMPLETED
             job.save(update_fields=["status", "updated_at"])
             self._audit(
@@ -279,6 +286,8 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         elif action_name == "fail":
             if job.status != JobExecutionStatus.CLAIMED:
                 raise ValidationError({"status": ["Only claimed jobs can be failed."]})
+            if job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+                raise PermissionDenied("Only the claimant or a platform admin can fail a claimed job.")
             job.status = JobExecutionStatus.FAILED
             job.save(update_fields=["status", "updated_at"])
             self._audit(
@@ -293,6 +302,8 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         else:
             if job.status not in {JobExecutionStatus.READY, JobExecutionStatus.CLAIMED}:
                 raise ValidationError({"status": ["Only ready or claimed jobs can be canceled."]})
+            if job.status == JobExecutionStatus.CLAIMED and job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+                raise PermissionDenied("Only the claimant or a platform admin can cancel a claimed job.")
             job.status = JobExecutionStatus.CANCELED
             job.save(update_fields=["status", "updated_at"])
             self._audit(
