@@ -4,16 +4,12 @@ Read this file first in unattended backend sessions.
 
 ## Task
 
-Start the first M4 slice from `docs/architecture/backend-roadmap.md`.
-Implement one small, safe, backend-only increment for the OpenClaw integration boundary:
+Start by reading `docs/architecture/backend-roadmap.md` and continue with the next unfinished backend milestone after the work represented by commit `fdf32c3 Update backend implementation.`.
+Use the latest repo state plus the changed areas below to pick the smallest complete backend increment.
 
-- add a read-only tool-facing CMDB query capability
-- keep it authenticated and safe-by-default
-- prefer existing CMDB data instead of introducing new runtime integrations
-- expose a normalized response shape suitable for LLM/tool consumers
-- include tests and OpenAPI updates if the contract changes
+## Changed context from previous session
 
-If that exact slice is too large after inspection, narrow it to the smallest complete backend increment that moves M4 forward without touching the frontend.
+- none
 
 ## Constraints
 
