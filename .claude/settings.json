@@ -17,7 +17,7 @@
   "model": "gpt-5.4",
   "teammateMode": "in-process",
   "permissions": {
-    "defaultMode": "dontAsk"
+    "defaultMode": "bypassPermissions"
   },
   "hooks": {
     "PostToolUse": [

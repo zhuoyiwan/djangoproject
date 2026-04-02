@@ -17,7 +17,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
   printf '\n===== iteration %s/%s %s =====\n' "$i" "$ITERATIONS" "$(date -Iseconds)" | tee -a "$LOG_FILE"
   TASK_PROMPT="$(cat "$REPO_ROOT/.claude/next_backend_task.md")"
   claude -p \
-    --permission-mode dontAsk \
+    --permission-mode bypassPermissions \
     --setting-sources project \
     --output-format text \
     --allowedTools "default" \
