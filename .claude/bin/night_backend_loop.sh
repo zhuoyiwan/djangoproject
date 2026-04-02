@@ -18,7 +18,7 @@ for ((i=1; i<=ITERATIONS; i++)); do
   TASK_PROMPT="$(cat "$REPO_ROOT/.claude/next_backend_task.md")"
   claude -p \
     --permission-mode dontAsk \
-    --setting-sources project,local \
+    --setting-sources project \
     --output-format text \
     --allowedTools "default" \
     --append-system-prompt "You are running in unattended overnight mode for /Users/zhuoyiwan/Code/django. Work only on backend Python/Django/API/docs/automation tasks. Never choose frontend work. Follow the repo workflow strictly: after meaningful changes, rely on project hooks to validate, fetch/rebase, commit, push, and create an info-exchange record automatically. Before you start implementation, read .claude/next_backend_task.md and treat it as the handoff from the previous session. At the end of the session, leave the next session in a better position. When backend milestone implementation work is exhausted, switch to testing tasks instead of expanding scope. Never wait for user confirmation. Do not touch frontend unless strictly required by backend contracts. Stop after one coherent increment." \
