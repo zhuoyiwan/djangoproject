@@ -24,8 +24,9 @@ export type UserProfile = {
   id: number;
   username: string;
   email: string;
-  is_active: boolean;
-  is_staff: boolean;
+  first_name: string;
+  last_name: string;
+  display_name: string;
 };
 
 export type ServerRecord = {
@@ -33,15 +34,19 @@ export type ServerRecord = {
   hostname: string;
   internal_ip: string;
   external_ip: string | null;
+  os_version: string;
   environment: "dev" | "test" | "prod";
   lifecycle_status: "online" | "offline" | "maintenance" | "pre_allocated";
   source: "manual" | "agent" | "api";
   idc: number | null;
-  cpu_cores?: number | null;
-  memory_gb?: number | null;
-  disk_summary?: string;
-  metadata?: Record<string, unknown>;
-  updated_at?: string;
+  idc_name: string;
+  cpu_cores: number;
+  memory_gb: string;
+  disk_summary: string;
+  last_seen_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ServerQuery = {

@@ -17,3 +17,4 @@ This repository is bootstrapped for a Django application with MySQL, Redis, and 
 ## Environment configuration
 
 See `/Users/zhuoyiwan/Code/django/.env.example` for shared bootstrap variables and `/Users/zhuoyiwan/Code/django/backend/.env.example` for backend-specific runtime settings.
+The Django settings loader reads repo-root `.env` first and then `backend/.env`, so backend-local overrides can stay scoped under `backend/`.

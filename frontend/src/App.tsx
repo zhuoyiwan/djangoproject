@@ -251,8 +251,16 @@ export default function App() {
                 <dd>{profile.email || "Not set"}</dd>
               </div>
               <div>
-                <dt>Staff</dt>
-                <dd>{profile.is_staff ? "yes" : "no"}</dd>
+                <dt>Display name</dt>
+                <dd>{profile.display_name || "Not set"}</dd>
+              </div>
+              <div>
+                <dt>First name</dt>
+                <dd>{profile.first_name || "Not set"}</dd>
+              </div>
+              <div>
+                <dt>Last name</dt>
+                <dd>{profile.last_name || "Not set"}</dd>
               </div>
             </dl>
           ) : null}
@@ -346,10 +354,12 @@ export default function App() {
                 <tr>
                   <th>Hostname</th>
                   <th>Internal IP</th>
+                  <th>IDC</th>
+                  <th>OS</th>
                   <th>Environment</th>
                   <th>Lifecycle</th>
                   <th>Source</th>
-                  <th>Updated</th>
+                  <th>Last seen</th>
                 </tr>
               </thead>
               <tbody>
@@ -358,15 +368,17 @@ export default function App() {
                     <tr key={server.id}>
                       <td>{server.hostname}</td>
                       <td>{server.internal_ip}</td>
+                      <td>{server.idc_name || "n/a"}</td>
+                      <td>{server.os_version}</td>
                       <td>{server.environment}</td>
                       <td>{server.lifecycle_status}</td>
                       <td>{server.source}</td>
-                      <td>{server.updated_at || "n/a"}</td>
+                      <td>{server.last_seen_at || server.updated_at || "n/a"}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6}>No server data loaded yet.</td>
+                    <td colSpan={8}>No server data loaded yet.</td>
                   </tr>
                 )}
               </tbody>
