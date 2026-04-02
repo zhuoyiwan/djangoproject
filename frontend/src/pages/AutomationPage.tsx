@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../app/auth";
 import { approveJob, createJob, getJobs, rejectJob } from "../lib/api";
 import type { JobCreateInput, JobQuery, JobRecord, PaginatedResponse, RequestState } from "../types";
@@ -190,7 +191,11 @@ export function AutomationPage() {
                     key={job.id}
                     onClick={() => setSelectedJobId(job.id)}
                   >
-                    <td>{job.name}</td>
+                    <td>
+                      <Link className="inline-link" to={`/automation/${job.id}`} onClick={(event) => event.stopPropagation()}>
+                        {job.name}
+                      </Link>
+                    </td>
                     <td>{job.status}</td>
                     <td>{job.risk_level}</td>
                     <td>
@@ -296,6 +301,16 @@ export function AutomationPage() {
                     ? `Rejected ${formatDateTime(selectedJob.rejected_at)}`
                     : "No decision recorded"}
               </small>
+            </article>
+
+            <article className="summary-card">
+              <span>Route</span>
+              <strong>
+                <Link className="inline-link" to={`/automation/${selectedJob.id}`}>
+                  Open job detail
+                </Link>
+              </strong>
+              <small>Use the dedicated route for a single-job review view.</small>
             </article>
 
             <article className="highlight-card compact-card">

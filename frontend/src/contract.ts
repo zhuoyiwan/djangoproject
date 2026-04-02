@@ -47,7 +47,9 @@ export const endpointGroups = [
     label: "Audit + Automation",
     items: [
       "GET /api/v1/audit/logs/  (auditor | platform_admin)",
+      "GET /api/v1/audit/logs/{id}/",
       "GET /api/v1/automation/jobs/",
+      "GET /api/v1/automation/jobs/{id}/",
       "POST /api/v1/automation/jobs/",
       "POST /api/v1/automation/jobs/{id}/approve/",
       "POST /api/v1/automation/jobs/{id}/reject/",
@@ -59,6 +61,8 @@ export const endpointGroups = [
       "GET /api/v1/users/  (platform_admin)",
       "CMDB POST/PUT/PATCH/DELETE  (ops_admin | platform_admin)",
       "CMDB GET  (authenticated read-only allowed)",
+      "Audit GET  (auditor | platform_admin)",
+      "Automation approve/reject  (approver | platform_admin)",
     ],
   },
 ];

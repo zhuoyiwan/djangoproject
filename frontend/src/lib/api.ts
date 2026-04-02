@@ -1,4 +1,6 @@
 import type {
+  AuditLogRecord,
+  AuditQuery,
   ApiErrorShape,
   AuthTokens,
   JobCreateInput,
@@ -110,6 +112,10 @@ export async function getJobs(baseUrl: string, token: string, query: JobQuery) {
   );
 }
 
+export async function getJob(baseUrl: string, token: string, jobId: number) {
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/`, {}, token);
+}
+
 export async function createJob(baseUrl: string, token: string, payload: JobCreateInput) {
   return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/`, {
     method: "POST",
@@ -129,4 +135,17 @@ export async function rejectJob(baseUrl: string, token: string, jobId: number, c
     method: "POST",
     body: JSON.stringify({ comment }),
   }, token);
+}
+
+export async function getAuditLogs(baseUrl: string, token: string, query: AuditQuery) {
+  return request<PaginatedResponse<AuditLogRecord>>(
+    baseUrl,
+    `${API_PREFIX}/audit/logs/${buildListQuery(query)}`,
+    {},
+    token,
+  );
+}
+
+export async function getAuditLog(baseUrl: string, token: string, logId: number) {
+  return request<AuditLogRecord>(baseUrl, `${API_PREFIX}/audit/logs/${logId}/`, {}, token);
 }

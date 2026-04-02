@@ -133,6 +133,15 @@ textarea {
   background: transparent;
 }
 
+.inline-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.inline-link:hover {
+  text-decoration: underline;
+}
+
 .nav-spacer {
   flex: 1;
 }
@@ -413,6 +422,11 @@ tbody tr {
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text-muted);
+}
+
+.detail-shell {
+  display: grid;
+  gap: 20px;
 }
 
 .pill {

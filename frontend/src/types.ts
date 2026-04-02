@@ -95,3 +95,21 @@ export type JobCreateInput = {
   risk_level: "low" | "medium" | "high";
   payload: Record<string, unknown>;
 };
+
+export type AuditLogRecord = {
+  id: number;
+  actor: number | null;
+  actor_username: string | null;
+  action: string;
+  target: string;
+  detail: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AuditQuery = {
+  search?: string;
+  ordering?: string;
+  page?: string;
+  page_size?: string;
+};
