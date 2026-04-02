@@ -670,6 +670,23 @@ class JobApiTests(TestCase):
         self.assertTrue(response.data["summary"]["truncated"])
         self.assertEqual(len(response.data["items"]), 2)
 
+    def test_handoff_is_throttled_after_rate_limit(self):
+        Job.objects.create(
+            name="ready-job",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "handoff": "2/min"}}):
+            first = self.client.get("/api/v1/automation/jobs/handoff/?status=ready")
+            second = self.client.get("/api/v1/automation/jobs/handoff/?status=ready")
+            third = self.client.get("/api/v1/automation/jobs/handoff/?status=ready")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
+
     def test_ops_admin_can_mark_low_risk_job_ready(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
