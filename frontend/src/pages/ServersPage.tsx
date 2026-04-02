@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../app/auth";
+import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { getServers } from "../lib/api";
-import type { PaginatedResponse, RequestState, ServerQuery, ServerRecord } from "../types";
+import { formatDateTime } from "../lib/format";
+import type { ServerQuery, ServerRecord } from "../types";
 
 const initialQuery: ServerQuery = {
   search: "",
@@ -16,37 +18,21 @@ const initialQuery: ServerQuery = {
 export function ServersPage() {
   const { accessToken, baseUrl } = useAuth();
   const [query, setQuery] = useState<ServerQuery>(initialQuery);
-  const [serverState, setServerState] = useState<RequestState>("idle");
-  const [serverSummary, setServerSummary] = useState("Load the current CMDB dataset from the backend.");
-  const [serverPage, setServerPage] = useState<PaginatedResponse<ServerRecord> | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!accessToken || serverPage) {
-      return;
-    }
-    void handleLoadServers();
-  }, [accessToken]);
-
-  async function handleLoadServers() {
-    if (!accessToken) {
-      setServerState("error");
-      setServerSummary("Login is required before querying CMDB servers.");
-      return;
-    }
-    setServerState("loading");
-    setServerSummary("Querying live CMDB data ...");
-    try {
-      const response = await getServers(baseUrl, accessToken, query);
-      setServerPage(response);
-      setSelectedServerId(response.results[0]?.id ?? null);
-      setServerState("success");
-      setServerSummary(`Fetched ${response.results.length} server rows out of ${response.count}.`);
-    } catch (error) {
-      setServerState("error");
-      setServerSummary((error as Error).message);
-    }
-  }
+  const {
+    page: serverPage,
+    state: serverState,
+    summary: serverSummary,
+    refresh: refreshServers,
+  } = usePaginatedResource<ServerRecord, ServerQuery>({
+    accessToken,
+    query,
+    initialSummary: "Load the current CMDB dataset from the backend.",
+    missingTokenSummary: "Login is required before querying CMDB servers.",
+    loadingSummary: "Querying live CMDB data ...",
+    successSummary: (response) => `Fetched ${response.results.length} server rows out of ${response.count}.`,
+    fetcher: (token, activeQuery) => getServers(baseUrl, token, activeQuery),
+  });
 
   function updateQuery<K extends keyof ServerQuery>(key: K, value: ServerQuery[K]) {
     setQuery((current) => ({
@@ -117,7 +103,15 @@ export function ServersPage() {
         </div>
 
         <div className="actions">
-          <button onClick={() => void handleLoadServers()} type="button">
+          <button
+            onClick={async () => {
+              const response = await refreshServers();
+              if (response) {
+                setSelectedServerId(response.results[0]?.id ?? null);
+              }
+            }}
+            type="button"
+          >
             Refresh list
           </button>
         </div>
@@ -225,14 +219,4 @@ export function ServersPage() {
       </section>
     </main>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

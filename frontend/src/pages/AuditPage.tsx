@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../app/auth";
+import { usePaginatedResource } from "../hooks/usePaginatedResource";
+import { useResourceDetail } from "../hooks/useResourceDetail";
+import { formatDateTime } from "../lib/format";
 import { getAuditLog, getAuditLogs } from "../lib/api";
-import type { AuditLogRecord, AuditQuery, PaginatedResponse, RequestState } from "../types";
+import type { AuditLogRecord, AuditQuery } from "../types";
 
 const initialQuery: AuditQuery = {
   search: "",
@@ -13,59 +16,34 @@ const initialQuery: AuditQuery = {
 export function AuditPage() {
   const { accessToken, baseUrl } = useAuth();
   const [query, setQuery] = useState<AuditQuery>(initialQuery);
-  const [auditState, setAuditState] = useState<RequestState>("idle");
-  const [auditSummary, setAuditSummary] = useState("Load audit logs to review write-side activity.");
-  const [auditPage, setAuditPage] = useState<PaginatedResponse<AuditLogRecord> | null>(null);
-  const [selectedLog, setSelectedLog] = useState<AuditLogRecord | null>(null);
-
-  useEffect(() => {
-    if (!accessToken || auditPage) {
-      return;
-    }
-    void handleLoadAuditLogs();
-  }, [accessToken]);
-
-  async function handleLoadAuditLogs() {
-    if (!accessToken) {
-      setAuditState("error");
-      setAuditSummary("Login is required before querying audit logs.");
-      return;
-    }
-    setAuditState("loading");
-    setAuditSummary("Loading audit trail ...");
-    try {
-      const response = await getAuditLogs(baseUrl, accessToken, query);
-      setAuditPage(response);
-      const first = response.results[0] || null;
-      setSelectedLog(first);
-      if (first) {
-        const detail = await getAuditLog(baseUrl, accessToken, first.id);
-        setSelectedLog(detail);
-      }
-      setAuditState("success");
-      setAuditSummary(`Fetched ${response.results.length} audit rows out of ${response.count}.`);
-    } catch (error) {
-      setAuditState("error");
-      setAuditSummary((error as Error).message);
-    }
-  }
-
-  async function handleSelectLog(logId: number) {
-    if (!accessToken) {
-      return;
-    }
-    setAuditState("loading");
-    setAuditSummary(`Loading audit log ${logId} ...`);
-    try {
-      const response = await getAuditLog(baseUrl, accessToken, logId);
-      setSelectedLog(response);
-      setAuditState("success");
-      setAuditSummary(`Loaded audit log ${response.id}.`);
-    } catch (error) {
-      setAuditState("error");
-      setAuditSummary((error as Error).message);
-    }
-  }
+  const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
+  const {
+    page: auditPage,
+    state: auditListState,
+    summary: auditListSummary,
+    refresh: refreshAuditLogs,
+  } = usePaginatedResource<AuditLogRecord, AuditQuery>({
+    accessToken,
+    query,
+    initialSummary: "Load audit logs to review write-side activity.",
+    missingTokenSummary: "Login is required before querying audit logs.",
+    loadingSummary: "Loading audit trail ...",
+    successSummary: (response) => `Fetched ${response.results.length} audit rows out of ${response.count}.`,
+    fetcher: (token, activeQuery) => getAuditLogs(baseUrl, token, activeQuery),
+  });
+  const {
+    item: selectedLog,
+    state: auditDetailState,
+    summary: auditDetailSummary,
+  } = useResourceDetail<AuditLogRecord>({
+    accessToken,
+    resourceId: selectedLogId,
+    initialSummary: "Select an audit row after loading the list.",
+    missingTokenSummary: "Login is required before loading audit detail.",
+    loadingSummary: (id) => `Loading audit log ${id} ...`,
+    successSummary: (response) => `Loaded audit log ${response.id}.`,
+    fetcher: (token, id) => getAuditLog(baseUrl, token, id),
+  });
 
   function updateQuery<K extends keyof AuditQuery>(key: K, value: AuditQuery[K]) {
     setQuery((current) => ({
@@ -102,12 +80,20 @@ export function AuditPage() {
         </div>
 
         <div className="actions">
-          <button onClick={() => void handleLoadAuditLogs()} type="button">
+          <button
+            onClick={async () => {
+              const response = await refreshAuditLogs();
+              if (response) {
+                setSelectedLogId(response.results[0]?.id ?? null);
+              }
+            }}
+            type="button"
+          >
             Refresh audit logs
           </button>
         </div>
 
-        <p className={`status ${auditState}`}>{auditSummary}</p>
+        <p className={`status ${auditListState}`}>{auditListSummary}</p>
 
         <div className="table-shell">
           <table>
@@ -125,7 +111,7 @@ export function AuditPage() {
                   <tr
                     className={log.id === selectedLog?.id ? "row-selected" : undefined}
                     key={log.id}
-                    onClick={() => void handleSelectLog(log.id)}
+                    onClick={() => setSelectedLogId(log.id)}
                   >
                     <td>{log.action}</td>
                     <td>{log.target}</td>
@@ -148,6 +134,7 @@ export function AuditPage() {
           <h2>Selected audit log</h2>
           <p>Inspect the actor, target, and structured detail payload for a single entry.</p>
         </div>
+        <p className={`status ${auditDetailState}`}>{auditDetailSummary}</p>
 
         {selectedLog ? (
           <div className="stack-grid">
@@ -172,14 +159,4 @@ export function AuditPage() {
       </section>
     </main>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

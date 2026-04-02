@@ -1,37 +1,33 @@
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../app/auth";
+import { useResourceDetail } from "../hooks/useResourceDetail";
 import { approveJob, getJob, rejectJob } from "../lib/api";
-import type { JobRecord, RequestState } from "../types";
+import { formatDateTime } from "../lib/format";
+import type { JobRecord } from "../types";
 
 export function AutomationDetailPage() {
   const { accessToken, baseUrl, profile } = useAuth();
   const { jobId } = useParams();
-  const [job, setJob] = useState<JobRecord | null>(null);
-  const [detailState, setDetailState] = useState<RequestState>("idle");
-  const [detailSummary, setDetailSummary] = useState("Load a job to inspect approval state.");
   const [comment, setComment] = useState("Reviewed in detail route.");
-
-  useEffect(() => {
-    void loadJob();
-  }, [jobId, accessToken, baseUrl]);
-
-  async function loadJob() {
-    if (!accessToken || !jobId) {
-      return;
-    }
-    setDetailState("loading");
-    setDetailSummary("Loading automation job detail ...");
-    try {
-      const response = await getJob(baseUrl, accessToken, Number(jobId));
-      setJob(response);
-      setDetailState("success");
-      setDetailSummary(`Loaded ${response.name} with ${response.approval_status} approval status.`);
-    } catch (error) {
-      setDetailState("error");
-      setDetailSummary((error as Error).message);
-    }
-  }
+  const numericJobId = jobId ? Number(jobId) : null;
+  const {
+    item: job,
+    setItem: setJob,
+    setState: setDetailState,
+    state: detailState,
+    setSummary: setDetailSummary,
+    summary: detailSummary,
+    refresh: refreshJob,
+  } = useResourceDetail<JobRecord>({
+    accessToken,
+    resourceId: numericJobId,
+    initialSummary: "Load a job to inspect approval state.",
+    missingTokenSummary: "Login is required before loading automation job detail.",
+    loadingSummary: (id) => `Loading automation job ${id} detail ...`,
+    successSummary: (response) => `Loaded ${response.name} with ${response.approval_status} approval status.`,
+    fetcher: (token, id) => getJob(baseUrl, token, id),
+  });
 
   async function handleAction(action: "approve" | "reject") {
     if (!accessToken || !job) {
@@ -69,7 +65,7 @@ export function AutomationDetailPage() {
           <Link className="button-link button-link-ghost" to="/automation">
             Back to automation list
           </Link>
-          <button onClick={() => void loadJob()} type="button">
+          <button onClick={() => void refreshJob()} type="button">
             Refresh detail
           </button>
         </div>
@@ -153,14 +149,4 @@ export function AutomationDetailPage() {
       </section>
     </main>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

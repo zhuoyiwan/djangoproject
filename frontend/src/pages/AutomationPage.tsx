@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../app/auth";
+import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { approveJob, createJob, getJobs, rejectJob } from "../lib/api";
-import type { JobCreateInput, JobQuery, JobRecord, PaginatedResponse, RequestState } from "../types";
+import { formatDateTime } from "../lib/format";
+import type { JobCreateInput, JobQuery, JobRecord } from "../types";
 
 const initialQuery: JobQuery = {
   search: "",
@@ -28,44 +30,27 @@ const initialForm: JobFormState = {
 export function AutomationPage() {
   const { accessToken, baseUrl, profile } = useAuth();
   const [query, setQuery] = useState<JobQuery>(initialQuery);
-  const [jobState, setJobState] = useState<RequestState>("idle");
-  const [jobSummary, setJobSummary] = useState("Load automation jobs to inspect approval flow state.");
-  const [jobPage, setJobPage] = useState<PaginatedResponse<JobRecord> | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [form, setForm] = useState(initialForm);
+  const [formError, setFormError] = useState<string | null>(null);
   const [approvalComment, setApprovalComment] = useState("Approved after reviewing risk and target.");
-
-  useEffect(() => {
-    if (!accessToken || jobPage) {
-      return;
-    }
-    void handleLoadJobs();
-  }, [accessToken]);
-
-  async function handleLoadJobs() {
-    if (!accessToken) {
-      setJobState("error");
-      setJobSummary("Login is required before querying automation jobs.");
-      return;
-    }
-    setJobState("loading");
-    setJobSummary("Loading automation jobs and approval state ...");
-    try {
-      const response = await getJobs(baseUrl, accessToken, query);
-      setJobPage(response);
-      setSelectedJobId(response.results[0]?.id ?? null);
-      setJobState("success");
-      setJobSummary(`Fetched ${response.results.length} jobs out of ${response.count}.`);
-    } catch (error) {
-      setJobState("error");
-      setJobSummary((error as Error).message);
-    }
-  }
+  const {
+    page: jobPage,
+    state: jobState,
+    summary: jobSummary,
+    refresh: refreshJobs,
+  } = usePaginatedResource<JobRecord, JobQuery>({
+    accessToken,
+    query,
+    initialSummary: "Load automation jobs to inspect approval flow state.",
+    missingTokenSummary: "Login is required before querying automation jobs.",
+    loadingSummary: "Loading automation jobs and approval state ...",
+    successSummary: (response) => `Fetched ${response.results.length} jobs out of ${response.count}.`,
+    fetcher: (token, activeQuery) => getJobs(baseUrl, token, activeQuery),
+  });
 
   async function handleCreateJob() {
     if (!accessToken) {
-      setJobState("error");
-      setJobSummary("Login is required before creating automation jobs.");
       return;
     }
 
@@ -73,13 +58,11 @@ export function AutomationPage() {
     try {
       payload = JSON.parse(form.payloadText) as Record<string, unknown>;
     } catch {
-      setJobState("error");
-      setJobSummary("Payload must be valid JSON before creating a job.");
+      setFormError("Payload JSON must be valid JSON before creating a job.");
       return;
     }
 
-    setJobState("loading");
-    setJobSummary("Creating automation job ...");
+    setFormError(null);
     try {
       const created = await createJob(baseUrl, accessToken, {
         name: form.name,
@@ -87,15 +70,14 @@ export function AutomationPage() {
         risk_level: form.risk_level,
         payload,
       });
-      await handleLoadJobs();
+      const response = await refreshJobs();
       setSelectedJobId(created.id);
-      setJobState("success");
-      setJobSummary(
-        `Created ${created.name} with ${created.risk_level} risk and ${created.approval_status} approval state.`,
-      );
+      if (response) {
+        setSelectedJobId(created.id);
+      }
     } catch (error) {
-      setJobState("error");
-      setJobSummary((error as Error).message);
+      setFormError((error as Error).message);
+      console.error(error);
     }
   }
 
@@ -103,20 +85,15 @@ export function AutomationPage() {
     if (!accessToken || !selectedJob) {
       return;
     }
-    setJobState("loading");
-    setJobSummary(`${action === "approve" ? "Approving" : "Rejecting"} job ${selectedJob.name} ...`);
     try {
       const response =
         action === "approve"
           ? await approveJob(baseUrl, accessToken, selectedJob.id, approvalComment)
           : await rejectJob(baseUrl, accessToken, selectedJob.id, approvalComment);
-      await handleLoadJobs();
+      await refreshJobs();
       setSelectedJobId(response.id);
-      setJobState("success");
-      setJobSummary(`Job ${response.name} is now ${response.approval_status}.`);
     } catch (error) {
-      setJobState("error");
-      setJobSummary((error as Error).message);
+      console.error(error);
     }
   }
 
@@ -164,7 +141,15 @@ export function AutomationPage() {
         </div>
 
         <div className="actions">
-          <button onClick={() => void handleLoadJobs()} type="button">
+          <button
+            onClick={async () => {
+              const response = await refreshJobs();
+              if (response) {
+                setSelectedJobId(response.results[0]?.id ?? null);
+              }
+            }}
+            type="button"
+          >
             Refresh jobs
           </button>
         </div>
@@ -263,6 +248,7 @@ export function AutomationPage() {
           <button onClick={() => void handleCreateJob()} type="button">
             Create job
           </button>
+          {formError ? <p className="status error">{formError}</p> : null}
         </div>
       </section>
 
@@ -367,14 +353,4 @@ export function AutomationPage() {
       </section>
     </main>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
