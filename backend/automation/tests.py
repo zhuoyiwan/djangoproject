@@ -94,6 +94,15 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
+    def test_unauthenticated_user_cannot_list_jobs(self):
+        Job.objects.create(name="sync-assets")
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get("/api/v1/automation/jobs/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
     def test_non_ops_cannot_create_job(self):
         response = self.client.post(
             "/api/v1/automation/jobs/",
