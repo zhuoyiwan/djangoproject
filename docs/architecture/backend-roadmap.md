@@ -126,10 +126,12 @@ Next hardening steps:
 - freeze enum values for CMDB statuses
 - keep schema synced with code
 
-### M2: Collector-ready ingestion
-- add signed ingestion endpoint for agent reports (HMAC-SHA256 + timestamp window)
-- support idempotent upsert by host identity
-- write ingestion-specific audit logs
+### M2: Collector-ready ingestion (implemented)
+- signed ingestion endpoint added: `POST /api/v1/cmdb/servers/agent-ingest/`
+- HMAC-SHA256 signature verification + timestamp tolerance window
+- replay detection enabled via cache key strategy
+- idempotent upsert by `(hostname, internal_ip)`
+- success/failure ingest events logged to audit trail
 
 ### M3: Approval-ready automation
 - extend automation job model for risk levels

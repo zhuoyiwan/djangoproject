@@ -1,8 +1,9 @@
 openapi: 3.0.3
 info:
   title: ChatOps CMDB Backend API
-  version: 0.1.0
-  description: Phase 1 backend API for auth, CMDB, audit, and automation modules.
+  version: 0.2.0
+  description: Phase 1 backend API for auth, CMDB, audit, automation, and agent signed
+    ingest.
 paths:
   /api/schema/:
     get:
@@ -850,6 +851,50 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/cmdb/servers/agent-ingest/:
+    post:
+      operationId: v1_cmdb_servers_agent_ingest_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentServerIngest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AgentServerIngest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AgentServerIngest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentIngestResponse'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentIngestResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Validation error
+        '401':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Authentication/signature error
   /api/v1/health/:
     get:
       operationId: v1_health_retrieve
@@ -941,6 +986,67 @@ paths:
           description: ''
 components:
   schemas:
+    AgentIngestResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        result:
+          $ref: '#/components/schemas/ResultEnum'
+        request_id:
+          type: string
+        server:
+          $ref: '#/components/schemas/Server'
+      required:
+      - ok
+      - request_id
+      - result
+      - server
+    AgentServerIngest:
+      type: object
+      properties:
+        hostname:
+          type: string
+          maxLength: 255
+        internal_ip:
+          type: string
+          format: ipv4
+        external_ip:
+          type: string
+          format: ipv4
+          nullable: true
+        os_version:
+          type: string
+          maxLength: 255
+        cpu_cores:
+          type: integer
+          minimum: 1
+        memory_gb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        disk_summary:
+          type: string
+        lifecycle_status:
+          $ref: '#/components/schemas/LifecycleStatusEnum'
+        environment:
+          $ref: '#/components/schemas/EnvironmentEnum'
+        idc_code:
+          type: string
+          maxLength: 64
+        last_seen_at:
+          type: string
+          format: date-time
+        metadata: {}
+      required:
+      - cpu_cores
+      - environment
+      - hostname
+      - idc_code
+      - internal_ip
+      - lifecycle_status
+      - memory_gb
+      - os_version
     AuditLog:
       type: object
       properties:
@@ -1315,6 +1421,14 @@ components:
       - id
       - password
       - username
+    ResultEnum:
+      enum:
+      - created
+      - updated
+      type: string
+      description: |-
+        * `created` - created
+        * `updated` - updated
     Server:
       type: object
       properties:

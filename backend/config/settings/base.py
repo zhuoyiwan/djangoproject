@@ -134,8 +134,14 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
+AGENT_INGEST_ENABLED = os.getenv("AGENT_INGEST_ENABLED", "False").lower() == "true"
+AGENT_INGEST_HMAC_KEY_ID = os.getenv("AGENT_INGEST_HMAC_KEY_ID", "agent-default")
+AGENT_INGEST_HMAC_SECRET = os.getenv("AGENT_INGEST_HMAC_SECRET", "")
+AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS = int(os.getenv("AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS", "300"))
+AGENT_INGEST_REPLAY_CACHE_PREFIX = os.getenv("AGENT_INGEST_REPLAY_CACHE_PREFIX", "agent_ingest:replay")
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "ChatOps CMDB Backend API",
-    "DESCRIPTION": "Phase 1 backend API for auth, CMDB, audit, and automation modules.",
-    "VERSION": "0.1.0",
+    "DESCRIPTION": "Phase 1 backend API for auth, CMDB, audit, automation, and agent signed ingest.",
+    "VERSION": "0.2.0",
 }

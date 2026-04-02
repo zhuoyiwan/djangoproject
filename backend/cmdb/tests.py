@@ -1,7 +1,12 @@
+import hashlib
+import hmac
+import json
+import time
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from .models import IDC, Server
@@ -69,3 +74,108 @@ class ServerApiTests(TestCase):
         response = self.client.get("/api/v1/cmdb/servers/?environment=prod")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
+
+
+@override_settings(
+    AGENT_INGEST_ENABLED=True,
+    AGENT_INGEST_HMAC_KEY_ID="agent-default",
+    AGENT_INGEST_HMAC_SECRET="agent-secret-for-tests",
+    AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS=300,
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "agent-ingest-tests",
+        }
+    },
+)
+class AgentIngestApiTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.idc = IDC.objects.create(code="cn-hz-1", name="Hangzhou IDC")
+
+    def _signed_headers(self, payload, timestamp=None, key_id="agent-default", secret="agent-secret-for-tests"):
+        ts = str(timestamp or int(time.time()))
+        body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        body_hash = hashlib.sha256(body).hexdigest()
+        canonical = f"POST\n/api/v1/cmdb/servers/agent-ingest/\n{ts}\n{body_hash}"
+        signature = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+        return {
+            "HTTP_X_AGENT_KEY_ID": key_id,
+            "HTTP_X_AGENT_TIMESTAMP": ts,
+            "HTTP_X_AGENT_SIGNATURE": f"sha256={signature}",
+            "content_type": "application/json",
+        }, body
+
+    def _base_payload(self):
+        return {
+            "hostname": "agent-host-01",
+            "internal_ip": "10.10.10.10",
+            "external_ip": "1.1.1.1",
+            "os_version": "Ubuntu 22.04",
+            "cpu_cores": 8,
+            "memory_gb": "32.00",
+            "disk_summary": "system:100G,data:500G",
+            "lifecycle_status": "online",
+            "environment": "prod",
+            "idc_code": "cn-hz-1",
+            "metadata": {"agent_version": "1.0.0"},
+        }
+
+    def test_agent_ingest_creates_server_with_valid_signature(self):
+        payload = self._base_payload()
+        headers, body = self._signed_headers(payload)
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["result"], "created")
+        self.assertEqual(Server.objects.count(), 1)
+
+    def test_agent_ingest_updates_existing_server(self):
+        payload = self._base_payload()
+        headers, body = self._signed_headers(payload)
+        first = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        self.assertEqual(first.status_code, 201)
+
+        payload["memory_gb"] = "64.00"
+        headers2, body2 = self._signed_headers(payload, timestamp=int(time.time()) + 1)
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body2, **headers2)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["result"], "updated")
+        self.assertEqual(Server.objects.count(), 1)
+
+    def test_agent_ingest_rejects_missing_headers(self):
+        payload = self._base_payload()
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=payload, format="json")
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+    def test_agent_ingest_rejects_invalid_signature(self):
+        payload = self._base_payload()
+        headers, body = self._signed_headers(payload, secret="wrong-secret")
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+    def test_agent_ingest_rejects_stale_timestamp(self):
+        payload = self._base_payload()
+        headers, body = self._signed_headers(payload, timestamp=int(time.time()) - 1000)
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+    def test_agent_ingest_rejects_replay(self):
+        payload = self._base_payload()
+        headers, body = self._signed_headers(payload)
+        first = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        second = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 401)
+
+    def test_agent_ingest_rejects_unknown_idc_code(self):
+        payload = self._base_payload()
+        payload["idc_code"] = "not-exists"
+        headers, body = self._signed_headers(payload)
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")

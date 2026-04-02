@@ -14,6 +14,19 @@
 - Protected endpoints require header:
   - `Authorization: Bearer <access_token>`
 
+### Agent signed ingestion authentication
+- Endpoint: `POST /api/v1/cmdb/servers/agent-ingest/`
+- Required headers:
+  - `X-Agent-Key-Id`
+  - `X-Agent-Timestamp` (unix seconds)
+  - `X-Agent-Signature` (`sha256=<hex_digest>`)
+- Signature canonical string:
+  - `METHOD + "\\n" + PATH + "\\n" + TIMESTAMP + "\\n" + SHA256(raw_body_bytes)`
+- Timestamp validation:
+  - default tolerance is `300` seconds (`AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS`)
+- Replay protection:
+  - server rejects duplicate signed payloads in tolerance window via cache key
+
 ## Response and error format
 - List endpoints follow DRF page response shape:
   - `count`

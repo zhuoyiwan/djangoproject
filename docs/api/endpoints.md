@@ -30,6 +30,7 @@
 - `PUT /api/v1/cmdb/servers/{id}/`
 - `PATCH /api/v1/cmdb/servers/{id}/`
 - `DELETE /api/v1/cmdb/servers/{id}/`
+- `POST /api/v1/cmdb/servers/agent-ingest/` (HMAC-signed machine ingest)
 
 ## Audit
 - `GET /api/v1/audit/logs/`
