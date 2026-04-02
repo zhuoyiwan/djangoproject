@@ -1148,6 +1148,7 @@ class JobApiTests(TestCase):
             execution_metadata={"run_id": "run-123"},
             completed_at=timezone.now(),
             failed_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
             last_reported_by_agent_key="automation-agent-default",
         )
 
@@ -1159,6 +1160,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["execution_metadata"], {})
         self.assertIsNone(response.data["completed_at"])
         self.assertIsNone(response.data["failed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
@@ -1166,6 +1168,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.execution_metadata, {})
         self.assertIsNone(job.completed_at)
         self.assertIsNone(job.failed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_cannot_mark_pending_high_risk_job_ready(self):
@@ -1384,6 +1387,7 @@ class JobApiTests(TestCase):
             execution_summary="stale summary",
             execution_metadata={"run_id": "run-123"},
             failed_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
             last_reported_by_agent_key="automation-agent-default",
         )
 
@@ -1399,6 +1403,7 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["claimed_at"])
         self.assertEqual(response.data["execution_summary"], "")
         self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
@@ -1408,6 +1413,7 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.claimed_at)
         self.assertEqual(job.execution_summary, "")
         self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_non_claimant_ops_admin_cannot_complete_claimed_job(self):
@@ -1486,6 +1492,7 @@ class JobApiTests(TestCase):
             execution_summary="stale summary",
             execution_metadata={"run_id": "run-123"},
             completed_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
             last_reported_by_agent_key="automation-agent-default",
         )
 
@@ -1501,6 +1508,7 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["claimed_at"])
         self.assertEqual(response.data["execution_summary"], "")
         self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
@@ -1510,6 +1518,7 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.claimed_at)
         self.assertEqual(job.execution_summary, "")
         self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_non_claimant_ops_admin_cannot_fail_claimed_job(self):
@@ -1608,6 +1617,7 @@ class JobApiTests(TestCase):
             execution_metadata={"run_id": "run-123"},
             completed_at=timezone.now(),
             failed_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
             last_reported_by_agent_key="automation-agent-default",
         )
 
@@ -1621,6 +1631,7 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["claimed_at"])
         self.assertEqual(response.data["execution_summary"], "")
         self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
@@ -1630,6 +1641,7 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.claimed_at)
         self.assertEqual(job.execution_summary, "")
         self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_non_ops_cannot_complete_claimed_job(self):
