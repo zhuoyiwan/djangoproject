@@ -1,0 +1,21 @@
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
+from accounts.views import UserViewSet
+from audit.views import AuditLogViewSet
+from cmdb.views import IDCViewSet, ServerViewSet
+from core.views import HealthcheckView
+from automation.views import JobViewSet
+
+router = DefaultRouter()
+router.register("users", UserViewSet, basename="user")
+router.register("cmdb/idcs", IDCViewSet, basename="idc")
+router.register("cmdb/servers", ServerViewSet, basename="server")
+router.register("audit/logs", AuditLogViewSet, basename="audit-log")
+router.register("automation/jobs", JobViewSet, basename="job")
+
+urlpatterns = [
+    path("auth/", include("accounts.urls")),
+    path("health/", HealthcheckView.as_view(), name="api-healthcheck"),
+    path("", include(router.urls)),
+]

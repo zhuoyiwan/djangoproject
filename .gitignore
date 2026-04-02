@@ -1,0 +1,51 @@
+# Secrets and local-only config
+.info.config
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Django / local runtime
+*.log
+staticfiles/
+media/
+local_settings.py
+instance/
+
+# Databases
+*.sqlite3
+*.db
+/db.sqlite3
+
+# Redis
+redis-data/
+
+# Frontend build artifacts
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+coverage/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,1466 @@
+openapi: 3.0.3
+info:
+  title: ChatOps CMDB Backend API
+  version: 0.1.0
+  description: Phase 1 backend API for auth, CMDB, audit, and automation modules.
+paths:
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/audit/logs/:
+    get:
+      operationId: v1_audit_logs_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+  /api/v1/audit/logs/{id}/:
+    get:
+      operationId: v1_audit_logs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this audit log.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: v1_auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/me/:
+    get:
+      operationId: v1_auth_me_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: v1_auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: v1_auth_register_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /api/v1/automation/jobs/:
+    get:
+      operationId: v1_automation_jobs_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedJobList'
+          description: ''
+    post:
+      operationId: v1_automation_jobs_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Job'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Job'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Job'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+  /api/v1/automation/jobs/{id}/:
+    get:
+      operationId: v1_automation_jobs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+    put:
+      operationId: v1_automation_jobs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Job'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Job'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Job'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+    patch:
+      operationId: v1_automation_jobs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedJob'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedJob'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedJob'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+    delete:
+      operationId: v1_automation_jobs_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/cmdb/idcs/:
+    get:
+      operationId: v1_cmdb_idcs_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIDCList'
+          description: ''
+    post:
+      operationId: v1_cmdb_idcs_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IDC'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IDC'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IDC'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDC'
+          description: ''
+  /api/v1/cmdb/idcs/{id}/:
+    get:
+      operationId: v1_cmdb_idcs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this idc.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDC'
+          description: ''
+    put:
+      operationId: v1_cmdb_idcs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this idc.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IDC'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IDC'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IDC'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDC'
+          description: ''
+    patch:
+      operationId: v1_cmdb_idcs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this idc.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIDC'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIDC'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIDC'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDC'
+          description: ''
+    delete:
+      operationId: v1_cmdb_idcs_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this idc.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/cmdb/servers/:
+    get:
+      operationId: v1_cmdb_servers_list
+      parameters:
+      - in: query
+        name: environment
+        schema:
+          type: string
+          enum:
+          - dev
+          - prod
+          - test
+        description: |-
+          * `dev` - dev
+          * `test` - test
+          * `prod` - prod
+      - in: query
+        name: external_ip
+        schema:
+          type: string
+      - in: query
+        name: hostname
+        schema:
+          type: string
+      - in: query
+        name: idc
+        schema:
+          type: integer
+      - in: query
+        name: internal_ip
+        schema:
+          type: string
+      - in: query
+        name: lifecycle_status
+        schema:
+          type: string
+          enum:
+          - maintenance
+          - offline
+          - online
+          - pre_allocated
+        description: |-
+          * `online` - online
+          * `offline` - offline
+          * `maintenance` - maintenance
+          * `pre_allocated` - pre_allocated
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: source
+        schema:
+          type: string
+          enum:
+          - agent
+          - api
+          - manual
+        description: |-
+          * `manual` - manual
+          * `agent` - agent
+          * `api` - api
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedServerList'
+          description: ''
+    post:
+      operationId: v1_cmdb_servers_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Server'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Server'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Server'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+          description: ''
+  /api/v1/cmdb/servers/{id}/:
+    get:
+      operationId: v1_cmdb_servers_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this server.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+          description: ''
+    put:
+      operationId: v1_cmdb_servers_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this server.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Server'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Server'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Server'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+          description: ''
+    patch:
+      operationId: v1_cmdb_servers_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this server.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedServer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedServer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedServer'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+          description: ''
+    delete:
+      operationId: v1_cmdb_servers_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this server.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/health/:
+    get:
+      operationId: v1_health_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Healthcheck'
+          description: ''
+  /api/v1/users/:
+    get:
+      operationId: v1_users_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserList'
+          description: ''
+  /api/v1/users/{id}/:
+    get:
+      operationId: v1_users_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/me/:
+    get:
+      operationId: v1_users_me_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        actor:
+          type: integer
+          nullable: true
+        actor_username:
+          type: string
+          readOnly: true
+        action:
+          type: string
+          maxLength: 128
+        target:
+          type: string
+          maxLength: 255
+        detail: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor_username
+      - created_at
+      - id
+      - target
+      - updated_at
+    EnvironmentEnum:
+      enum:
+      - dev
+      - test
+      - prod
+      type: string
+      description: |-
+        * `dev` - dev
+        * `test` - test
+        * `prod` - prod
+    Healthcheck:
+      type: object
+      properties:
+        status:
+          type: string
+        request_id:
+          type: string
+      required:
+      - request_id
+      - status
+    IDC:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - id
+      - name
+      - updated_at
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        status:
+          type: string
+          maxLength: 32
+        payload: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - updated_at
+    LifecycleStatusEnum:
+      enum:
+      - online
+      - offline
+      - maintenance
+      - pre_allocated
+      type: string
+      description: |-
+        * `online` - online
+        * `offline` - offline
+        * `maintenance` - maintenance
+        * `pre_allocated` - pre_allocated
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+    PaginatedIDCList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IDC'
+    PaginatedJobList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+    PaginatedServerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Server'
+    PaginatedUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    PatchedIDC:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedJob:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        status:
+          type: string
+          maxLength: 32
+        payload: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedServer:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        hostname:
+          type: string
+          maxLength: 255
+        internal_ip:
+          type: string
+        external_ip:
+          type: string
+          nullable: true
+        os_version:
+          type: string
+          maxLength: 255
+        cpu_cores:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        memory_gb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        disk_summary:
+          type: string
+        lifecycle_status:
+          $ref: '#/components/schemas/LifecycleStatusEnum'
+        environment:
+          $ref: '#/components/schemas/EnvironmentEnum'
+        idc:
+          type: integer
+        idc_name:
+          type: string
+          readOnly: true
+        source:
+          $ref: '#/components/schemas/SourceEnum'
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    Register:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        display_name:
+          type: string
+          maxLength: 150
+      required:
+      - id
+      - password
+      - username
+    Server:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        hostname:
+          type: string
+          maxLength: 255
+        internal_ip:
+          type: string
+        external_ip:
+          type: string
+          nullable: true
+        os_version:
+          type: string
+          maxLength: 255
+        cpu_cores:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        memory_gb:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        disk_summary:
+          type: string
+        lifecycle_status:
+          $ref: '#/components/schemas/LifecycleStatusEnum'
+        environment:
+          $ref: '#/components/schemas/EnvironmentEnum'
+        idc:
+          type: integer
+        idc_name:
+          type: string
+          readOnly: true
+        source:
+          $ref: '#/components/schemas/SourceEnum'
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - cpu_cores
+      - created_at
+      - hostname
+      - id
+      - idc
+      - idc_name
+      - internal_ip
+      - memory_gb
+      - os_version
+      - updated_at
+    SourceEnum:
+      enum:
+      - manual
+      - agent
+      - api
+      type: string
+      description: |-
+        * `manual` - manual
+        * `agent` - agent
+        * `api` - api
+    StatusEnum:
+      enum:
+      - active
+      - maintenance
+      - inactive
+      type: string
+      description: |-
+        * `active` - active
+        * `maintenance` - maintenance
+        * `inactive` - inactive
+    TokenObtainPair:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - password
+      - refresh
+      - username
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - access
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        display_name:
+          type: string
+          maxLength: 150
+      required:
+      - id
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
