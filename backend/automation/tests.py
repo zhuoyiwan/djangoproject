@@ -1069,6 +1069,27 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
         self.assertEqual(response.status_code, 403)
 
+    def test_platform_admin_can_mark_low_risk_job_ready(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["ready_by"], self.platform_admin.id)
+
+        audit = AuditLog.objects.get(action="automation.job.ready_marked")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["ready_by"], self.platform_admin.id)
+        self.assertEqual(audit.detail["comment"], "ready")
+
     def test_non_ops_cannot_claim_ready_job(self):
         job = Job.objects.create(
             name="sync-assets",
@@ -1104,6 +1125,28 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["claimed_by"], self.user.id)
         self.assertEqual(audit.detail["comment"], "claim")
         self.assertIn("request_id", audit.detail)
+
+    def test_platform_admin_can_claim_ready_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["claimed_by"], self.platform_admin.id)
+
+        audit = AuditLog.objects.get(action="automation.job.claimed")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], self.platform_admin.id)
+        self.assertEqual(audit.detail["comment"], "claim")
 
     def test_claim_clears_ready_metadata(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -1386,6 +1429,27 @@ class JobApiTests(TestCase):
         )
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
         self.assertEqual(response.status_code, 403)
+
+    def test_platform_admin_can_cancel_ready_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CANCELED)
+
+        audit = AuditLog.objects.get(action="automation.job.canceled")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertIsNone(audit.detail["claimed_by"])
+        self.assertEqual(audit.detail["comment"], "stop")
 
     def test_cancel_clears_ready_claim_and_stale_execution_report_fields(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
