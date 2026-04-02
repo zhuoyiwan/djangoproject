@@ -9,6 +9,7 @@ from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
@@ -57,6 +58,44 @@ class JobHandoffAdapterTests(TestCase):
         self.assertEqual(response.data["items"][0]["id"], job.id)
         self.assertEqual(response.data["items"][0]["ready_by_username"], "alice")
         self.assertEqual(response.data["items"][0]["payload"], {"target": "prod"})
+
+
+@override_settings(
+    AUTOMATION_AGENT_CLAIM_ENABLED=True,
+    AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID="automation-agent-default",
+    AUTOMATION_AGENT_CLAIM_HMAC_SECRET="automation-agent-secret-for-tests",
+    AUTOMATION_AGENT_CLAIM_HMAC_KEYS=TEST_AGENT_KEYS,
+    AUTOMATION_AGENT_CLAIM_TIMESTAMP_TOLERANCE_SECONDS=300,
+    AUTOMATION_AGENT_REPORT_ENABLED=True,
+    AUTOMATION_AGENT_REPORT_HMAC_KEY_ID="automation-agent-default",
+    AUTOMATION_AGENT_REPORT_HMAC_SECRET="automation-agent-secret-for-tests",
+    AUTOMATION_AGENT_REPORT_HMAC_KEYS=TEST_AGENT_KEYS,
+    AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS=300,
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "automation-job-api-tests",
+        }
+    }
+)
+class AutomationOpenApiTests(TestCase):
+    def test_schema_exposes_agent_claim_hmac_security_scheme(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        security_schemes = schema["components"]["securitySchemes"]
+        self.assertIn("automationAgentClaimHmacAuth", security_schemes)
+        self.assertEqual(security_schemes["automationAgentClaimHmacAuth"]["name"], "X-Agent-Signature")
+        operation = schema["paths"]["/api/v1/automation/jobs/{id}/agent-claim/"]["post"]
+        self.assertEqual(operation["security"], [{"automationAgentClaimHmacAuth": []}])
+
+    def test_schema_exposes_agent_report_hmac_security_scheme(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        security_schemes = schema["components"]["securitySchemes"]
+        self.assertIn("automationAgentHmacAuth", security_schemes)
+        self.assertEqual(security_schemes["automationAgentHmacAuth"]["name"], "X-Agent-Signature")
+        operation = schema["paths"]["/api/v1/automation/jobs/{id}/agent-report/"]["post"]
+        self.assertEqual(operation["security"], [{"automationAgentHmacAuth": []}])
 
 
 @override_settings(
