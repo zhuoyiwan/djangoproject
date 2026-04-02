@@ -1273,3 +1273,127 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.data["error"]["code"], "unauthorized")
         self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").exists())
+
+    def test_agent_report_rejects_replay_request(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED, "summary": "completed by executor"}
+        headers, body = self._agent_report_signed_headers(job.id, payload, timestamp=int(time.time()))
+
+        self.client.force_authenticate(user=None)
+        first = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+        second = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 401)
+        self.assertEqual(second.data["error"]["code"], "unauthorized")
+
+        audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.detail["reason"], "replay_detected")
+
+    def test_agent_report_rejects_stale_timestamp(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        stale_timestamp = int(time.time()) - 1000
+        headers, body = self._agent_report_signed_headers(job.id, payload, timestamp=stale_timestamp)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+        audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.detail["reason"], "stale_timestamp")
+
+    def test_agent_report_rejects_missing_signature_headers(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(
+            f"/api/v1/automation/jobs/{job.id}/agent-report/",
+            data=json.dumps({"outcome": JobExecutionStatus.COMPLETED}).encode("utf-8"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+        audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.detail["reason"], "missing_headers")
+
+    @override_settings(AUTOMATION_AGENT_REPORT_ENABLED=False)
+    def test_agent_report_rejects_when_disabled(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
+        audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.detail["reason"], "agent_report_disabled")
+
+    def test_agent_report_is_throttled_after_rate_limit(self):
+        first_job = Job.objects.create(
+            name="sync-assets-1",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        second_job = Job.objects.create(
+            name="sync-assets-2",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        third_job = Job.objects.create(
+            name="sync-assets-3",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+
+        first_headers, first_body = self._agent_report_signed_headers(first_job.id, {"outcome": JobExecutionStatus.COMPLETED}, timestamp=int(time.time()))
+        second_headers, second_body = self._agent_report_signed_headers(second_job.id, {"outcome": JobExecutionStatus.COMPLETED}, timestamp=int(time.time()) + 1)
+        third_headers, third_body = self._agent_report_signed_headers(third_job.id, {"outcome": JobExecutionStatus.COMPLETED}, timestamp=int(time.time()) + 2)
+
+        self.client.force_authenticate(user=None)
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "agent_report": "2/min"}}):
+            first = self.client.post(f"/api/v1/automation/jobs/{first_job.id}/agent-report/", data=first_body, **first_headers)
+            second = self.client.post(f"/api/v1/automation/jobs/{second_job.id}/agent-report/", data=second_body, **second_headers)
+            third = self.client.post(f"/api/v1/automation/jobs/{third_job.id}/agent-report/", data=third_body, **third_headers)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
