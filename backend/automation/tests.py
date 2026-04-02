@@ -1516,8 +1516,12 @@ class JobApiTests(TestCase):
 
         audit = AuditLog.objects.get(action="automation.job.agent_reported_completed")
         self.assertEqual(audit.actor, None)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
         self.assertEqual(audit.detail["agent_key_id"], "automation-agent-default")
         self.assertEqual(audit.detail["status"], JobExecutionStatus.COMPLETED)
+        self.assertEqual(audit.detail["summary"], "completed by executor")
+        self.assertEqual(audit.detail["metadata"], {"run_id": "run-123", "duration_seconds": 14})
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_fails_claimed_job(self):
         job = Job.objects.create(
@@ -1535,9 +1539,26 @@ class JobApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+        self.assertEqual(response.data["execution_summary"], "executor failed")
+        self.assertEqual(response.data["execution_metadata"], {"error_code": "timeout"})
+        self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
         self.assertIsNotNone(response.data["failed_at"])
         self.assertIsNone(response.data["completed_at"])
-        self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_reported_failed").exists())
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobExecutionStatus.FAILED)
+        self.assertEqual(job.execution_summary, "executor failed")
+        self.assertEqual(job.execution_metadata, {"error_code": "timeout"})
+        self.assertEqual(job.last_reported_by_agent_key, "automation-agent-default")
+
+        audit = AuditLog.objects.get(action="automation.job.agent_reported_failed")
+        self.assertEqual(audit.actor, None)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["agent_key_id"], "automation-agent-default")
+        self.assertEqual(audit.detail["status"], JobExecutionStatus.FAILED)
+        self.assertEqual(audit.detail["summary"], "executor failed")
+        self.assertEqual(audit.detail["metadata"], {"error_code": "timeout"})
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_requires_claimed_status(self):
         job = Job.objects.create(
