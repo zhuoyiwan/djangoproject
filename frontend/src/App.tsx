@@ -4,6 +4,7 @@ import { AppLayout } from "./app/AppLayout";
 import { RequireAuth } from "./app/RequireAuth";
 import { ContractPage } from "./pages/ContractPage";
 import { LoginPage } from "./pages/LoginPage";
+import { AutomationPage } from "./pages/AutomationPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ServersPage } from "./pages/ServersPage";
 
@@ -23,6 +24,7 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/overview" element={<OverviewPage />} />
             <Route path="/servers" element={<ServersPage />} />
+            <Route path="/automation" element={<AutomationPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

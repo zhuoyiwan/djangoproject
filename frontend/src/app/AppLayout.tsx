@@ -39,6 +39,9 @@ export function AppLayout() {
         <NavLink to="/servers" className={({ isActive }) => navClassName(isActive)}>
           CMDB
         </NavLink>
+        <NavLink to="/automation" className={({ isActive }) => navClassName(isActive)}>
+          Automation
+        </NavLink>
         <NavLink to="/contract" className={({ isActive }) => navClassName(isActive)}>
           Contract
         </NavLink>

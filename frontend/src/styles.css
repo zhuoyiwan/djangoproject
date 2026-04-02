@@ -372,6 +372,11 @@ textarea {
   border-radius: 22px;
 }
 
+.code-input {
+  min-height: 140px;
+  font-family: Consolas, "Courier New", monospace;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -408,6 +413,36 @@ tbody tr {
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text-muted);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f4f1e8;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pill.pending {
+  background: rgba(255, 191, 71, 0.18);
+  color: var(--accent);
+}
+
+.pill.approved,
+.pill.not_required {
+  background: rgba(135, 255, 190, 0.15);
+  color: var(--success);
+}
+
+.pill.rejected {
+  background: rgba(255, 156, 137, 0.14);
+  color: var(--error);
 }
 
 @media (max-width: 960px) {

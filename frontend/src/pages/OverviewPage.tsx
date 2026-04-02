@@ -59,6 +59,9 @@ export function OverviewPage() {
           <Link className="button-link" to="/servers">
             Open CMDB workspace
           </Link>
+          <Link className="button-link" to="/automation">
+            Open automation workspace
+          </Link>
           <Link className="button-link button-link-ghost" to="/contract">
             Review contract
           </Link>

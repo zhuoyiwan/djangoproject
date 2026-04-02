@@ -17,7 +17,11 @@ export const contractHighlights = [
   },
   {
     title: "RBAC Summary",
-    body: "platform_admin can query users and audits, ops_admin can mutate CMDB resources, auditor can read audit logs, and viewer stays read-only on CMDB endpoints.",
+    body: "platform_admin can manage across domains, ops_admin can mutate CMDB resources and automation jobs, approver handles high-risk job decisions, auditor reads audit logs, and viewer stays read-only.",
+  },
+  {
+    title: "Automation Approval",
+    body: "High-risk automation jobs enter pending approval and expose explicit approve/reject actions. Requesters cannot approve their own jobs.",
   },
 ];
 
@@ -45,6 +49,8 @@ export const endpointGroups = [
       "GET /api/v1/audit/logs/  (auditor | platform_admin)",
       "GET /api/v1/automation/jobs/",
       "POST /api/v1/automation/jobs/",
+      "POST /api/v1/automation/jobs/{id}/approve/",
+      "POST /api/v1/automation/jobs/{id}/reject/",
     ],
   },
   {

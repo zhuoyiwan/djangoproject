@@ -1,6 +1,9 @@
 import type {
   ApiErrorShape,
   AuthTokens,
+  JobCreateInput,
+  JobQuery,
+  JobRecord,
   PaginatedResponse,
   ServerQuery,
   ServerRecord,
@@ -14,6 +17,17 @@ function joinUrl(baseUrl: string, path: string) {
 }
 
 function buildQuery(params: ServerQuery) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      search.set(key, value);
+    }
+  }
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
+
+function buildListQuery(params: Record<string, string | undefined>) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value) {
@@ -85,4 +99,34 @@ export async function getServers(baseUrl: string, token: string, query: ServerQu
     {},
     token,
   );
+}
+
+export async function getJobs(baseUrl: string, token: string, query: JobQuery) {
+  return request<PaginatedResponse<JobRecord>>(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/${buildListQuery(query)}`,
+    {},
+    token,
+  );
+}
+
+export async function createJob(baseUrl: string, token: string, payload: JobCreateInput) {
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, token);
+}
+
+export async function approveJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/approve/`, {
+    method: "POST",
+    body: JSON.stringify({ comment }),
+  }, token);
+}
+
+export async function rejectJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/reject/`, {
+    method: "POST",
+    body: JSON.stringify({ comment }),
+  }, token);
 }

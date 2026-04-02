@@ -22,6 +22,8 @@ This frontend is a contract-first React + Vite workspace for the ChatOps CMDB pr
 - current user lookup
 - overview page with backend health probe
 - CMDB server list query with selectable detail panel
+- automation job list with approval-state detail panel
+- automation job creation form and approve/reject actions
 - RBAC summary synced from backend conventions
 - embedded API contract summary for frontend collaboration
 
@@ -30,4 +32,5 @@ This frontend is a contract-first React + Vite workspace for the ChatOps CMDB pr
 - `/login`
 - `/overview`
 - `/servers`
+- `/automation`
 - `/contract`
