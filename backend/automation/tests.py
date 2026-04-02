@@ -429,6 +429,54 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["id"], claimed_job.id)
         self.assertEqual(response.data["items"][0]["claimed_by_username"], "alice")
 
+    def test_handoff_supports_risk_and_approval_filters(self):
+        matching_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=self.user,
+        )
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?risk_level=high&approval_status=approved")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["query"]["risk_level"], JobRiskLevel.HIGH)
+        self.assertEqual(response.data["query"]["approval_status"], JobApprovalStatus.APPROVED)
+
+    def test_handoff_supports_combined_status_and_risk_filters(self):
+        matching_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            claimed_by=self.user,
+        )
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=claimed&risk_level=high")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["query"]["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["query"]["risk_level"], JobRiskLevel.HIGH)
+
     def test_handoff_does_not_mark_exact_limit_as_truncated(self):
         Job.objects.create(
             name="ready-job-1",
@@ -737,6 +785,29 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_mark_ready_and_claim_write_audit_entries(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        ready_job = Job.objects.create(
+            name="ready-job",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        claim_job = Job.objects.create(
+            name="claim-job",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        ready = self.client.post(f"/api/v1/automation/jobs/{ready_job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(ready.status_code, 200)
+        claim = self.client.post(f"/api/v1/automation/jobs/{claim_job.id}/claim/", {"comment": "claim"}, format="json")
+        self.assertEqual(claim.status_code, 200)
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.ready_marked").exists())
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.claimed").exists())
 
     def test_execution_terminal_actions_write_audit_entries(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
