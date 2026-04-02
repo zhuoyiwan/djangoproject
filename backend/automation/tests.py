@@ -2124,8 +2124,11 @@ class JobApiTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").exists())
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "invalid_signature")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
         self.assertEqual(audit.detail["status_code"], 401)
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_claim_rejects_unknown_key_id(self):
         job = Job.objects.create(
@@ -2145,7 +2148,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:unknown-agent")
         self.assertEqual(audit.detail["reason"], "unknown_key_id")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_claim_rejects_invalid_timestamp_format(self):
         job = Job.objects.create(
@@ -2166,7 +2172,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "invalid_timestamp")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_claim_rejects_stale_timestamp(self):
         job = Job.objects.create(
@@ -2187,7 +2196,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "stale_timestamp")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_claim_rejects_missing_signature_headers(self):
         job = Job.objects.create(
@@ -2209,7 +2221,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:unknown")
         self.assertEqual(audit.detail["reason"], "missing_headers")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_claim_rejects_replay_request(self):
         job = Job.objects.create(
@@ -2231,7 +2246,10 @@ class JobApiTests(TestCase):
         self.assertEqual(second.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "replay_detected")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
+        self.assertIn("request_id", audit.detail)
 
     @override_settings(AUTOMATION_AGENT_CLAIM_ENABLED=False)
     def test_agent_claim_rejects_when_disabled(self):
@@ -2252,7 +2270,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_claim.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:disabled")
         self.assertEqual(audit.detail["reason"], "agent_claim_disabled")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_claim_is_throttled_after_rate_limit(self):
         first_job = Job.objects.create(
@@ -2537,8 +2558,11 @@ class JobApiTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").exists())
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "invalid_signature")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
         self.assertEqual(audit.detail["status_code"], 401)
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_rejects_unknown_key_id(self):
         job = Job.objects.create(
@@ -2558,7 +2582,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:unknown-agent")
         self.assertEqual(audit.detail["reason"], "unknown_key_id")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_rejects_invalid_timestamp_format(self):
         job = Job.objects.create(
@@ -2579,7 +2606,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "invalid_timestamp")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_rejects_replay_request(self):
         job = Job.objects.create(
@@ -2601,7 +2631,10 @@ class JobApiTests(TestCase):
         self.assertEqual(second.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "replay_detected")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_rejects_stale_timestamp(self):
         job = Job.objects.create(
@@ -2622,7 +2655,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:automation-agent-default")
         self.assertEqual(audit.detail["reason"], "stale_timestamp")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_rejects_missing_signature_headers(self):
         job = Job.objects.create(
@@ -2644,7 +2680,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:unknown")
         self.assertEqual(audit.detail["reason"], "missing_headers")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
+        self.assertIn("request_id", audit.detail)
 
     @override_settings(AUTOMATION_AGENT_REPORT_ENABLED=False)
     def test_agent_report_rejects_when_disabled(self):
@@ -2665,7 +2704,10 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
         audit = AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").latest("id")
+        self.assertEqual(audit.target, "agent:disabled")
         self.assertEqual(audit.detail["reason"], "agent_report_disabled")
+        self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
+        self.assertIn("request_id", audit.detail)
 
     def test_agent_report_is_throttled_after_rate_limit(self):
         first_job = Job.objects.create(
