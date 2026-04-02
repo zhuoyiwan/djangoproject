@@ -1,0 +1,88 @@
+import type {
+  ApiErrorShape,
+  AuthTokens,
+  PaginatedResponse,
+  ServerQuery,
+  ServerRecord,
+  UserProfile,
+} from "../types";
+
+const API_PREFIX = "/api/v1";
+
+function joinUrl(baseUrl: string, path: string) {
+  return `${baseUrl.replace(/\/$/, "")}${path}`;
+}
+
+function buildQuery(params: ServerQuery) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      search.set(key, value);
+    }
+  }
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
+
+async function request<T>(
+  baseUrl: string,
+  path: string,
+  init: RequestInit = {},
+  token?: string,
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (!headers.has("Content-Type") && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(joinUrl(baseUrl, path), {
+    ...init,
+    headers,
+  });
+
+  if (!response.ok) {
+    let payload: ApiErrorShape | undefined;
+    try {
+      payload = (await response.json()) as ApiErrorShape;
+    } catch {
+      payload = undefined;
+    }
+    const message =
+      payload?.error?.message ||
+      `Request failed with ${response.status} ${response.statusText}`;
+    throw new Error(message);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return (await response.json()) as T;
+}
+
+export async function getHealth(baseUrl: string) {
+  return request<Record<string, unknown>>(baseUrl, "/api/v1/health/");
+}
+
+export async function login(baseUrl: string, username: string, password: string) {
+  return request<AuthTokens>(baseUrl, `${API_PREFIX}/auth/login/`, {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function getCurrentUser(baseUrl: string, token: string) {
+  return request<UserProfile>(baseUrl, `${API_PREFIX}/auth/me/`, {}, token);
+}
+
+export async function getServers(baseUrl: string, token: string, query: ServerQuery) {
+  return request<PaginatedResponse<ServerRecord>>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/${buildQuery(query)}`,
+    {},
+    token,
+  );
+}
