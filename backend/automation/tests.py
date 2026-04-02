@@ -576,6 +576,12 @@ class JobApiTests(TestCase):
             approval_status=JobApprovalStatus.NOT_REQUIRED,
             ready_by=self.user,
         )
+        Job.objects.create(
+            name="approved-draft",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
 
         response = self.client.get("/api/v1/automation/jobs/handoff/?risk_level=high&approval_status=approved")
 

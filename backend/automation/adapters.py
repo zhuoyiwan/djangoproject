@@ -19,6 +19,7 @@ class JobHandoffQuerySerializer(serializers.Serializer):
 
     def filter_queryset(self, queryset):
         data = self.validated_data
+        queryset = queryset.filter(status__in=(JobExecutionStatus.READY, JobExecutionStatus.CLAIMED))
         if status := data.get("status"):
             queryset = queryset.filter(status=status)
         if risk_level := data.get("risk_level"):
