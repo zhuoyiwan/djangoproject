@@ -38,6 +38,7 @@
 
 ## Automation
 - `GET /api/v1/automation/jobs/`
+- `GET /api/v1/automation/jobs/tool-query/` (normalized read-only tool query)
 - `POST /api/v1/automation/jobs/`
 - `GET /api/v1/automation/jobs/{id}/`
 - `PUT /api/v1/automation/jobs/{id}/`

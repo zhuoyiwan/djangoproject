@@ -138,6 +138,60 @@ class JobApiTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="automation.job.created").exists())
         self.assertTrue(AuditLog.objects.filter(action="automation.job.approval_requested").exists())
 
+    def test_tool_query_requires_at_least_one_filter(self):
+        response = self.client.get("/api/v1/automation/jobs/tool-query/")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_tool_query_returns_normalized_matches(self):
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            approved_by=self.approver,
+        )
+        Job.objects.create(
+            name="sync-dev",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart&limit=5")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["summary"]["count"], 1)
+        self.assertEqual(response.data["summary"]["returned"], 1)
+        self.assertFalse(response.data["summary"]["truncated"])
+        self.assertEqual(response.data["query"]["q"], "restart")
+        self.assertEqual(response.data["query"]["limit"], 5)
+        self.assertEqual(response.data["items"][0]["name"], "restart-prod")
+        self.assertEqual(response.data["items"][0]["approval_status"], JobApprovalStatus.APPROVED)
+        self.assertEqual(response.data["items"][0]["approved_by_username"], "bob")
+
+    def test_tool_query_supports_structured_filters(self):
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?risk_level=high&approval_status=pending")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["name"], "restart-prod")
+
     def test_ops_admin_can_mark_low_risk_job_ready(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(

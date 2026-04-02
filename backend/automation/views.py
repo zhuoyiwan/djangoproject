@@ -1,5 +1,5 @@
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 from rest_framework import filters, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -9,7 +9,14 @@ from audit.models import AuditLog
 from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
 
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
-from .serializers import JobApprovalActionSerializer, JobExecutionActionSerializer, JobSerializer
+from .serializers import (
+    JobApprovalActionSerializer,
+    JobExecutionActionSerializer,
+    JobSerializer,
+    JobToolQueryResponseSerializer,
+    JobToolQuerySerializer,
+    JobToolResultSerializer,
+)
 
 
 class JobViewSet(viewsets.ModelViewSet):
@@ -242,6 +249,40 @@ class JobViewSet(viewsets.ModelViewSet):
             )
 
         return Response(JobSerializer(job).data)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="risk_level", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="approval_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
+        ],
+        responses={
+            200: JobToolQueryResponseSerializer,
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Authentication required"),
+        },
+    )
+    @action(detail=False, methods=["get"], url_path="tool-query")
+    def tool_query(self, request):
+        serializer = JobToolQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        jobs = serializer.filter_queryset(self.get_queryset())
+        items = JobToolResultSerializer(jobs, many=True).data
+        response_data = {
+            "ok": True,
+            "request_id": getattr(request, "request_id", ""),
+            "query": serializer.validated_data,
+            "summary": {
+                "count": len(items),
+                "returned": len(items),
+                "truncated": len(items) == serializer.validated_data["limit"],
+            },
+            "items": items,
+        }
+        return Response(response_data)
 
     @extend_schema(
         request=JobApprovalActionSerializer,

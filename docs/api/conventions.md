@@ -128,6 +128,21 @@
 - Requesters cannot approve or reject their own pending job.
 
 ## Automation execution baseline
+- Tool query endpoint: `GET /api/v1/automation/jobs/tool-query/`
+- Tool query filters:
+  - `q`
+  - `name`
+  - `status`
+  - `risk_level`
+  - `approval_status`
+  - `limit` (default `10`, max `20`)
+- Tool query response shape:
+  - `ok`
+  - `request_id`
+  - `query`
+  - `summary`
+  - `items`
+- Tool query is read-only and requires at least one filter.
 - `Job.status` enum values:
   - `draft`
   - `awaiting_approval`

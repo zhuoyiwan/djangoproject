@@ -613,6 +613,49 @@ paths:
           description: Approval state validation error
         '403':
           description: Forbidden
+  /api/v1/automation/jobs/tool-query/:
+    get:
+      operationId: v1_automation_jobs_tool_query_retrieve
+      parameters:
+      - in: query
+        name: approval_status
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: name
+        schema:
+          type: string
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: query
+        name: risk_level
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobToolQueryResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '401':
+          description: Authentication required
   /api/v1/cmdb/idcs/:
     get:
       operationId: v1_cmdb_idcs_list
@@ -1369,7 +1412,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/JobStatusEnum'
+          $ref: '#/components/schemas/Status6faEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -1480,24 +1523,96 @@ components:
       properties:
         comment:
           type: string
-    JobStatusEnum:
-      enum:
-      - draft
-      - awaiting_approval
-      - ready
-      - claimed
-      - completed
-      - failed
-      - canceled
-      type: string
-      description: |-
-        * `draft` - Draft
-        * `awaiting_approval` - Awaiting approval
-        * `ready` - Ready
-        * `claimed` - Claimed
-        * `completed` - Completed
-        * `failed` - Failed
-        * `canceled` - Canceled
+    JobToolQuery:
+      type: object
+      properties:
+        q:
+          type: string
+          maxLength: 255
+        name:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/Status6faEnum'
+        risk_level:
+          $ref: '#/components/schemas/RiskLevelEnum'
+        approval_status:
+          $ref: '#/components/schemas/ApprovalStatusEnum'
+        limit:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 10
+    JobToolQueryResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        request_id:
+          type: string
+        query:
+          $ref: '#/components/schemas/JobToolQuery'
+        summary:
+          type: object
+          additionalProperties: {}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobToolResult'
+      required:
+      - items
+      - ok
+      - query
+      - request_id
+      - summary
+    JobToolResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/Status6faEnum'
+        risk_level:
+          $ref: '#/components/schemas/RiskLevelEnum'
+        approval_status:
+          $ref: '#/components/schemas/ApprovalStatusEnum'
+        approval_requested_by_username:
+          type: string
+          readOnly: true
+        approved_by_username:
+          type: string
+          readOnly: true
+        rejected_by_username:
+          type: string
+          readOnly: true
+        ready_by_username:
+          type: string
+          readOnly: true
+        claimed_by_username:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - approval_requested_by_username
+      - approved_by_username
+      - claimed_by_username
+      - created_at
+      - id
+      - name
+      - ready_by_username
+      - rejected_by_username
+      - updated_at
     LifecycleStatusEnum:
       enum:
       - online
@@ -1662,7 +1777,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/JobStatusEnum'
+          $ref: '#/components/schemas/Status6faEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -2004,6 +2119,24 @@ components:
         * `manual` - manual
         * `agent` - agent
         * `api` - api
+    Status6faEnum:
+      enum:
+      - draft
+      - awaiting_approval
+      - ready
+      - claimed
+      - completed
+      - failed
+      - canceled
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `awaiting_approval` - Awaiting approval
+        * `ready` - Ready
+        * `claimed` - Claimed
+        * `completed` - Completed
+        * `failed` - Failed
+        * `canceled` - Canceled
     TokenObtainPair:
       type: object
       properties:
