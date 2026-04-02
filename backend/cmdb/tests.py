@@ -10,6 +10,8 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
+from audit.models import AuditLog
+
 from .models import IDC, Server
 
 
@@ -105,6 +107,76 @@ class ServerApiTests(TestCase):
         }
         response = self.client.post("/api/v1/cmdb/servers/", payload, format="json")
         self.assertEqual(response.status_code, 201)
+
+    def test_tool_query_requires_at_least_one_filter(self):
+        response = self.client.get("/api/v1/cmdb/servers/tool-query/")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_tool_query_returns_normalized_matches(self):
+        Server.objects.create(
+            hostname="db-prod-01",
+            internal_ip="10.0.0.21",
+            external_ip="2.2.2.2",
+            os_version="Ubuntu 22.04",
+            cpu_cores=8,
+            memory_gb=Decimal("32.00"),
+            environment="prod",
+            lifecycle_status="online",
+            source="manual",
+            idc=self.idc,
+        )
+        Server.objects.create(
+            hostname="cache-dev-01",
+            internal_ip="10.0.0.22",
+            os_version="Debian 12",
+            cpu_cores=4,
+            memory_gb=Decimal("16.00"),
+            environment="dev",
+            lifecycle_status="maintenance",
+            source="api",
+            idc=self.idc,
+        )
+
+        response = self.client.get("/api/v1/cmdb/servers/tool-query/?q=prod&limit=5")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["summary"]["count"], 1)
+        self.assertEqual(response.data["summary"]["returned"], 1)
+        self.assertFalse(response.data["summary"]["truncated"])
+        self.assertEqual(response.data["query"]["q"], "prod")
+        self.assertEqual(response.data["query"]["limit"], 5)
+        self.assertEqual(response.data["items"][0]["hostname"], "db-prod-01")
+        self.assertEqual(response.data["items"][0]["idc_code"], "cn-hz-1")
+
+    def test_tool_query_supports_structured_filters(self):
+        Server.objects.create(
+            hostname="db-prod-01",
+            internal_ip="10.0.0.31",
+            os_version="Ubuntu 22.04",
+            cpu_cores=8,
+            memory_gb=Decimal("32.00"),
+            environment="prod",
+            lifecycle_status="online",
+            idc=self.idc,
+        )
+        Server.objects.create(
+            hostname="db-test-01",
+            internal_ip="10.0.0.32",
+            os_version="Ubuntu 22.04",
+            cpu_cores=8,
+            memory_gb=Decimal("32.00"),
+            environment="test",
+            lifecycle_status="online",
+            idc=self.idc,
+        )
+
+        response = self.client.get("/api/v1/cmdb/servers/tool-query/?environment=prod&idc_code=cn-hz-1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["internal_ip"], "10.0.0.31")
 
 
 @override_settings(
