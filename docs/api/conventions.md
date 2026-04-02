@@ -304,6 +304,7 @@
   - `POST /api/v1/automation/jobs/{id}/complete/`
   - `POST /api/v1/automation/jobs/{id}/fail/`
   - `POST /api/v1/automation/jobs/{id}/cancel/`
+  - `POST /api/v1/automation/jobs/{id}/requeue/`
   - `POST /api/v1/automation/jobs/{id}/agent-report/`
 - Only draft jobs can be marked ready.
 - Only ready jobs can be claimed.
@@ -312,6 +313,9 @@
 - Only the claimant or a `platform_admin` can complete or fail a claimed job.
 - Only ready or claimed jobs can be canceled.
 - Only the claimant or a `platform_admin` can cancel a claimed job.
+- Only claimed or failed jobs can be requeued.
+- Only the claimant or a `platform_admin` can requeue a claimed job.
+- Requeue transitions the job back to `ready`, clears stale execution result/assignment fields, and records the acting user as `ready_by`.
 - Only claimed jobs can be reported by `agent-report`.
 - `claim` accepts optional `agent_key_id` to bind a claimed job to a specific automation runner key.
 - `agent-claim` binds the claimed job to the HMAC-authenticated runner key and records a machine audit event.

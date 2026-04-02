@@ -42,6 +42,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         "complete": "execution_write",
         "fail": "execution_write",
         "cancel": "execution_write",
+        "requeue": "execution_write",
         "agent_claim": "agent_claim",
         "agent_report": "agent_report",
     }
@@ -61,7 +62,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in {"approve", "reject"}:
             return [permissions.IsAuthenticated(), IsApproverOrPlatformAdmin()]
-        if self.action in {"mark_ready", "claim", "complete", "fail", "cancel"}:
+        if self.action in {"mark_ready", "claim", "complete", "fail", "cancel", "requeue"}:
             return [permissions.IsAuthenticated(), IsOpsOrPlatformAdmin()]
         return [permission() for permission in self.permission_classes]
 
@@ -345,7 +346,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
                 claimed_by=claimant_id,
                 comment=comment,
             )
-        else:
+        elif action_name == "cancel":
             if job.status not in {JobExecutionStatus.READY, JobExecutionStatus.CLAIMED}:
                 raise ValidationError({"status": ["Only ready or claimed jobs can be canceled."]})
             claimant_id = job.claimed_by_id
@@ -370,6 +371,34 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
                 approval_status=job.approval_status,
                 status=job.status,
                 claimed_by=claimant_id,
+                comment=comment,
+            )
+        else:
+            if job.status not in {JobExecutionStatus.CLAIMED, JobExecutionStatus.FAILED}:
+                raise ValidationError({"status": ["Only claimed or failed jobs can be requeued."]})
+            claimant_id = job.claimed_by_id
+            if job.status == JobExecutionStatus.CLAIMED and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+                raise PermissionDenied("Only the claimant or a platform admin can requeue a claimed job.")
+            job.status = JobExecutionStatus.READY
+            job.ready_by = request.user
+            job.ready_at = now
+            job.claimed_by = None
+            job.claimed_at = None
+            job.execution_summary = ""
+            job.execution_metadata = {}
+            job.assigned_agent_key_id = ""
+            job.last_reported_by_agent_key = ""
+            job.completed_at = None
+            job.failed_at = None
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "assigned_agent_key_id", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
+            self._audit(
+                "automation.job.requeued",
+                job,
+                risk_level=job.risk_level,
+                approval_status=job.approval_status,
+                status=job.status,
+                claimed_by=claimant_id,
+                ready_by=job.ready_by_id,
                 comment=comment,
             )
 
@@ -659,3 +688,15 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         return self._transition_execution(request, "cancel")
+
+    @extend_schema(
+        request=JobExecutionActionSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Execution state validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def requeue(self, request, pk=None):
+        return self._transition_execution(request, "requeue")

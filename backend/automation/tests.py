@@ -869,6 +869,36 @@ class JobApiTests(TestCase):
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
 
+    def test_requeue_is_throttled_after_execution_write_rate_limit(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        first_job = Job.objects.create(
+            name="requeue-job-1",
+            status=JobExecutionStatus.FAILED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        second_job = Job.objects.create(
+            name="requeue-job-2",
+            status=JobExecutionStatus.FAILED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        third_job = Job.objects.create(
+            name="requeue-job-3",
+            status=JobExecutionStatus.FAILED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "execution_write": "2/min"}}):
+            first = self.client.post(f"/api/v1/automation/jobs/{first_job.id}/requeue/", {"comment": "retry"}, format="json")
+            second = self.client.post(f"/api/v1/automation/jobs/{second_job.id}/requeue/", {"comment": "retry"}, format="json")
+            third = self.client.post(f"/api/v1/automation/jobs/{third_job.id}/requeue/", {"comment": "retry"}, format="json")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
+
     def test_handoff_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/automation/jobs/handoff/")
         self.assertEqual(response.status_code, 400)
@@ -1774,6 +1804,125 @@ class JobApiTests(TestCase):
             approval_status=JobApprovalStatus.NOT_REQUIRED,
         )
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_ops_admin_can_requeue_failed_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.FAILED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            execution_summary="failed summary",
+            execution_metadata={"run_id": "run-123"},
+            failed_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
+            last_reported_by_agent_key="automation-agent-default",
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "retry"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["ready_by"], self.user.id)
+        self.assertIsNotNone(response.data["ready_at"])
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertIsNone(response.data["failed_at"])
+        self.assertIsNone(response.data["completed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobExecutionStatus.READY)
+        self.assertEqual(job.ready_by_id, self.user.id)
+        self.assertIsNotNone(job.ready_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertIsNone(job.failed_at)
+        self.assertIsNone(job.completed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
+        self.assertEqual(job.last_reported_by_agent_key, "")
+
+        audit = AuditLog.objects.get(action="automation.job.requeued")
+        self.assertEqual(audit.actor_id, self.user.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
+        self.assertEqual(audit.detail["ready_by"], self.user.id)
+        self.assertEqual(audit.detail["comment"], "retry")
+        self.assertIn("request_id", audit.detail)
+
+    def test_ops_admin_can_requeue_own_claimed_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+            claimed_at=timezone.now(),
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "retry"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["ready_by"], self.user.id)
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+
+    def test_non_ops_cannot_requeue_job(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.FAILED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "retry"}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_non_claimant_ops_admin_cannot_requeue_claimed_job(self):
+        ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.other_ops.groups.add(ops_group)
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.other_ops)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "retry"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error"]["code"], "forbidden")
+
+    def test_platform_admin_can_requeue_other_users_claimed_job(self):
+        Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "override"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+
+        audit = AuditLog.objects.get(action="automation.job.requeued")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["ready_by"], self.platform_admin.id)
+        self.assertEqual(audit.detail["comment"], "override")
+        self.assertIn("request_id", audit.detail)
+
+    def test_requeue_requires_claimed_or_failed_status(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "retry"}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
 

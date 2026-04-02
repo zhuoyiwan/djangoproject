@@ -65,6 +65,7 @@ Audit log behavior:
 - `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/cancel/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/requeue/` (throttle scope: `execution_write`; moves failed jobs back to ready, or lets the claimant/platform admin recover a claimed job back to ready)
 - `POST /api/v1/automation/jobs/{id}/agent-report/` (HMAC-signed machine execution result callback, throttle scope: `agent_report`)
 
 Automation job behavior:
@@ -72,7 +73,8 @@ Automation job behavior:
 - high-risk jobs return `approval_status=pending` and `status=awaiting_approval` until approved
 - approve/reject actions are for `approver` or `platform_admin`
 - approved jobs return to `status=draft` until an ops user marks them ready
-- mark-ready/claim/complete/fail/cancel actions are for `ops_admin` or `platform_admin`
+- mark-ready/claim/complete/fail/cancel/requeue actions are for `ops_admin` or `platform_admin`
+- `requeue` returns failed jobs to `ready`, and also allows claimed-job recovery back to `ready` by the claimant or a `platform_admin`
 - `claim` may assign `agent_key_id` to bind a claimed job to a specific runner key
 - `agent-claim` accepts HMAC-authenticated machine callbacks for ready jobs, transitions them to `claimed`, and binds the runner key from the signature
 - `agent-report` accepts HMAC-authenticated machine callbacks only for agent-claimed jobs, enforces the assigned runner key, and records execution summary/metadata plus audit events
