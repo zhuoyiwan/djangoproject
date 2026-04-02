@@ -1677,6 +1677,11 @@ class JobApiTests(TestCase):
             approval_status=JobApprovalStatus.NOT_REQUIRED,
             ready_by=self.user,
             ready_at=timezone.now(),
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-123"},
+            completed_at=timezone.now(),
+            failed_at=timezone.now(),
+            last_reported_by_agent_key="stale-agent",
         )
         payload = {"summary": "claiming ready job"}
         headers, body = self._agent_claim_signed_headers(job.id, payload)
@@ -1686,8 +1691,12 @@ class JobApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
         self.assertEqual(response.data["assigned_agent_key_id"], "automation-agent-default")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
+        self.assertIsNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
         self.assertIsNone(response.data["ready_by"])
         self.assertIsNone(response.data["ready_at"])
         self.assertIsNone(response.data["claimed_by"])
@@ -1695,8 +1704,12 @@ class JobApiTests(TestCase):
 
         job.refresh_from_db()
         self.assertEqual(job.status, JobExecutionStatus.CLAIMED)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
         self.assertEqual(job.assigned_agent_key_id, "automation-agent-default")
         self.assertEqual(job.last_reported_by_agent_key, "")
+        self.assertIsNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
         self.assertIsNone(job.claimed_by_id)

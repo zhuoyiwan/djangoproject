@@ -451,6 +451,10 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         job.ready_at = None
         job.claimed_by = None
         job.claimed_at = now
+        job.execution_summary = ""
+        job.execution_metadata = {}
+        job.completed_at = None
+        job.failed_at = None
         job.assigned_agent_key_id = claimed_agent_key_id
         job.last_reported_by_agent_key = ""
         job.save(
@@ -460,6 +464,10 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
                 "ready_at",
                 "claimed_by",
                 "claimed_at",
+                "execution_summary",
+                "execution_metadata",
+                "completed_at",
+                "failed_at",
                 "assigned_agent_key_id",
                 "last_reported_by_agent_key",
                 "updated_at",
