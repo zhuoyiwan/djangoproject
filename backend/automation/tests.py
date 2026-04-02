@@ -1069,6 +1069,17 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
         self.assertEqual(response.status_code, 403)
 
+    def test_non_ops_cannot_claim_ready_job(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
+        self.assertEqual(response.status_code, 403)
+
     def test_ops_admin_can_claim_ready_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -1255,6 +1266,17 @@ class JobApiTests(TestCase):
         self.assertIsNotNone(response.data["failed_at"])
         self.assertIsNone(response.data["completed_at"])
 
+    def test_non_ops_cannot_fail_claimed_job(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
+        self.assertEqual(response.status_code, 403)
+
     def test_fail_clears_ready_and_claim_metadata(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -1334,6 +1356,17 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CANCELED)
 
+    def test_non_ops_cannot_cancel_ready_job(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
+        self.assertEqual(response.status_code, 403)
+
     def test_cancel_clears_ready_and_claim_metadata(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -1361,6 +1394,17 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.ready_at)
         self.assertIsNone(job.claimed_by_id)
         self.assertIsNone(job.claimed_at)
+
+    def test_non_ops_cannot_complete_claimed_job(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
+        self.assertEqual(response.status_code, 403)
 
     def test_complete_requires_claimed_status(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
