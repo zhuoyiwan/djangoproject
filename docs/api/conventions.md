@@ -16,9 +16,10 @@
 
 ### RBAC roles
 - `platform_admin`: full management (including user list and audit query)
-- `ops_admin`: operational write privileges on CMDB resources
+- `ops_admin`: operational write privileges on CMDB resources and automation jobs
+- `approver`: approve or reject high-risk automation jobs
 - `auditor`: read audit logs
-- `viewer`: authenticated read-only access to CMDB endpoints
+- `viewer`: authenticated read-only access to CMDB and automation endpoints
 
 ### Agent signed ingestion authentication
 - Endpoint: `POST /api/v1/cmdb/servers/agent-ingest/`
@@ -106,10 +107,31 @@
 
 ## Audit baseline
 - Mutating server operations write audit entries.
+- High-risk automation job create/update/approve/reject operations write audit entries.
 - Audit read endpoint is restricted to `auditor` and `platform_admin`.
+
+## Automation approval baseline
+- `Job.risk_level` enum values:
+  - `low`
+  - `medium`
+  - `high`
+- `Job.approval_status` enum values:
+  - `not_required`
+  - `pending`
+  - `approved`
+  - `rejected`
+- Low/medium-risk automation jobs do not require approval.
+- High-risk automation jobs enter `pending` on create/update until an approver decision is recorded.
+- Approval actions:
+  - `POST /api/v1/automation/jobs/{id}/approve/`
+  - `POST /api/v1/automation/jobs/{id}/reject/`
+- Requesters cannot approve or reject their own pending job.
 
 ## RBAC access summary
 - `GET /api/v1/users/` requires `platform_admin`
 - `GET /api/v1/audit/logs/` requires `auditor` or `platform_admin`
 - CMDB write operations (`POST/PUT/PATCH/DELETE`) require `ops_admin` or `platform_admin`
 - CMDB read operations remain available to authenticated users (`viewer` and above)
+- Automation read operations remain available to authenticated users (`viewer` and above)
+- Automation create/update/delete require `ops_admin` or `platform_admin`
+- Automation approve/reject requires `approver` or `platform_admin`

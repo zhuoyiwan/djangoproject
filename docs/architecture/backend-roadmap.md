@@ -133,10 +133,12 @@ Next hardening steps:
 - idempotent upsert by `(hostname, internal_ip)`
 - success/failure ingest events logged to audit trail
 
-### M3: Approval-ready automation
-- extend automation job model for risk levels
-- add approval-state fields for high-risk operations
-- keep default automation permissions read-only for AI flows
+### M3: Approval-ready automation (implemented)
+- extend automation job model with risk levels and approval-state fields
+- high-risk automation jobs enter pending approval until approved or rejected
+- automation write operations require `ops_admin` or `platform_admin`
+- automation approve/reject actions require `approver` or `platform_admin`
+- approval lifecycle is written to audit logs and exposed in OpenAPI
 
 ### M4: OpenClaw integration boundary
 - define tool-facing query endpoints (safe read-first)

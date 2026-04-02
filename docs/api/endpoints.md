@@ -43,6 +43,13 @@
 - `PUT /api/v1/automation/jobs/{id}/`
 - `PATCH /api/v1/automation/jobs/{id}/`
 - `DELETE /api/v1/automation/jobs/{id}/`
+- `POST /api/v1/automation/jobs/{id}/approve/`
+- `POST /api/v1/automation/jobs/{id}/reject/`
+
+Automation job approval behavior:
+- low/medium-risk jobs return `approval_status=not_required`
+- high-risk jobs return `approval_status=pending` until approved or rejected
+- approve/reject actions are for `approver` or `platform_admin`
 
 ## API docs
 - `GET /api/schema/`

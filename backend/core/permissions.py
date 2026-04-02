@@ -5,6 +5,7 @@ ROLE_PLATFORM_ADMIN = "platform_admin"
 ROLE_OPS_ADMIN = "ops_admin"
 ROLE_AUDITOR = "auditor"
 ROLE_VIEWER = "viewer"
+ROLE_APPROVER = "approver"
 
 
 def has_any_role(user, roles: tuple[str, ...]) -> bool:
@@ -37,3 +38,8 @@ class IsAuthenticatedReadOnlyOrOps(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return has_any_role(request.user, (ROLE_OPS_ADMIN, ROLE_PLATFORM_ADMIN))
+
+
+class IsApproverOrPlatformAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return has_any_role(request.user, (ROLE_APPROVER, ROLE_PLATFORM_ADMIN))
