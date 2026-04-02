@@ -38,7 +38,7 @@ class IDCToolQuerySerializer(serializers.Serializer):
             queryset = queryset.filter(location__icontains=location)
         if status := data.get("status"):
             queryset = queryset.filter(status=status)
-        return queryset[: data["limit"]]
+        return queryset[: data["limit"] + 1]
 
 
 class IDCToolResultSerializer(serializers.ModelSerializer):
@@ -188,7 +188,7 @@ class ServerToolQuerySerializer(serializers.Serializer):
             queryset = queryset.filter(lifecycle_status=lifecycle_status)
         if idc_code := data.get("idc_code"):
             queryset = queryset.filter(idc__code=idc_code)
-        return queryset[: data["limit"]]
+        return queryset[: data["limit"] + 1]
 
 
 class ServerToolResultSerializer(serializers.ModelSerializer):

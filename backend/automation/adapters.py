@@ -25,7 +25,7 @@ class JobHandoffQuerySerializer(serializers.Serializer):
             queryset = queryset.filter(risk_level=risk_level)
         if approval_status := data.get("approval_status"):
             queryset = queryset.filter(approval_status=approval_status)
-        return queryset[: data["limit"]]
+        return queryset[: data["limit"] + 1]
 
 
 class JobHandoffItemSerializer(serializers.ModelSerializer):

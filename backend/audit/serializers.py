@@ -52,7 +52,7 @@ class AuditLogToolQuerySerializer(serializers.Serializer):
             queryset = queryset.filter(detail__path=detail_path)
         if detail_status_code := data.get("detail_status_code"):
             queryset = queryset.filter(detail__status_code=detail_status_code)
-        return queryset[: data["limit"]]
+        return queryset[: data["limit"] + 1]
 
 
 class AuditLogToolResultSerializer(serializers.ModelSerializer):

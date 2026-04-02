@@ -233,6 +233,56 @@ class JobApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["name"], "restart-prod")
 
+    def test_tool_query_does_not_mark_exact_limit_as_truncated(self):
+        Job.objects.create(
+            name="restart-prod-1",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+        Job.objects.create(
+            name="restart-prod-2",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart&limit=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["summary"]["count"], 2)
+        self.assertEqual(response.data["summary"]["returned"], 2)
+        self.assertFalse(response.data["summary"]["truncated"])
+        self.assertEqual(len(response.data["items"]), 2)
+
+    def test_tool_query_marks_over_limit_as_truncated(self):
+        Job.objects.create(
+            name="restart-prod-1",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+        Job.objects.create(
+            name="restart-prod-2",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+        Job.objects.create(
+            name="restart-prod-3",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart&limit=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["summary"]["count"], 2)
+        self.assertEqual(response.data["summary"]["returned"], 2)
+        self.assertTrue(response.data["summary"]["truncated"])
+        self.assertEqual(len(response.data["items"]), 2)
+
     def test_tool_query_is_throttled_after_rate_limit(self):
         Job.objects.create(
             name="restart-prod",
@@ -376,6 +426,61 @@ class JobApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["id"], claimed_job.id)
         self.assertEqual(response.data["items"][0]["claimed_by_username"], "alice")
+
+    def test_handoff_does_not_mark_exact_limit_as_truncated(self):
+        Job.objects.create(
+            name="ready-job-1",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        Job.objects.create(
+            name="ready-job-2",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=ready&limit=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["summary"]["count"], 2)
+        self.assertEqual(response.data["summary"]["returned"], 2)
+        self.assertFalse(response.data["summary"]["truncated"])
+        self.assertEqual(len(response.data["items"]), 2)
+
+    def test_handoff_marks_over_limit_as_truncated(self):
+        Job.objects.create(
+            name="ready-job-1",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        Job.objects.create(
+            name="ready-job-2",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        Job.objects.create(
+            name="ready-job-3",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=ready&limit=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["summary"]["count"], 2)
+        self.assertEqual(response.data["summary"]["returned"], 2)
+        self.assertTrue(response.data["summary"]["truncated"])
+        self.assertEqual(len(response.data["items"]), 2)
 
     def test_ops_admin_can_mark_low_risk_job_ready(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
