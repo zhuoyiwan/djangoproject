@@ -334,6 +334,35 @@ class AgentIngestApiTests(TestCase):
         self.assertEqual(response.data["result"], "updated")
         self.assertEqual(Server.objects.count(), 1)
 
+    def test_agent_ingest_success_writes_audit_log_with_expected_detail(self):
+        payload = self._base_payload()
+        headers, body = self._signed_headers(payload)
+
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 201)
+        entry = AuditLog.objects.get(action="server.agent_ingested")
+        self.assertEqual(entry.target, "agent-host-01@10.10.10.10")
+        self.assertEqual(entry.detail["result"], "created")
+        self.assertEqual(entry.detail["agent_key_id"], "agent-default")
+        self.assertEqual(entry.detail["environment"], "prod")
+        self.assertEqual(entry.detail["lifecycle_status"], "online")
+        self.assertEqual(entry.detail["request_id"], response.data["request_id"])
+
+    def test_agent_ingest_validation_error_writes_rejection_audit_log(self):
+        payload = self._base_payload()
+        payload.pop("hostname")
+        headers, body = self._signed_headers(payload)
+
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        entry = AuditLog.objects.get(action="server.agent_ingest.rejected")
+        self.assertEqual(entry.target, "agent:agent-default")
+        self.assertEqual(entry.detail["reason"], "validation_error")
+        self.assertIn("hostname", entry.detail["errors"])
+        self.assertEqual(entry.detail["request_id"], response.data["request_id"])
+
     def test_agent_ingest_rejects_missing_headers(self):
         payload = self._base_payload()
         response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=payload, format="json")
