@@ -516,6 +516,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = None
             job.claimed_by = None
             job.claimed_at = None
+            job.assigned_agent_key_id = ""
             job.completed_at = now
             job.failed_at = None
             action_name = "automation.job.agent_reported_completed"
@@ -525,6 +526,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = None
             job.claimed_by = None
             job.claimed_at = None
+            job.assigned_agent_key_id = ""
             job.failed_at = now
             job.completed_at = None
             action_name = "automation.job.agent_reported_failed"
