@@ -215,6 +215,50 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["error"]["code"], "forbidden")
 
+    def test_requester_cannot_self_reject(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_APPROVER))
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/reject/", {"comment": "self-reject"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error"]["code"], "forbidden")
+
+    def test_platform_admin_can_approve_pending_high_risk_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/approve/", {"comment": "approved by platform"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["approval_status"], JobApprovalStatus.APPROVED)
+        self.assertEqual(response.data["approved_by"], self.platform_admin.id)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+
+    def test_platform_admin_can_reject_pending_high_risk_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/reject/", {"comment": "rejected by platform"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["approval_status"], JobApprovalStatus.REJECTED)
+        self.assertEqual(response.data["rejected_by"], self.platform_admin.id)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+
     def test_cannot_approve_non_pending_job(self):
         self.approver.groups.add(Group.objects.create(name=ROLE_APPROVER))
         job = Job.objects.create(
