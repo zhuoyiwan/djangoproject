@@ -89,6 +89,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         serializer.validated_data["ready_at"] = None
         serializer.validated_data["claimed_by"] = None
         serializer.validated_data["claimed_at"] = None
+        serializer.validated_data["execution_summary"] = ""
+        serializer.validated_data["execution_metadata"] = {}
+        serializer.validated_data["completed_at"] = None
+        serializer.validated_data["failed_at"] = None
+        serializer.validated_data["last_reported_by_agent_key"] = ""
 
         if risk_level != JobRiskLevel.HIGH:
             serializer.validated_data["approval_status"] = JobApprovalStatus.NOT_REQUIRED

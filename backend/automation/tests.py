@@ -310,6 +310,11 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["approved_at"])
         self.assertIsNone(response.data["ready_by"])
         self.assertIsNone(response.data["ready_at"])
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertIsNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
         self.assertEqual(job.approval_status, JobApprovalStatus.PENDING)
@@ -319,6 +324,11 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.approved_at)
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertIsNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
         self.assertTrue(AuditLog.objects.filter(action="automation.job.updated").exists())
         self.assertTrue(AuditLog.objects.filter(action="automation.job.approval_requested").exists())
@@ -365,6 +375,43 @@ class JobApiTests(TestCase):
         self.assertIsNone(job.approved_by_id)
         self.assertIsNone(job.approved_at)
         self.assertEqual(job.approval_comment, "")
+
+    def test_updating_completed_job_clears_execution_result_fields(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        completed_at = timezone.now()
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.COMPLETED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            execution_summary="completed by executor",
+            execution_metadata={"run_id": "run-123"},
+            completed_at=completed_at,
+            last_reported_by_agent_key="automation-agent-default",
+            payload={"target": "dev"},
+        )
+
+        response = self.client.patch(
+            f"/api/v1/automation/jobs/{job.id}/",
+            {"payload": {"target": "prod"}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertIsNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobExecutionStatus.DRAFT)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertIsNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_tool_query_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/automation/jobs/tool-query/")
