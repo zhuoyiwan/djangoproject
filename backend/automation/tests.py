@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
@@ -214,6 +215,90 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(AuditLog.objects.filter(action="automation.job.created").exists())
         self.assertTrue(AuditLog.objects.filter(action="automation.job.approval_requested").exists())
+
+    def test_updating_approved_high_risk_job_re_requests_approval_and_clears_execution_fields(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.APPROVED,
+            approval_requested_by=self.user,
+            approved_by=self.approver,
+            ready_by=self.user,
+            ready_at=timezone.now(),
+            payload={"target": "prod"},
+        )
+
+        response = self.client.patch(
+            f"/api/v1/automation/jobs/{job.id}/",
+            {"payload": {"target": "prod", "window": "night"}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["approval_status"], JobApprovalStatus.PENDING)
+        self.assertEqual(response.data["status"], JobExecutionStatus.AWAITING_APPROVAL)
+        self.assertEqual(response.data["approval_requested_by"], self.user.id)
+        self.assertIsNone(response.data["approved_by"])
+        self.assertIsNone(response.data["approved_at"])
+        self.assertIsNone(response.data["ready_by"])
+        self.assertIsNone(response.data["ready_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.approval_status, JobApprovalStatus.PENDING)
+        self.assertEqual(job.status, JobExecutionStatus.AWAITING_APPROVAL)
+        self.assertEqual(job.approval_requested_by_id, self.user.id)
+        self.assertIsNone(job.approved_by_id)
+        self.assertIsNone(job.approved_at)
+        self.assertIsNone(job.ready_by_id)
+        self.assertIsNone(job.ready_at)
+
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.updated").exists())
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.approval_requested").exists())
+
+    def test_updating_job_to_low_risk_clears_approval_metadata(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        requested_at = timezone.now()
+        approved_at = timezone.now()
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.APPROVED,
+            approval_requested_by=self.user,
+            approval_requested_at=requested_at,
+            approved_by=self.approver,
+            approved_at=approved_at,
+            approval_comment="approved",
+            payload={"target": "prod"},
+        )
+
+        response = self.client.patch(
+            f"/api/v1/automation/jobs/{job.id}/",
+            {"risk_level": JobRiskLevel.LOW},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["risk_level"], JobRiskLevel.LOW)
+        self.assertEqual(response.data["approval_status"], JobApprovalStatus.NOT_REQUIRED)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+        self.assertIsNone(response.data["approval_requested_by"])
+        self.assertIsNone(response.data["approval_requested_at"])
+        self.assertIsNone(response.data["approved_by"])
+        self.assertIsNone(response.data["approved_at"])
+        self.assertEqual(response.data["approval_comment"], "")
+
+        job.refresh_from_db()
+        self.assertEqual(job.risk_level, JobRiskLevel.LOW)
+        self.assertEqual(job.approval_status, JobApprovalStatus.NOT_REQUIRED)
+        self.assertEqual(job.status, JobExecutionStatus.DRAFT)
+        self.assertIsNone(job.approval_requested_by_id)
+        self.assertIsNone(job.approval_requested_at)
+        self.assertIsNone(job.approved_by_id)
+        self.assertIsNone(job.approved_at)
+        self.assertEqual(job.approval_comment, "")
 
     def test_tool_query_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/automation/jobs/tool-query/")
