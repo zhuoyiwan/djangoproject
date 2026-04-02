@@ -179,6 +179,19 @@
 
 ## Automation execution baseline
 - Tool query endpoint: `GET /api/v1/automation/jobs/tool-query/`
+- Handoff endpoint: `GET /api/v1/automation/jobs/handoff/`
+- Handoff filters:
+  - `status` (`ready` or `claimed`)
+  - `risk_level`
+  - `approval_status`
+  - `limit` (default `10`, max `20`)
+- Handoff response shape:
+  - `ok`
+  - `request_id`
+  - `query`
+  - `summary`
+  - `items`
+- Handoff is read-only, requires at least one filter, and exposes only execution-ready adapter fields.
 - Tool query filters:
   - `q`
   - `name`

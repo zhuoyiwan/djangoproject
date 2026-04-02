@@ -42,6 +42,7 @@
 ## Automation
 - `GET /api/v1/automation/jobs/`
 - `GET /api/v1/automation/jobs/tool-query/` (normalized read-only tool query)
+- `GET /api/v1/automation/jobs/handoff/` (read-only execution handoff feed for adapter consumers)
 - `POST /api/v1/automation/jobs/`
 - `GET /api/v1/automation/jobs/{id}/`
 - `PUT /api/v1/automation/jobs/{id}/`

@@ -192,6 +192,70 @@ class JobApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["name"], "restart-prod")
 
+    def test_handoff_requires_at_least_one_filter(self):
+        response = self.client.get("/api/v1/automation/jobs/handoff/")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_handoff_returns_ready_and_claimed_jobs(self):
+        ready_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=self.user,
+            payload={"target": "prod"},
+        )
+        claimed_job = Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+            payload={"target": "dev"},
+        )
+        Job.objects.create(
+            name="draft-job",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=ready&limit=5")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["summary"]["count"], 1)
+        self.assertEqual(response.data["items"][0]["id"], ready_job.id)
+        self.assertEqual(response.data["items"][0]["name"], "restart-prod")
+        self.assertEqual(response.data["items"][0]["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["items"][0]["ready_by_username"], "alice")
+        self.assertEqual(response.data["items"][0]["payload"], {"target": "prod"})
+        self.assertNotEqual(response.data["items"][0]["id"], claimed_job.id)
+
+    def test_handoff_supports_claimed_status_filter(self):
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=self.user,
+        )
+        claimed_job = Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=claimed")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], claimed_job.id)
+        self.assertEqual(response.data["items"][0]["claimed_by_username"], "alice")
+
     def test_ops_admin_can_mark_low_risk_job_ready(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(

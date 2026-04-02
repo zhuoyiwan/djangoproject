@@ -654,6 +654,41 @@ paths:
           description: Approval state validation error
         '403':
           description: Forbidden
+  /api/v1/automation/jobs/handoff/:
+    get:
+      operationId: v1_automation_jobs_handoff_retrieve
+      parameters:
+      - in: query
+        name: approval_status
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: risk_level
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobHandoffResponse'
+          description: ''
+        '400':
+          description: Validation error
+        '401':
+          description: Authentication required
   /api/v1/automation/jobs/tool-query/:
     get:
       operationId: v1_automation_jobs_tool_query_retrieve
@@ -1752,6 +1787,90 @@ components:
       properties:
         comment:
           type: string
+    JobHandoffItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/Status6faEnum'
+        risk_level:
+          $ref: '#/components/schemas/RiskLevelEnum'
+        approval_status:
+          $ref: '#/components/schemas/ApprovalStatusEnum'
+        ready_at:
+          type: string
+          format: date-time
+          nullable: true
+        ready_by_username:
+          type: string
+          readOnly: true
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        claimed_by_username:
+          type: string
+          readOnly: true
+        payload: {}
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - claimed_by_username
+      - id
+      - name
+      - ready_by_username
+      - updated_at
+    JobHandoffQuery:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/JobHandoffQueryStatusEnum'
+        risk_level:
+          $ref: '#/components/schemas/RiskLevelEnum'
+        approval_status:
+          $ref: '#/components/schemas/ApprovalStatusEnum'
+        limit:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 10
+    JobHandoffQueryStatusEnum:
+      enum:
+      - ready
+      - claimed
+      type: string
+      description: |-
+        * `ready` - ready
+        * `claimed` - claimed
+    JobHandoffResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        request_id:
+          type: string
+        query:
+          $ref: '#/components/schemas/JobHandoffQuery'
+        summary:
+          type: object
+          additionalProperties: {}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobHandoffItem'
+      required:
+      - items
+      - ok
+      - query
+      - request_id
+      - summary
     JobToolQuery:
       type: object
       properties:
