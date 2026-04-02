@@ -35,6 +35,19 @@
 - Replay protection:
   - server rejects duplicate signed payloads in tolerance window via cache key
 
+### Automation agent signed claim authentication
+- Endpoint: `POST /api/v1/automation/jobs/{id}/agent-claim/`
+- Required headers:
+  - `X-Agent-Key-Id`
+  - `X-Agent-Timestamp` (unix seconds)
+  - `X-Agent-Signature` (`sha256=<hex_digest>`)
+- Signature canonical string:
+  - `METHOD + "\\n" + PATH + "\\n" + TIMESTAMP + "\\n" + SHA256(raw_body_bytes)`
+- Timestamp validation:
+  - default tolerance is `300` seconds (`AUTOMATION_AGENT_CLAIM_TIMESTAMP_TOLERANCE_SECONDS`)
+- Replay protection:
+  - server rejects duplicate signed payloads in tolerance window via cache key
+
 ### Automation agent signed report authentication
 - Endpoint: `POST /api/v1/automation/jobs/{id}/agent-report/`
 - Required headers:
@@ -61,6 +74,7 @@
   - `approval_write`: `20/min`
   - `execution_write`: `30/min`
   - `agent_ingest`: `120/min`
+  - `agent_claim`: `120/min`
   - `agent_report`: `120/min`
 - Rates can be overridden with environment variables named `API_THROTTLE_RATE_<SCOPE>`.
 - List endpoints follow DRF page response shape:
@@ -265,19 +279,23 @@
 - Execution actions:
   - `POST /api/v1/automation/jobs/{id}/mark-ready/`
   - `POST /api/v1/automation/jobs/{id}/claim/`
+  - `POST /api/v1/automation/jobs/{id}/agent-claim/`
   - `POST /api/v1/automation/jobs/{id}/complete/`
   - `POST /api/v1/automation/jobs/{id}/fail/`
   - `POST /api/v1/automation/jobs/{id}/cancel/`
   - `POST /api/v1/automation/jobs/{id}/agent-report/`
 - Only draft jobs can be marked ready.
 - Only ready jobs can be claimed.
+- Only ready jobs can be claimed by `agent-claim`.
 - Only claimed jobs can be completed or failed.
 - Only the claimant or a `platform_admin` can complete or fail a claimed job.
 - Only ready or claimed jobs can be canceled.
 - Only the claimant or a `platform_admin` can cancel a claimed job.
 - Only claimed jobs can be reported by `agent-report`.
 - `claim` accepts optional `agent_key_id` to bind a claimed job to a specific automation runner key.
+- `agent-claim` binds the claimed job to the HMAC-authenticated runner key and records a machine audit event.
 - `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, enforces any assigned runner key, and writes audit entries.
+- Automation agent claim authentication supports multiple runner keys via `AUTOMATION_AGENT_CLAIM_HMAC_KEYS` (`key_id:secret` comma-separated), while retaining the single-key settings as a fallback.
 - Automation agent report authentication supports multiple runner keys via `AUTOMATION_AGENT_REPORT_HMAC_KEYS` (`key_id:secret` comma-separated), while retaining the single-key settings as a fallback.
 - Claimed jobs cannot be updated or deleted.
 

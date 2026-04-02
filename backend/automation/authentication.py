@@ -19,13 +19,24 @@ class AutomationAgentPrincipal:
 
 
 class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
+    enabled_setting = "AUTOMATION_AGENT_REPORT_ENABLED"
+    keys_setting = "AUTOMATION_AGENT_REPORT_HMAC_KEYS"
+    key_id_setting = "AUTOMATION_AGENT_REPORT_HMAC_KEY_ID"
+    secret_setting = "AUTOMATION_AGENT_REPORT_HMAC_SECRET"
+    tolerance_setting = "AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS"
+    replay_prefix_setting = "AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX"
+    default_replay_prefix = "automation_agent_report:replay"
+    disabled_reason = "agent_report_disabled"
+    disabled_message = "Automation agent reporting is disabled."
+    auth_failed_action = "automation.job.agent_report.auth_failed"
+
     def authenticate_header(self, request):
         return "Agent-HMAC"
 
     def authenticate(self, request):
-        if not getattr(settings, "AUTOMATION_AGENT_REPORT_ENABLED", False):
-            self._audit_failure(request, "agent_report_disabled", "agent:disabled")
-            raise AuthenticationFailed("Automation agent reporting is disabled.")
+        if not getattr(settings, self.enabled_setting, False):
+            self._audit_failure(request, self.disabled_reason, "agent:disabled")
+            raise AuthenticationFailed(self.disabled_message)
 
         key_id = request.headers.get("X-Agent-Key-Id", "")
         timestamp = request.headers.get("X-Agent-Timestamp", "")
@@ -35,10 +46,10 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
             self._audit_failure(request, "missing_headers", f"agent:{key_id or 'unknown'}")
             raise AuthenticationFailed("Missing required agent signature headers.")
 
-        keys = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEYS", None)
+        keys = getattr(settings, self.keys_setting, None)
         if keys is None:
-            expected_key_id = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", "")
-            secret = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_SECRET", "")
+            expected_key_id = getattr(settings, self.key_id_setting, "")
+            secret = getattr(settings, self.secret_setting, "")
             keys = {expected_key_id: secret} if expected_key_id and secret else {}
         secret = keys.get(key_id, "")
         if not secret:
@@ -51,7 +62,7 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
 
         now_ts = int(time.time())
         req_ts = int(timestamp)
-        tolerance = int(getattr(settings, "AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS", 300))
+        tolerance = int(getattr(settings, self.tolerance_setting, 300))
         if abs(now_ts - req_ts) > tolerance:
             self._audit_failure(request, "stale_timestamp", f"agent:{key_id}")
             raise AuthenticationFailed("Agent timestamp is outside allowed window.")
@@ -65,7 +76,7 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
             self._audit_failure(request, "invalid_signature", f"agent:{key_id}")
             raise AuthenticationFailed("Invalid agent signature.")
 
-        prefix = getattr(settings, "AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX", "automation_agent_report:replay")
+        prefix = getattr(settings, self.replay_prefix_setting, self.default_replay_prefix)
         replay_key = f"{prefix}:{key_id}:{timestamp}:{body_hash}"
         if not cache.add(replay_key, 1, timeout=tolerance):
             self._audit_failure(request, "replay_detected", f"agent:{key_id}")
@@ -78,7 +89,7 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
         request._security_event_audited = True
         AuditLog.objects.create(
             actor=None,
-            action="automation.job.agent_report.auth_failed",
+            action=self.auth_failed_action,
             target=target,
             detail={
                 "reason": reason,
@@ -86,3 +97,16 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
                 "path": getattr(request, "path", ""),
             },
         )
+
+
+class AutomationAgentClaimHMACAuthentication(AutomationAgentHMACAuthentication):
+    enabled_setting = "AUTOMATION_AGENT_CLAIM_ENABLED"
+    keys_setting = "AUTOMATION_AGENT_CLAIM_HMAC_KEYS"
+    key_id_setting = "AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID"
+    secret_setting = "AUTOMATION_AGENT_CLAIM_HMAC_SECRET"
+    tolerance_setting = "AUTOMATION_AGENT_CLAIM_TIMESTAMP_TOLERANCE_SECONDS"
+    replay_prefix_setting = "AUTOMATION_AGENT_CLAIM_REPLAY_CACHE_PREFIX"
+    default_replay_prefix = "automation_agent_claim:replay"
+    disabled_reason = "agent_claim_disabled"
+    disabled_message = "Automation agent claiming is disabled."
+    auth_failed_action = "automation.job.agent_claim.auth_failed"

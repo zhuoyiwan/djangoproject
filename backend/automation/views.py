@@ -16,9 +16,10 @@ from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
 
 from .adapters import JobHandoffQuerySerializer, JobHandoffResponseSerializer, build_job_handoff_response
-from .authentication import AutomationAgentHMACAuthentication
+from .authentication import AutomationAgentClaimHMACAuthentication, AutomationAgentHMACAuthentication
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from .serializers import (
+    JobAgentClaimSerializer,
     JobAgentReportSerializer,
     JobApprovalActionSerializer,
     JobExecutionActionSerializer,
@@ -41,6 +42,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         "complete": "execution_write",
         "fail": "execution_write",
         "cancel": "execution_write",
+        "agent_claim": "agent_claim",
         "agent_report": "agent_report",
     }
     queryset = Job.objects.select_related(
@@ -417,6 +419,64 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         jobs = serializer.filter_queryset(self.get_queryset())
         return build_job_handoff_response(request, jobs, serializer.validated_data)
+
+    @extend_schema(
+        request=JobAgentClaimSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Agent claim validation error"),
+            401: OpenApiResponse(description="Authentication/signature error"),
+        },
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="agent-claim",
+        authentication_classes=[AutomationAgentClaimHMACAuthentication],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def agent_claim(self, request, pk=None):
+        job = self.get_object()
+        serializer = JobAgentClaimSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if job.status != JobExecutionStatus.READY:
+            raise ValidationError({"status": ["Only ready jobs can be claimed by an agent."]})
+
+        now = timezone.now()
+        claimed_agent_key_id = getattr(request, "agent_key_id", "")
+        claimed_summary = serializer.validated_data.get("summary", "")
+        job.status = JobExecutionStatus.CLAIMED
+        job.ready_by = None
+        job.ready_at = None
+        job.claimed_by = None
+        job.claimed_at = now
+        job.assigned_agent_key_id = claimed_agent_key_id
+        job.last_reported_by_agent_key = ""
+        job.save(
+            update_fields=[
+                "status",
+                "ready_by",
+                "ready_at",
+                "claimed_by",
+                "claimed_at",
+                "assigned_agent_key_id",
+                "last_reported_by_agent_key",
+                "updated_at",
+            ]
+        )
+        AuditLog.objects.create(
+            actor=None,
+            action="automation.job.agent_claimed",
+            target=self._job_target(job),
+            detail={
+                "request_id": self._request_id(),
+                "status": job.status,
+                "agent_key_id": claimed_agent_key_id,
+                "summary": claimed_summary,
+            },
+        )
+        return Response(JobSerializer(job).data)
 
     @extend_schema(
         request=JobAgentReportSerializer,

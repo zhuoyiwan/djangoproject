@@ -526,6 +526,42 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/automation/jobs/{id}/agent-claim/:
+    post:
+      operationId: v1_automation_jobs_agent_claim_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobAgentClaim'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobAgentClaim'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobAgentClaim'
+      security:
+      - automationAgentClaimHmacAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Agent claim validation error
+        '401':
+          description: Authentication/signature error
   /api/v1/automation/jobs/{id}/agent-report/:
     post:
       operationId: v1_automation_jobs_agent_report_create
@@ -1983,6 +2019,12 @@ components:
       - rejected_by
       - rejected_by_username
       - updated_at
+    JobAgentClaim:
+      type: object
+      properties:
+        summary:
+          type: string
+          maxLength: 2000
     JobAgentReport:
       type: object
       properties:
@@ -2818,6 +2860,12 @@ components:
       name: X-Agent-Signature
       description: 'Agent ingest HMAC authentication. Required headers: X-Agent-Key-Id,
         X-Agent-Timestamp, X-Agent-Signature.'
+    automationAgentClaimHmacAuth:
+      type: apiKey
+      in: header
+      name: X-Agent-Signature
+      description: 'Automation agent claim HMAC authentication. Required headers:
+        X-Agent-Key-Id, X-Agent-Timestamp, X-Agent-Signature.'
     automationAgentHmacAuth:
       type: apiKey
       in: header

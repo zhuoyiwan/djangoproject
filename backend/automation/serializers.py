@@ -84,6 +84,10 @@ class JobExecutionActionSerializer(serializers.Serializer):
     agent_key_id = serializers.CharField(required=False, allow_blank=False, max_length=255)
 
 
+class JobAgentClaimSerializer(serializers.Serializer):
+    summary = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+
 class JobAgentReportSerializer(serializers.Serializer):
     outcome = serializers.ChoiceField(choices=(JobExecutionStatus.COMPLETED, JobExecutionStatus.FAILED))
     summary = serializers.CharField(required=False, allow_blank=True, max_length=2000)

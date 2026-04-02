@@ -159,6 +159,7 @@ REST_FRAMEWORK = {
         "approval_write": os.getenv("API_THROTTLE_RATE_APPROVAL_WRITE", "20/min"),
         "execution_write": os.getenv("API_THROTTLE_RATE_EXECUTION_WRITE", "30/min"),
         "agent_ingest": os.getenv("API_THROTTLE_RATE_AGENT_INGEST", "120/min"),
+        "agent_claim": os.getenv("API_THROTTLE_RATE_AGENT_CLAIM", "120/min"),
         "agent_report": os.getenv("API_THROTTLE_RATE_AGENT_REPORT", "120/min"),
     },
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
@@ -193,6 +194,20 @@ AGENT_INGEST_HMAC_KEY_ID = os.getenv("AGENT_INGEST_HMAC_KEY_ID", "agent-default"
 AGENT_INGEST_HMAC_SECRET = os.getenv("AGENT_INGEST_HMAC_SECRET", "")
 AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS = int(os.getenv("AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS", "300"))
 AGENT_INGEST_REPLAY_CACHE_PREFIX = os.getenv("AGENT_INGEST_REPLAY_CACHE_PREFIX", "agent_ingest:replay")
+AUTOMATION_AGENT_CLAIM_ENABLED = os.getenv("AUTOMATION_AGENT_CLAIM_ENABLED", "False").lower() == "true"
+AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID = os.getenv("AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID", "automation-agent-default")
+AUTOMATION_AGENT_CLAIM_HMAC_SECRET = os.getenv("AUTOMATION_AGENT_CLAIM_HMAC_SECRET", "")
+AUTOMATION_AGENT_CLAIM_HMAC_KEYS = {
+    key_id.strip(): secret.strip()
+    for key_id, secret in (
+        entry.split(":", 1)
+        for entry in os.getenv("AUTOMATION_AGENT_CLAIM_HMAC_KEYS", "").split(",")
+        if ":" in entry
+    )
+    if key_id.strip() and secret.strip()
+}
+AUTOMATION_AGENT_CLAIM_TIMESTAMP_TOLERANCE_SECONDS = int(os.getenv("AUTOMATION_AGENT_CLAIM_TIMESTAMP_TOLERANCE_SECONDS", "300"))
+AUTOMATION_AGENT_CLAIM_REPLAY_CACHE_PREFIX = os.getenv("AUTOMATION_AGENT_CLAIM_REPLAY_CACHE_PREFIX", "automation_agent_claim:replay")
 AUTOMATION_AGENT_REPORT_ENABLED = os.getenv("AUTOMATION_AGENT_REPORT_ENABLED", "False").lower() == "true"
 AUTOMATION_AGENT_REPORT_HMAC_KEY_ID = os.getenv("AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", "automation-agent-default")
 AUTOMATION_AGENT_REPORT_HMAC_SECRET = os.getenv("AUTOMATION_AGENT_REPORT_HMAC_SECRET", "")
