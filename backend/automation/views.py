@@ -454,6 +454,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return build_job_handoff_response(request, jobs, serializer.validated_data)
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name="X-Agent-Key-Id", type=OpenApiTypes.STR, location=OpenApiParameter.HEADER, required=True),
+            OpenApiParameter(name="X-Agent-Timestamp", type=OpenApiTypes.STR, location=OpenApiParameter.HEADER, required=True),
+            OpenApiParameter(name="X-Agent-Signature", type=OpenApiTypes.STR, location=OpenApiParameter.HEADER, required=True),
+        ],
         request=JobAgentClaimSerializer,
         responses={
             200: JobSerializer,
@@ -520,6 +525,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return Response(JobSerializer(job).data)
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name="X-Agent-Key-Id", type=OpenApiTypes.STR, location=OpenApiParameter.HEADER, required=True),
+            OpenApiParameter(name="X-Agent-Timestamp", type=OpenApiTypes.STR, location=OpenApiParameter.HEADER, required=True),
+            OpenApiParameter(name="X-Agent-Signature", type=OpenApiTypes.STR, location=OpenApiParameter.HEADER, required=True),
+        ],
         request=JobAgentReportSerializer,
         responses={
             200: JobSerializer,

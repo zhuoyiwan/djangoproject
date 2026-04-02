@@ -530,6 +530,21 @@ paths:
     post:
       operationId: v1_automation_jobs_agent_claim_create
       parameters:
+      - in: header
+        name: X-Agent-Key-Id
+        schema:
+          type: string
+        required: true
+      - in: header
+        name: X-Agent-Signature
+        schema:
+          type: string
+        required: true
+      - in: header
+        name: X-Agent-Timestamp
+        schema:
+          type: string
+        required: true
       - in: path
         name: id
         schema:
@@ -566,6 +581,21 @@ paths:
     post:
       operationId: v1_automation_jobs_agent_report_create
       parameters:
+      - in: header
+        name: X-Agent-Key-Id
+        schema:
+          type: string
+        required: true
+      - in: header
+        name: X-Agent-Signature
+        schema:
+          type: string
+        required: true
+      - in: header
+        name: X-Agent-Timestamp
+        schema:
+          type: string
+        required: true
       - in: path
         name: id
         schema:

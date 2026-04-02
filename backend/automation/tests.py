@@ -88,6 +88,8 @@ class AutomationOpenApiTests(TestCase):
         self.assertEqual(security_schemes["automationAgentClaimHmacAuth"]["name"], "X-Agent-Signature")
         operation = schema["paths"]["/api/v1/automation/jobs/{id}/agent-claim/"]["post"]
         self.assertEqual(operation["security"], [{"automationAgentClaimHmacAuth": []}])
+        header_names = {parameter["name"] for parameter in operation["parameters"] if parameter["in"] == "header"}
+        self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
 
     def test_schema_exposes_agent_report_hmac_security_scheme(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
@@ -97,6 +99,8 @@ class AutomationOpenApiTests(TestCase):
         self.assertEqual(security_schemes["automationAgentHmacAuth"]["name"], "X-Agent-Signature")
         operation = schema["paths"]["/api/v1/automation/jobs/{id}/agent-report/"]["post"]
         self.assertEqual(operation["security"], [{"automationAgentHmacAuth": []}])
+        header_names = {parameter["name"] for parameter in operation["parameters"] if parameter["in"] == "header"}
+        self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
 
 
 @override_settings(
