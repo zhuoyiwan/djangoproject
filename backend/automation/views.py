@@ -293,9 +293,12 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = None
             job.claimed_by = None
             job.claimed_at = None
+            job.execution_summary = ""
+            job.execution_metadata = {}
+            job.last_reported_by_agent_key = ""
             job.completed_at = now
             job.failed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "completed_at", "failed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
             self._audit(
                 "automation.job.completed",
                 job,
@@ -316,9 +319,12 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = None
             job.claimed_by = None
             job.claimed_at = None
+            job.execution_summary = ""
+            job.execution_metadata = {}
+            job.last_reported_by_agent_key = ""
             job.failed_at = now
             job.completed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "failed_at", "completed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "last_reported_by_agent_key", "failed_at", "completed_at", "updated_at"])
             self._audit(
                 "automation.job.failed",
                 job,
@@ -339,7 +345,12 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.ready_at = None
             job.claimed_by = None
             job.claimed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "updated_at"])
+            job.execution_summary = ""
+            job.execution_metadata = {}
+            job.last_reported_by_agent_key = ""
+            job.completed_at = None
+            job.failed_at = None
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
             self._audit(
                 "automation.job.canceled",
                 job,

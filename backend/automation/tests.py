@@ -1185,7 +1185,7 @@ class JobApiTests(TestCase):
         self.assertIsNotNone(response.data["completed_at"])
         self.assertIsNone(response.data["failed_at"])
 
-    def test_complete_clears_ready_and_claim_metadata(self):
+    def test_complete_clears_ready_claim_and_stale_execution_report_fields(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
             name="sync-assets",
@@ -1196,6 +1196,10 @@ class JobApiTests(TestCase):
             ready_at=timezone.now(),
             claimed_by=self.user,
             claimed_at=timezone.now(),
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-123"},
+            failed_at=timezone.now(),
+            last_reported_by_agent_key="automation-agent-default",
         )
 
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
@@ -1208,12 +1212,18 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["ready_at"])
         self.assertIsNone(response.data["claimed_by"])
         self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
         self.assertIsNone(job.claimed_by_id)
         self.assertIsNone(job.claimed_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_non_claimant_ops_admin_cannot_complete_claimed_job(self):
         ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
@@ -1277,7 +1287,7 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
         self.assertEqual(response.status_code, 403)
 
-    def test_fail_clears_ready_and_claim_metadata(self):
+    def test_fail_clears_ready_claim_and_stale_execution_report_fields(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
             name="sync-assets",
@@ -1288,6 +1298,10 @@ class JobApiTests(TestCase):
             ready_at=timezone.now(),
             claimed_by=self.user,
             claimed_at=timezone.now(),
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-123"},
+            completed_at=timezone.now(),
+            last_reported_by_agent_key="automation-agent-default",
         )
 
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
@@ -1300,12 +1314,18 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["ready_at"])
         self.assertIsNone(response.data["claimed_by"])
         self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
         self.assertIsNone(job.claimed_by_id)
         self.assertIsNone(job.claimed_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_non_claimant_ops_admin_cannot_fail_claimed_job(self):
         ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
@@ -1367,7 +1387,7 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
         self.assertEqual(response.status_code, 403)
 
-    def test_cancel_clears_ready_and_claim_metadata(self):
+    def test_cancel_clears_ready_claim_and_stale_execution_report_fields(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
             name="sync-assets",
@@ -1378,6 +1398,11 @@ class JobApiTests(TestCase):
             ready_at=timezone.now(),
             claimed_by=self.user,
             claimed_at=timezone.now(),
+            execution_summary="stale summary",
+            execution_metadata={"run_id": "run-123"},
+            completed_at=timezone.now(),
+            failed_at=timezone.now(),
+            last_reported_by_agent_key="automation-agent-default",
         )
 
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
@@ -1388,12 +1413,18 @@ class JobApiTests(TestCase):
         self.assertIsNone(response.data["ready_at"])
         self.assertIsNone(response.data["claimed_by"])
         self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
         self.assertIsNone(job.claimed_by_id)
         self.assertIsNone(job.claimed_at)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_non_ops_cannot_complete_claimed_job(self):
         job = Job.objects.create(
