@@ -1,3 +1,8 @@
+import hashlib
+import hmac
+import json
+import time
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -49,6 +54,10 @@ class JobHandoffAdapterTests(TestCase):
 
 
 @override_settings(
+    AUTOMATION_AGENT_REPORT_ENABLED=True,
+    AUTOMATION_AGENT_REPORT_HMAC_KEY_ID="automation-agent-default",
+    AUTOMATION_AGENT_REPORT_HMAC_SECRET="automation-agent-secret-for-tests",
+    AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS=300,
     CACHES={
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -65,6 +74,19 @@ class JobApiTests(TestCase):
         self.other_ops = get_user_model().objects.create_user(username="carol", password="password123")
         self.platform_admin = get_user_model().objects.create_user(username="dave", password="password123")
         self.client.force_authenticate(self.user)
+
+    def _agent_report_signed_headers(self, job_id, payload, timestamp=None, key_id="automation-agent-default", secret="automation-agent-secret-for-tests"):
+        ts = str(timestamp or int(time.time()))
+        body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        body_hash = hashlib.sha256(body).hexdigest()
+        canonical = f"POST\n/api/v1/automation/jobs/{job_id}/agent-report/\n{ts}\n{body_hash}"
+        signature = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+        return {
+            "HTTP_X_AGENT_KEY_ID": key_id,
+            "HTTP_X_AGENT_TIMESTAMP": ts,
+            "HTTP_X_AGENT_SIGNATURE": f"sha256={signature}",
+            "content_type": "application/json",
+        }, body
 
     def test_list_jobs(self):
         Job.objects.create(name="sync-assets")
@@ -945,6 +967,8 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+        self.assertIsNotNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
 
     def test_non_claimant_ops_admin_cannot_complete_claimed_job(self):
         ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
@@ -994,6 +1018,8 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+        self.assertIsNotNone(response.data["failed_at"])
+        self.assertIsNone(response.data["completed_at"])
 
     def test_non_claimant_ops_admin_cannot_fail_claimed_job(self):
         ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
@@ -1160,3 +1186,90 @@ class JobApiTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="automation.job.completed").exists())
         self.assertTrue(AuditLog.objects.filter(action="automation.job.failed").exists())
         self.assertTrue(AuditLog.objects.filter(action="automation.job.canceled").exists())
+
+    def test_agent_report_completes_claimed_job_and_records_metadata(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED, "summary": "completed by executor", "metadata": {"run_id": "run-123", "duration_seconds": 14}}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+        self.assertEqual(response.data["execution_summary"], "completed by executor")
+        self.assertEqual(response.data["execution_metadata"], {"run_id": "run-123", "duration_seconds": 14})
+        self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
+        self.assertIsNotNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobExecutionStatus.COMPLETED)
+        self.assertEqual(job.execution_summary, "completed by executor")
+        self.assertEqual(job.execution_metadata, {"run_id": "run-123", "duration_seconds": 14})
+
+        audit = AuditLog.objects.get(action="automation.job.agent_reported_completed")
+        self.assertEqual(audit.actor, None)
+        self.assertEqual(audit.detail["agent_key_id"], "automation-agent-default")
+        self.assertEqual(audit.detail["status"], JobExecutionStatus.COMPLETED)
+
+    def test_agent_report_fails_claimed_job(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.FAILED, "summary": "executor failed", "metadata": {"error_code": "timeout"}}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+        self.assertIsNotNone(response.data["failed_at"])
+        self.assertIsNone(response.data["completed_at"])
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_reported_failed").exists())
+
+    def test_agent_report_requires_claimed_status(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_agent_report_rejects_invalid_signature(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload, secret="wrong-secret")
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.agent_report.auth_failed").exists())

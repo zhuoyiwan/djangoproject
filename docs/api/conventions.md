@@ -35,6 +35,19 @@
 - Replay protection:
   - server rejects duplicate signed payloads in tolerance window via cache key
 
+### Automation agent signed report authentication
+- Endpoint: `POST /api/v1/automation/jobs/{id}/agent-report/`
+- Required headers:
+  - `X-Agent-Key-Id`
+  - `X-Agent-Timestamp` (unix seconds)
+  - `X-Agent-Signature` (`sha256=<hex_digest>`)
+- Signature canonical string:
+  - `METHOD + "\\n" + PATH + "\\n" + TIMESTAMP + "\\n" + SHA256(raw_body_bytes)`
+- Timestamp validation:
+  - default tolerance is `300` seconds (`AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS`)
+- Replay protection:
+  - server rejects duplicate signed payloads in tolerance window via cache key
+
 ## Response and error format
 - API throttling is enabled by endpoint class via DRF scoped throttles.
 - Default throttle scopes and rates:
@@ -48,6 +61,7 @@
   - `approval_write`: `20/min`
   - `execution_write`: `30/min`
   - `agent_ingest`: `120/min`
+  - `agent_report`: `120/min`
 - Rates can be overridden with environment variables named `API_THROTTLE_RATE_<SCOPE>`.
 - List endpoints follow DRF page response shape:
   - `count`
@@ -252,12 +266,15 @@
   - `POST /api/v1/automation/jobs/{id}/complete/`
   - `POST /api/v1/automation/jobs/{id}/fail/`
   - `POST /api/v1/automation/jobs/{id}/cancel/`
+  - `POST /api/v1/automation/jobs/{id}/agent-report/`
 - Only draft jobs can be marked ready.
 - Only ready jobs can be claimed.
 - Only claimed jobs can be completed or failed.
 - Only the claimant or a `platform_admin` can complete or fail a claimed job.
 - Only ready or claimed jobs can be canceled.
 - Only the claimant or a `platform_admin` can cancel a claimed job.
+- Only claimed jobs can be reported by `agent-report`.
+- `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, and writes audit entries.
 - Claimed jobs cannot be updated or deleted.
 
 ## RBAC access summary

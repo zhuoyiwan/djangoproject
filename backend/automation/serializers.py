@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework import serializers
 
-from .models import Job
+from .models import Job, JobExecutionStatus
 
 
 class JobSerializer(serializers.ModelSerializer):
@@ -35,6 +35,11 @@ class JobSerializer(serializers.ModelSerializer):
             "claimed_by_username",
             "claimed_at",
             "approval_comment",
+            "execution_summary",
+            "execution_metadata",
+            "completed_at",
+            "failed_at",
+            "last_reported_by_agent_key",
             "payload",
             "created_at",
             "updated_at",
@@ -58,6 +63,11 @@ class JobSerializer(serializers.ModelSerializer):
             "claimed_by_username",
             "claimed_at",
             "approval_comment",
+            "execution_summary",
+            "execution_metadata",
+            "completed_at",
+            "failed_at",
+            "last_reported_by_agent_key",
             "created_at",
             "updated_at",
         )
@@ -69,6 +79,12 @@ class JobApprovalActionSerializer(serializers.Serializer):
 
 class JobExecutionActionSerializer(serializers.Serializer):
     comment = serializers.CharField(required=False, allow_blank=True)
+
+
+class JobAgentReportSerializer(serializers.Serializer):
+    outcome = serializers.ChoiceField(choices=(JobExecutionStatus.COMPLETED, JobExecutionStatus.FAILED))
+    summary = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    metadata = serializers.JSONField(required=False)
 
 
 class JobToolQuerySerializer(serializers.Serializer):

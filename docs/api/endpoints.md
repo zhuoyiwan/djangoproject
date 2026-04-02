@@ -64,6 +64,7 @@ Audit log behavior:
 - `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/cancel/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/agent-report/` (HMAC-signed machine execution result callback, throttle scope: `agent_report`)
 
 Automation job behavior:
 - low/medium-risk jobs return `approval_status=not_required` and `status=draft`
@@ -71,6 +72,7 @@ Automation job behavior:
 - approve/reject actions are for `approver` or `platform_admin`
 - approved jobs return to `status=draft` until an ops user marks them ready
 - mark-ready/claim/complete/fail/cancel actions are for `ops_admin` or `platform_admin`
+- `agent-report` accepts HMAC-authenticated machine callbacks for claimed jobs and records execution summary/metadata plus audit events
 
 ## API docs
 - `GET /api/schema/`

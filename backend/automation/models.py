@@ -36,6 +36,11 @@ class Job(TimeStampedModel):
         choices=JobApprovalStatus.choices,
         default=JobApprovalStatus.NOT_REQUIRED,
     )
+    execution_summary = models.TextField(blank=True)
+    execution_metadata = models.JSONField(default=dict, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    failed_at = models.DateTimeField(null=True, blank=True)
+    last_reported_by_agent_key = models.CharField(max_length=255, blank=True)
     approval_requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

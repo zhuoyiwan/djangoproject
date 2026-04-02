@@ -159,6 +159,7 @@ REST_FRAMEWORK = {
         "approval_write": os.getenv("API_THROTTLE_RATE_APPROVAL_WRITE", "20/min"),
         "execution_write": os.getenv("API_THROTTLE_RATE_EXECUTION_WRITE", "30/min"),
         "agent_ingest": os.getenv("API_THROTTLE_RATE_AGENT_INGEST", "120/min"),
+        "agent_report": os.getenv("API_THROTTLE_RATE_AGENT_REPORT", "120/min"),
     },
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
     "PAGE_SIZE": 20,
@@ -192,9 +193,14 @@ AGENT_INGEST_HMAC_KEY_ID = os.getenv("AGENT_INGEST_HMAC_KEY_ID", "agent-default"
 AGENT_INGEST_HMAC_SECRET = os.getenv("AGENT_INGEST_HMAC_SECRET", "")
 AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS = int(os.getenv("AGENT_INGEST_TIMESTAMP_TOLERANCE_SECONDS", "300"))
 AGENT_INGEST_REPLAY_CACHE_PREFIX = os.getenv("AGENT_INGEST_REPLAY_CACHE_PREFIX", "agent_ingest:replay")
+AUTOMATION_AGENT_REPORT_ENABLED = os.getenv("AUTOMATION_AGENT_REPORT_ENABLED", "False").lower() == "true"
+AUTOMATION_AGENT_REPORT_HMAC_KEY_ID = os.getenv("AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", "automation-agent-default")
+AUTOMATION_AGENT_REPORT_HMAC_SECRET = os.getenv("AUTOMATION_AGENT_REPORT_HMAC_SECRET", "")
+AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS = int(os.getenv("AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS", "300"))
+AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX = os.getenv("AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX", "automation_agent_report:replay")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "ChatOps CMDB Backend API",
-    "DESCRIPTION": "Phase 1 backend API for auth, CMDB, audit, automation, and agent signed ingest.",
+    "DESCRIPTION": "Phase 1 backend API for auth, CMDB, audit, automation, agent signed ingest, and automation agent reporting.",
     "VERSION": "0.2.0",
 }

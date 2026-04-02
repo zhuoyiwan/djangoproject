@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: ChatOps CMDB Backend API
   version: 0.2.0
-  description: Phase 1 backend API for auth, CMDB, audit, automation, and agent signed
-    ingest.
+  description: Phase 1 backend API for auth, CMDB, audit, automation, agent signed
+    ingest, and automation agent reporting.
 paths:
   /api/schema/:
     get:
@@ -526,6 +526,43 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/automation/jobs/{id}/agent-report/:
+    post:
+      operationId: v1_automation_jobs_agent_report_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobAgentReport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobAgentReport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobAgentReport'
+        required: true
+      security:
+      - automationAgentHmacAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Agent report validation error
+        '401':
+          description: Authentication/signature error
   /api/v1/automation/jobs/{id}/approve/:
     post:
       operationId: v1_automation_jobs_approve_create
@@ -1880,6 +1917,24 @@ components:
         approval_comment:
           type: string
           readOnly: true
+        execution_summary:
+          type: string
+          readOnly: true
+        execution_metadata:
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_reported_by_agent_key:
+          type: string
+          readOnly: true
         payload: {}
         created_at:
           type: string
@@ -1901,8 +1956,13 @@ components:
       - claimed_at
       - claimed_by
       - claimed_by_username
+      - completed_at
       - created_at
+      - execution_metadata
+      - execution_summary
+      - failed_at
       - id
+      - last_reported_by_agent_key
       - name
       - ready_at
       - ready_by
@@ -1911,6 +1971,17 @@ components:
       - rejected_by
       - rejected_by_username
       - updated_at
+    JobAgentReport:
+      type: object
+      properties:
+        outcome:
+          $ref: '#/components/schemas/OutcomeEnum'
+        summary:
+          type: string
+          maxLength: 2000
+        metadata: {}
+      required:
+      - outcome
     JobApprovalAction:
       type: object
       properties:
@@ -2107,6 +2178,14 @@ components:
         * `offline` - offline
         * `maintenance` - maintenance
         * `pre_allocated` - pre_allocated
+    OutcomeEnum:
+      enum:
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `completed` - completed
+        * `failed` - failed
     PaginatedAuditLogList:
       type: object
       required:
@@ -2327,6 +2406,24 @@ components:
           readOnly: true
           nullable: true
         approval_comment:
+          type: string
+          readOnly: true
+        execution_summary:
+          type: string
+          readOnly: true
+        execution_metadata:
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_reported_by_agent_key:
           type: string
           readOnly: true
         payload: {}
@@ -2697,6 +2794,12 @@ components:
       name: X-Agent-Signature
       description: 'Agent ingest HMAC authentication. Required headers: X-Agent-Key-Id,
         X-Agent-Timestamp, X-Agent-Signature.'
+    automationAgentHmacAuth:
+      type: apiKey
+      in: header
+      name: X-Agent-Signature
+      description: 'Automation agent report HMAC authentication. Required headers:
+        X-Agent-Key-Id, X-Agent-Timestamp, X-Agent-Signature.'
     jwtAuth:
       type: http
       scheme: bearer

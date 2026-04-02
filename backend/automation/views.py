@@ -16,8 +16,10 @@ from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
 
 from .adapters import JobHandoffQuerySerializer, JobHandoffResponseSerializer, build_job_handoff_response
+from .authentication import AutomationAgentHMACAuthentication
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from .serializers import (
+    JobAgentReportSerializer,
     JobApprovalActionSerializer,
     JobExecutionActionSerializer,
     JobSerializer,
@@ -39,6 +41,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         "complete": "execution_write",
         "fail": "execution_write",
         "cancel": "execution_write",
+        "agent_report": "agent_report",
     }
     queryset = Job.objects.select_related(
         "approval_requested_by",
@@ -273,7 +276,9 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can complete a claimed job.")
             job.status = JobExecutionStatus.COMPLETED
-            job.save(update_fields=["status", "updated_at"])
+            job.completed_at = now
+            job.failed_at = None
+            job.save(update_fields=["status", "completed_at", "failed_at", "updated_at"])
             self._audit(
                 "automation.job.completed",
                 job,
@@ -289,7 +294,9 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.claimed_by_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can fail a claimed job.")
             job.status = JobExecutionStatus.FAILED
-            job.save(update_fields=["status", "updated_at"])
+            job.failed_at = now
+            job.completed_at = None
+            job.save(update_fields=["status", "failed_at", "completed_at", "updated_at"])
             self._audit(
                 "automation.job.failed",
                 job,
@@ -360,6 +367,72 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         jobs = serializer.filter_queryset(self.get_queryset())
         return build_job_handoff_response(request, jobs, serializer.validated_data)
+
+    @extend_schema(
+        request=JobAgentReportSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Agent report validation error"),
+            401: OpenApiResponse(description="Authentication/signature error"),
+        },
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="agent-report",
+        authentication_classes=[AutomationAgentHMACAuthentication],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def agent_report(self, request, pk=None):
+        job = self.get_object()
+        serializer = JobAgentReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if job.status != JobExecutionStatus.CLAIMED:
+            raise ValidationError({"status": ["Only claimed jobs can be reported by an agent."]})
+
+        outcome = serializer.validated_data["outcome"]
+        now = timezone.now()
+        job.execution_summary = serializer.validated_data.get("summary", "")
+        job.execution_metadata = serializer.validated_data.get("metadata", {})
+        job.last_reported_by_agent_key = getattr(request, "agent_key_id", "")
+
+        if outcome == JobExecutionStatus.COMPLETED:
+            job.status = JobExecutionStatus.COMPLETED
+            job.completed_at = now
+            job.failed_at = None
+            action_name = "automation.job.agent_reported_completed"
+        else:
+            job.status = JobExecutionStatus.FAILED
+            job.failed_at = now
+            job.completed_at = None
+            action_name = "automation.job.agent_reported_failed"
+
+        job.save(
+            update_fields=[
+                "status",
+                "execution_summary",
+                "execution_metadata",
+                "last_reported_by_agent_key",
+                "completed_at",
+                "failed_at",
+                "updated_at",
+            ]
+        )
+        AuditLog.objects.create(
+            actor=None,
+            action=action_name,
+            target=self._job_target(job),
+            detail={
+                "request_id": self._request_id(),
+                "claimed_by": job.claimed_by_id,
+                "status": job.status,
+                "agent_key_id": getattr(request, "agent_key_id", ""),
+                "summary": job.execution_summary,
+                "metadata": job.execution_metadata,
+            },
+        )
+        return Response(JobSerializer(job).data)
 
     @extend_schema(
         request=JobApprovalActionSerializer,
