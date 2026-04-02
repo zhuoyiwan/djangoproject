@@ -1803,7 +1803,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status2b7Enum'
+          $ref: '#/components/schemas/IDCStatusEnum'
         description:
           type: string
         created_at:
@@ -1820,6 +1820,16 @@ components:
       - id
       - name
       - updated_at
+    IDCStatusEnum:
+      enum:
+      - active
+      - maintenance
+      - inactive
+      type: string
+      description: |-
+        * `active` - active
+        * `maintenance` - maintenance
+        * `inactive` - inactive
     IDCToolQuery:
       type: object
       properties:
@@ -1836,7 +1846,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status2b7Enum'
+          $ref: '#/components/schemas/IDCStatusEnum'
         limit:
           type: integer
           maximum: 20
@@ -1880,7 +1890,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status2b7Enum'
+          $ref: '#/components/schemas/IDCStatusEnum'
         description:
           type: string
         created_at:
@@ -1907,7 +1917,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status6faEnum'
+          $ref: '#/components/schemas/JobExecutionStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -2065,6 +2075,24 @@ components:
         agent_key_id:
           type: string
           maxLength: 255
+    JobExecutionStatusEnum:
+      enum:
+      - draft
+      - awaiting_approval
+      - ready
+      - claimed
+      - completed
+      - failed
+      - canceled
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `awaiting_approval` - Awaiting approval
+        * `ready` - Ready
+        * `claimed` - Claimed
+        * `completed` - Completed
+        * `failed` - Failed
+        * `canceled` - Canceled
     JobHandoffItem:
       type: object
       properties:
@@ -2075,7 +2103,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status6faEnum'
+          $ref: '#/components/schemas/JobExecutionStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -2177,7 +2205,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status6faEnum'
+          $ref: '#/components/schemas/JobExecutionStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -2225,7 +2253,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status6faEnum'
+          $ref: '#/components/schemas/JobExecutionStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -2420,7 +2448,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status2b7Enum'
+          $ref: '#/components/schemas/IDCStatusEnum'
         description:
           type: string
         created_at:
@@ -2441,7 +2469,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/Status6faEnum'
+          $ref: '#/components/schemas/JobExecutionStatusEnum'
         risk_level:
           $ref: '#/components/schemas/RiskLevelEnum'
         approval_status:
@@ -2804,34 +2832,6 @@ components:
         * `manual` - manual
         * `agent` - agent
         * `api` - api
-    Status2b7Enum:
-      enum:
-      - active
-      - maintenance
-      - inactive
-      type: string
-      description: |-
-        * `active` - active
-        * `maintenance` - maintenance
-        * `inactive` - inactive
-    Status6faEnum:
-      enum:
-      - draft
-      - awaiting_approval
-      - ready
-      - claimed
-      - completed
-      - failed
-      - canceled
-      type: string
-      description: |-
-        * `draft` - Draft
-        * `awaiting_approval` - Awaiting approval
-        * `ready` - Ready
-        * `claimed` - Claimed
-        * `completed` - Completed
-        * `failed` - Failed
-        * `canceled` - Canceled
     TokenObtainPair:
       type: object
       properties:

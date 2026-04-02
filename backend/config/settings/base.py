@@ -227,4 +227,8 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "ChatOps CMDB Backend API",
     "DESCRIPTION": "Phase 1 backend API for auth, CMDB, audit, automation, agent signed ingest, and automation agent reporting.",
     "VERSION": "0.2.0",
+    "ENUM_NAME_OVERRIDES": {
+        "IDCStatusEnum": "cmdb.models.IDCStatus",
+        "JobExecutionStatusEnum": "automation.models.JobExecutionStatus",
+    },
 }
