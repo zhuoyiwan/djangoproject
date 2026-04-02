@@ -44,6 +44,9 @@
   - `tool_query`: `60/min`
   - `handoff`: `60/min`
   - `audit_read`: `30/min`
+  - `user_admin`: `20/min`
+  - `approval_write`: `20/min`
+  - `execution_write`: `30/min`
   - `agent_ingest`: `120/min`
 - Rates can be overridden with environment variables named `API_THROTTLE_RATE_<SCOPE>`.
 - List endpoints follow DRF page response shape:

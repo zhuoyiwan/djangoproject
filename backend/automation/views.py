@@ -24,7 +24,17 @@ from .serializers import (
 
 class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     throttle_scope = "api_read"
-    throttle_scope_map = {"tool_query": "tool_query", "handoff": "handoff"}
+    throttle_scope_map = {
+        "tool_query": "tool_query",
+        "handoff": "handoff",
+        "approve": "approval_write",
+        "reject": "approval_write",
+        "mark_ready": "execution_write",
+        "claim": "execution_write",
+        "complete": "execution_write",
+        "fail": "execution_write",
+        "cancel": "execution_write",
+    }
     queryset = Job.objects.select_related(
         "approval_requested_by",
         "approved_by",

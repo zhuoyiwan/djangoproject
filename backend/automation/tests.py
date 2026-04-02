@@ -249,6 +249,70 @@ class JobApiTests(TestCase):
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
 
+    def test_approve_is_throttled_after_approval_write_rate_limit(self):
+        self.approver.groups.add(Group.objects.create(name=ROLE_APPROVER))
+        first_job = Job.objects.create(
+            name="restart-prod-1",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        second_job = Job.objects.create(
+            name="restart-prod-2",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+        third_job = Job.objects.create(
+            name="restart-prod-3",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.AWAITING_APPROVAL,
+            approval_status=JobApprovalStatus.PENDING,
+            approval_requested_by=self.user,
+        )
+
+        self.client.force_authenticate(self.approver)
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "approval_write": "2/min"}}):
+            first = self.client.post(f"/api/v1/automation/jobs/{first_job.id}/approve/", {"comment": "ok"}, format="json")
+            second = self.client.post(f"/api/v1/automation/jobs/{second_job.id}/approve/", {"comment": "ok"}, format="json")
+            third = self.client.post(f"/api/v1/automation/jobs/{third_job.id}/approve/", {"comment": "ok"}, format="json")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
+
+    def test_mark_ready_is_throttled_after_execution_write_rate_limit(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        first_job = Job.objects.create(
+            name="sync-assets-1",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        second_job = Job.objects.create(
+            name="sync-assets-2",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        third_job = Job.objects.create(
+            name="sync-assets-3",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "execution_write": "2/min"}}):
+            first = self.client.post(f"/api/v1/automation/jobs/{first_job.id}/mark-ready/", {"comment": "ready"}, format="json")
+            second = self.client.post(f"/api/v1/automation/jobs/{second_job.id}/mark-ready/", {"comment": "ready"}, format="json")
+            third = self.client.post(f"/api/v1/automation/jobs/{third_job.id}/mark-ready/", {"comment": "ready"}, format="json")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
+
     def test_handoff_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/automation/jobs/handoff/")
         self.assertEqual(response.status_code, 400)

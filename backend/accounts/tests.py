@@ -96,6 +96,18 @@ class UserApiPermissionTests(TestCase):
         response = self.client.get("/api/v1/users/")
         self.assertEqual(response.status_code, 200)
 
+    def test_user_list_is_throttled_after_user_admin_rate_limit(self):
+        admin_group = Group.objects.create(name="platform_admin")
+        self.user.groups.add(admin_group)
+        with override_settings(REST_FRAMEWORK={**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {**settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "user_admin": "2/min"}}):
+            first = self.client.get("/api/v1/users/")
+            second = self.client.get("/api/v1/users/")
+            third = self.client.get("/api/v1/users/")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(third.status_code, 429)
+        self.assertEqual(third.data["error"]["code"], "rate_limited")
+
     def test_non_admin_user_list_denial_writes_security_audit_log(self):
         response = self.client.get("/api/v1/users/")
         self.assertEqual(response.status_code, 403)

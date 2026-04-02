@@ -30,7 +30,8 @@ class RefreshView(TokenRefreshView):
 
 
 class UserViewSet(ScopedActionThrottleMixin, viewsets.ReadOnlyModelViewSet):
-    throttle_scope = "api_read"
+    throttle_scope = "user_admin"
+    throttle_scope_map = {"me": "api_read"}
     serializer_class = UserSerializer
     queryset = get_user_model().objects.order_by("id")
 

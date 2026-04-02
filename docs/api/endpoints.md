@@ -11,8 +11,8 @@
 - `GET /api/v1/auth/me/` (throttle scope: `api_read`)
 
 ## Users
-- `GET /api/v1/users/`
-- `GET /api/v1/users/{id}/`
+- `GET /api/v1/users/` (throttle scope: `user_admin`)
+- `GET /api/v1/users/{id}/` (throttle scope: `user_admin`)
 
 ## CMDB
 ### IDCs
@@ -48,13 +48,13 @@
 - `PUT /api/v1/automation/jobs/{id}/` (throttle scope: `api_write`)
 - `PATCH /api/v1/automation/jobs/{id}/` (throttle scope: `api_write`)
 - `DELETE /api/v1/automation/jobs/{id}/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/approve/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/reject/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/mark-ready/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/claim/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `api_write`)
-- `POST /api/v1/automation/jobs/{id}/cancel/` (throttle scope: `api_write`)
+- `POST /api/v1/automation/jobs/{id}/approve/` (throttle scope: `approval_write`)
+- `POST /api/v1/automation/jobs/{id}/reject/` (throttle scope: `approval_write`)
+- `POST /api/v1/automation/jobs/{id}/mark-ready/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/claim/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/cancel/` (throttle scope: `execution_write`)
 
 Automation job behavior:
 - low/medium-risk jobs return `approval_status=not_required` and `status=draft`
