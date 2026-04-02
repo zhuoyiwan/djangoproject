@@ -512,7 +512,9 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
 
         if job.status != JobExecutionStatus.CLAIMED:
             raise ValidationError({"status": ["Only claimed jobs can be reported by an agent."]})
-        if job.assigned_agent_key_id and job.assigned_agent_key_id != getattr(request, "agent_key_id", ""):
+        if not job.assigned_agent_key_id:
+            raise ValidationError({"agent_key_id": ["Only agent-claimed jobs can be reported by an agent."]})
+        if job.assigned_agent_key_id != getattr(request, "agent_key_id", ""):
             raise ValidationError({"agent_key_id": ["Agent key does not match the claimed runner assignment."]})
 
         outcome = serializer.validated_data["outcome"]

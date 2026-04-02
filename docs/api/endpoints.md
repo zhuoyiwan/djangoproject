@@ -75,7 +75,7 @@ Automation job behavior:
 - mark-ready/claim/complete/fail/cancel actions are for `ops_admin` or `platform_admin`
 - `claim` may assign `agent_key_id` to bind a claimed job to a specific runner key
 - `agent-claim` accepts HMAC-authenticated machine callbacks for ready jobs, transitions them to `claimed`, and binds the runner key from the signature
-- `agent-report` accepts HMAC-authenticated machine callbacks for claimed jobs, enforces any assigned runner key, and records execution summary/metadata plus audit events
+- `agent-report` accepts HMAC-authenticated machine callbacks only for agent-claimed jobs, enforces the assigned runner key, and records execution summary/metadata plus audit events
 
 ## API docs
 - `GET /api/schema/`

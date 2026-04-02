@@ -2099,7 +2099,7 @@ class JobApiTests(TestCase):
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
         )
         payload = {"outcome": JobExecutionStatus.COMPLETED, "summary": "completed by executor", "metadata": {"run_id": "run-123", "duration_seconds": 14}}
         headers, body = self._agent_report_signed_headers(job.id, payload)
@@ -2131,7 +2131,7 @@ class JobApiTests(TestCase):
 
         audit = AuditLog.objects.get(action="automation.job.agent_reported_completed")
         self.assertEqual(audit.actor, None)
-        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
         self.assertEqual(audit.detail["agent_key_id"], "automation-agent-default")
         self.assertEqual(audit.detail["status"], JobExecutionStatus.COMPLETED)
         self.assertEqual(audit.detail["summary"], "completed by executor")
@@ -2144,7 +2144,7 @@ class JobApiTests(TestCase):
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
         )
         payload = {"outcome": JobExecutionStatus.FAILED, "summary": "executor failed", "metadata": {"error_code": "timeout"}}
         headers, body = self._agent_report_signed_headers(job.id, payload)
@@ -2170,7 +2170,7 @@ class JobApiTests(TestCase):
 
         audit = AuditLog.objects.get(action="automation.job.agent_reported_failed")
         self.assertEqual(audit.actor, None)
-        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
         self.assertEqual(audit.detail["agent_key_id"], "automation-agent-default")
         self.assertEqual(audit.detail["status"], JobExecutionStatus.FAILED)
         self.assertEqual(audit.detail["summary"], "executor failed")
@@ -2183,7 +2183,7 @@ class JobApiTests(TestCase):
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
             ready_by=self.other_ops,
             ready_at=timezone.now(),
             execution_summary="stale summary",
@@ -2243,6 +2243,24 @@ class JobApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_agent_report_rejects_human_claimed_job_without_assigned_agent_key(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertEqual(response.data["error"]["details"]["agent_key_id"], ["Only agent-claimed jobs can be reported by an agent."])
 
     def test_agent_report_rejects_unassigned_agent_key(self):
         job = Job.objects.create(
@@ -2331,7 +2349,7 @@ class JobApiTests(TestCase):
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
         )
         payload = {"outcome": JobExecutionStatus.COMPLETED, "summary": "completed by executor"}
         headers, body = self._agent_report_signed_headers(job.id, payload, timestamp=int(time.time()))
@@ -2417,21 +2435,21 @@ class JobApiTests(TestCase):
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
         )
         second_job = Job.objects.create(
             name="sync-assets-2",
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
         )
         third_job = Job.objects.create(
             name="sync-assets-3",
             risk_level=JobRiskLevel.LOW,
             status=JobExecutionStatus.CLAIMED,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
-            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-default",
         )
 
         first_headers, first_body = self._agent_report_signed_headers(first_job.id, {"outcome": JobExecutionStatus.COMPLETED}, timestamp=int(time.time()))

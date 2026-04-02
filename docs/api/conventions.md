@@ -315,7 +315,8 @@
 - Only claimed jobs can be reported by `agent-report`.
 - `claim` accepts optional `agent_key_id` to bind a claimed job to a specific automation runner key.
 - `agent-claim` binds the claimed job to the HMAC-authenticated runner key and records a machine audit event.
-- `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, enforces any assigned runner key, and writes audit entries.
+- `agent-report` is only valid for agent-claimed jobs with an assigned runner key.
+- `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, enforces the assigned runner key, and writes audit entries.
 - Automation agent claim authentication supports multiple runner keys via `AUTOMATION_AGENT_CLAIM_HMAC_KEYS` (`key_id:secret` comma-separated), while retaining the single-key settings as a fallback.
 - Automation agent report authentication supports multiple runner keys via `AUTOMATION_AGENT_REPORT_HMAC_KEYS` (`key_id:secret` comma-separated), while retaining the single-key settings as a fallback.
 - Claimed jobs cannot be updated or deleted.
