@@ -4,7 +4,7 @@ Read this file first in unattended backend sessions.
 
 ## Task
 
-Start by reading `docs/architecture/backend-roadmap.md` and continue with the next unfinished backend milestone after the work represented by commit `d3bc3f2 Update backend implementation.`.
+Start by reading `docs/architecture/backend-roadmap.md` and continue with the next unfinished backend milestone after the work represented by commit `2df6e0f Update automation backend workflow.`.
 Use the latest repo state plus the changed areas below to pick the smallest complete backend increment.
 
 ## Changed context from previous session
