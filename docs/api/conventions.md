@@ -13,6 +13,7 @@
 - Current user endpoint: `GET /api/v1/auth/me/`
 - Protected endpoints require header:
   - `Authorization: Bearer <access_token>`
+- Production settings require `JWT_SIGNING_KEY` to be explicitly set to a strong non-default value and not reuse `DJANGO_SECRET_KEY`.
 
 ### RBAC roles
 - `platform_admin`: full management (including user list and audit query)

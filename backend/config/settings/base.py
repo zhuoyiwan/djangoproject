@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BASE_DIR.parent
 
@@ -28,8 +30,20 @@ def load_env_file(path: Path) -> None:
 load_env_file(REPO_ROOT / ".env")
 load_env_file(BASE_DIR / ".env")
 
+
+def require_strong_jwt_signing_key(secret_key: str, jwt_signing_key: str, *, debug: bool) -> str:
+    if debug:
+        return jwt_signing_key
+    if not jwt_signing_key or jwt_signing_key == "change-me":
+        raise ImproperlyConfigured("JWT_SIGNING_KEY must be set to a strong non-default value when DEBUG is False.")
+    if jwt_signing_key == secret_key:
+        raise ImproperlyConfigured("JWT_SIGNING_KEY must not reuse DJANGO_SECRET_KEY when DEBUG is False.")
+    return jwt_signing_key
+
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
+JWT_SIGNING_KEY = os.getenv("JWT_SIGNING_KEY", SECRET_KEY)
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
 
 INSTALLED_APPS = [
@@ -139,7 +153,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.getenv("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "30"))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_TOKEN_LIFETIME_DAYS", "7"))),
     "ALGORITHM": os.getenv("JWT_ALGORITHM", "HS256"),
-    "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY", SECRET_KEY),
+    "SIGNING_KEY": JWT_SIGNING_KEY,
 }
 
 CACHES = {
