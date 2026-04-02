@@ -17,6 +17,7 @@
 ## CMDB
 ### IDCs
 - `GET /api/v1/cmdb/idcs/`
+- `GET /api/v1/cmdb/idcs/tool-query/` (normalized read-only tool query)
 - `POST /api/v1/cmdb/idcs/`
 - `GET /api/v1/cmdb/idcs/{id}/`
 - `PUT /api/v1/cmdb/idcs/{id}/`

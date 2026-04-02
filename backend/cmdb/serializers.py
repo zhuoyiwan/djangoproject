@@ -7,6 +7,65 @@ from rest_framework import serializers
 from .models import DataSourceType, IDC, Server
 
 
+class IDCToolQuerySerializer(serializers.Serializer):
+    q = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    code = serializers.CharField(required=False, allow_blank=False, max_length=64)
+    name = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    location = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    status = serializers.ChoiceField(choices=IDC._meta.get_field("status").choices, required=False)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=20, default=10)
+
+    def validate(self, attrs):
+        filters = {key: value for key, value in attrs.items() if key != "limit"}
+        if not filters:
+            raise serializers.ValidationError("At least one query filter is required.")
+        return attrs
+
+    def filter_queryset(self, queryset):
+        data = self.validated_data
+        if q := data.get("q"):
+            queryset = queryset.filter(
+                Q(code__icontains=q)
+                | Q(name__icontains=q)
+                | Q(location__icontains=q)
+                | Q(status__icontains=q)
+            )
+        if code := data.get("code"):
+            queryset = queryset.filter(code=code)
+        if name := data.get("name"):
+            queryset = queryset.filter(name=name)
+        if location := data.get("location"):
+            queryset = queryset.filter(location__icontains=location)
+        if status := data.get("status"):
+            queryset = queryset.filter(status=status)
+        return queryset[: data["limit"]]
+
+
+class IDCToolResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IDC
+        fields = (
+            "id",
+            "code",
+            "name",
+            "location",
+            "status",
+            "description",
+            "created_at",
+            "updated_at",
+        )
+
+
+class IDCToolQueryResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    query = IDCToolQuerySerializer()
+    summary = serializers.DictField()
+    items = IDCToolResultSerializer(many=True)
+
+
+
+
 class IDCSerializer(serializers.ModelSerializer):
     class Meta:
         model = IDC

@@ -12,6 +12,9 @@ from .serializers import (
     AgentIngestResponseSerializer,
     AgentServerIngestSerializer,
     IDCSerializer,
+    IDCToolQueryResponseSerializer,
+    IDCToolQuerySerializer,
+    IDCToolResultSerializer,
     ServerSerializer,
     ServerToolQueryResponseSerializer,
     ServerToolQuerySerializer,
@@ -26,6 +29,40 @@ class IDCViewSet(viewsets.ModelViewSet):
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("code", "name", "location", "status")
     ordering_fields = ("created_at", "code", "name", "status")
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="code", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="location", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
+        ],
+        responses={
+            200: IDCToolQueryResponseSerializer,
+            400: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Validation error"),
+            401: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Authentication required"),
+        },
+    )
+    @action(detail=False, methods=["get"], url_path="tool-query")
+    def tool_query(self, request):
+        serializer = IDCToolQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        idcs = serializer.filter_queryset(self.get_queryset())
+        items = IDCToolResultSerializer(idcs, many=True).data
+        response_data = {
+            "ok": True,
+            "request_id": getattr(request, "request_id", ""),
+            "query": serializer.validated_data,
+            "summary": {
+                "count": len(items),
+                "returned": len(items),
+                "truncated": len(items) == serializer.validated_data["limit"],
+            },
+            "items": items,
+        }
+        return Response(response_data)
 
 
 class ServerViewSet(viewsets.ModelViewSet):

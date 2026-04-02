@@ -106,6 +106,24 @@
 - `api`
 
 ## CMDB tool query baseline
+### IDC tool query
+- Tool query endpoint: `GET /api/v1/cmdb/idcs/tool-query/`
+- Tool query filters:
+  - `q`
+  - `code`
+  - `name`
+  - `location`
+  - `status`
+  - `limit` (default `10`, max `20`)
+- Tool query response shape:
+  - `ok`
+  - `request_id`
+  - `query`
+  - `summary`
+  - `items`
+- Tool query is read-only and requires at least one filter.
+
+### Server tool query
 - Tool query endpoint: `GET /api/v1/cmdb/servers/tool-query/`
 - Tool query filters:
   - `q`

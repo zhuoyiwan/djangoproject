@@ -35,6 +35,43 @@ class ServerModelTests(TestCase):
         self.assertIn("db-primary", str(server))
 
 
+class IDCApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="alice", password="password123")
+        self.client.force_authenticate(self.user)
+
+    def test_tool_query_requires_at_least_one_filter(self):
+        response = self.client.get("/api/v1/cmdb/idcs/tool-query/")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_tool_query_returns_normalized_matches(self):
+        IDC.objects.create(code="cn-hz-1", name="Hangzhou IDC", location="Hangzhou", status="active")
+        IDC.objects.create(code="cn-bj-1", name="Beijing IDC", location="Beijing", status="maintenance")
+
+        response = self.client.get("/api/v1/cmdb/idcs/tool-query/?q=hang&limit=5")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["summary"]["count"], 1)
+        self.assertEqual(response.data["summary"]["returned"], 1)
+        self.assertFalse(response.data["summary"]["truncated"])
+        self.assertEqual(response.data["query"]["q"], "hang")
+        self.assertEqual(response.data["query"]["limit"], 5)
+        self.assertEqual(response.data["items"][0]["code"], "cn-hz-1")
+
+    def test_tool_query_supports_structured_filters(self):
+        IDC.objects.create(code="cn-hz-1", name="Hangzhou IDC", location="Hangzhou", status="active")
+        IDC.objects.create(code="cn-bj-1", name="Beijing IDC", location="Beijing", status="inactive")
+
+        response = self.client.get("/api/v1/cmdb/idcs/tool-query/?status=active&location=hang")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["code"], "cn-hz-1")
+
+
 class ServerApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()

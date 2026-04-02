@@ -861,6 +861,59 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/cmdb/idcs/tool-query/:
+    get:
+      operationId: v1_cmdb_idcs_tool_query_retrieve
+      parameters:
+      - in: query
+        name: code
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: location
+        schema:
+          type: string
+      - in: query
+        name: name
+        schema:
+          type: string
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDCToolQueryResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Validation error
+        '401':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Authentication required
   /api/v1/cmdb/servers/:
     get:
       operationId: v1_cmdb_servers_list
@@ -1484,7 +1537,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/IDCStatusEnum'
+          $ref: '#/components/schemas/Status2b7Enum'
         description:
           type: string
         created_at:
@@ -1501,16 +1554,83 @@ components:
       - id
       - name
       - updated_at
-    IDCStatusEnum:
-      enum:
-      - active
-      - maintenance
-      - inactive
-      type: string
-      description: |-
-        * `active` - active
-        * `maintenance` - maintenance
-        * `inactive` - inactive
+    IDCToolQuery:
+      type: object
+      properties:
+        q:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/Status2b7Enum'
+        limit:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 10
+    IDCToolQueryResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        request_id:
+          type: string
+        query:
+          $ref: '#/components/schemas/IDCToolQuery'
+        summary:
+          type: object
+          additionalProperties: {}
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IDCToolResult'
+      required:
+      - items
+      - ok
+      - query
+      - request_id
+      - summary
+    IDCToolResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 255
+        status:
+          $ref: '#/components/schemas/Status2b7Enum'
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - id
+      - name
+      - updated_at
     Job:
       type: object
       properties:
@@ -1865,7 +1985,7 @@ components:
           type: string
           maxLength: 255
         status:
-          $ref: '#/components/schemas/IDCStatusEnum'
+          $ref: '#/components/schemas/Status2b7Enum'
         description:
           type: string
         created_at:
@@ -2228,6 +2348,16 @@ components:
         * `manual` - manual
         * `agent` - agent
         * `api` - api
+    Status2b7Enum:
+      enum:
+      - active
+      - maintenance
+      - inactive
+      type: string
+      description: |-
+        * `active` - active
+        * `maintenance` - maintenance
+        * `inactive` - inactive
     Status6faEnum:
       enum:
       - draft
