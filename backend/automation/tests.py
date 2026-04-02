@@ -387,7 +387,58 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
 
-    def test_ready_and_claim_actions_write_audit_entries(self):
+    def test_ops_admin_can_complete_claimed_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+
+    def test_ops_admin_can_fail_claimed_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "error"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+
+    def test_ops_admin_can_cancel_ready_job(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CANCELED)
+
+    def test_complete_requires_claimed_status(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "done"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_cancel_requires_ready_or_claimed_status(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
             name="sync-assets",
@@ -395,9 +446,40 @@ class JobApiTests(TestCase):
             status=JobExecutionStatus.DRAFT,
             approval_status=JobApprovalStatus.NOT_REQUIRED,
         )
-        ready = self.client.post(f"/api/v1/automation/jobs/{job.id}/mark-ready/", {"comment": "ready"}, format="json")
-        self.assertEqual(ready.status_code, 200)
-        claim = self.client.post(f"/api/v1/automation/jobs/{job.id}/claim/", {"comment": "claim"}, format="json")
-        self.assertEqual(claim.status_code, 200)
-        self.assertTrue(AuditLog.objects.filter(action="automation.job.ready_marked").exists())
-        self.assertTrue(AuditLog.objects.filter(action="automation.job.claimed").exists())
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "stop"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_execution_terminal_actions_write_audit_entries(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        complete_job = Job.objects.create(
+            name="complete-job",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        fail_job = Job.objects.create(
+            name="fail-job",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+        cancel_job = Job.objects.create(
+            name="cancel-job",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+
+        complete = self.client.post(f"/api/v1/automation/jobs/{complete_job.id}/complete/", {"comment": "done"}, format="json")
+        self.assertEqual(complete.status_code, 200)
+        fail = self.client.post(f"/api/v1/automation/jobs/{fail_job.id}/fail/", {"comment": "error"}, format="json")
+        self.assertEqual(fail.status_code, 200)
+        cancel = self.client.post(f"/api/v1/automation/jobs/{cancel_job.id}/cancel/", {"comment": "stop"}, format="json")
+        self.assertEqual(cancel.status_code, 200)
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.completed").exists())
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.failed").exists())
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.canceled").exists())

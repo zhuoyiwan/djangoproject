@@ -546,9 +546,117 @@ paths:
           description: Approval state validation error
         '403':
           description: Forbidden
+  /api/v1/automation/jobs/{id}/cancel/:
+    post:
+      operationId: v1_automation_jobs_cancel_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Execution state validation error
+        '403':
+          description: Forbidden
   /api/v1/automation/jobs/{id}/claim/:
     post:
       operationId: v1_automation_jobs_claim_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Execution state validation error
+        '403':
+          description: Forbidden
+  /api/v1/automation/jobs/{id}/complete/:
+    post:
+      operationId: v1_automation_jobs_complete_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this job.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JobExecutionAction'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+          description: ''
+        '400':
+          description: Execution state validation error
+        '403':
+          description: Forbidden
+  /api/v1/automation/jobs/{id}/fail/:
+    post:
+      operationId: v1_automation_jobs_fail_create
       parameters:
       - in: path
         name: id

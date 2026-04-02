@@ -39,7 +39,7 @@ class JobViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in {"approve", "reject"}:
             return [permissions.IsAuthenticated(), IsApproverOrPlatformAdmin()]
-        if self.action in {"mark_ready", "claim"}:
+        if self.action in {"mark_ready", "claim", "complete", "fail", "cancel"}:
             return [permissions.IsAuthenticated(), IsOpsOrPlatformAdmin()]
         return [permission() for permission in self.permission_classes]
 
@@ -234,7 +234,7 @@ class JobViewSet(viewsets.ModelViewSet):
                 ready_by=job.ready_by_id,
                 comment=comment,
             )
-        else:
+        elif action_name == "claim":
             if job.status != JobExecutionStatus.READY:
                 raise ValidationError({"status": ["Only ready jobs can be claimed."]})
             job.status = JobExecutionStatus.CLAIMED
@@ -243,6 +243,48 @@ class JobViewSet(viewsets.ModelViewSet):
             job.save(update_fields=["status", "claimed_by", "claimed_at", "updated_at"])
             self._audit(
                 "automation.job.claimed",
+                job,
+                risk_level=job.risk_level,
+                approval_status=job.approval_status,
+                status=job.status,
+                claimed_by=job.claimed_by_id,
+                comment=comment,
+            )
+        elif action_name == "complete":
+            if job.status != JobExecutionStatus.CLAIMED:
+                raise ValidationError({"status": ["Only claimed jobs can be completed."]})
+            job.status = JobExecutionStatus.COMPLETED
+            job.save(update_fields=["status", "updated_at"])
+            self._audit(
+                "automation.job.completed",
+                job,
+                risk_level=job.risk_level,
+                approval_status=job.approval_status,
+                status=job.status,
+                claimed_by=job.claimed_by_id,
+                comment=comment,
+            )
+        elif action_name == "fail":
+            if job.status != JobExecutionStatus.CLAIMED:
+                raise ValidationError({"status": ["Only claimed jobs can be failed."]})
+            job.status = JobExecutionStatus.FAILED
+            job.save(update_fields=["status", "updated_at"])
+            self._audit(
+                "automation.job.failed",
+                job,
+                risk_level=job.risk_level,
+                approval_status=job.approval_status,
+                status=job.status,
+                claimed_by=job.claimed_by_id,
+                comment=comment,
+            )
+        else:
+            if job.status not in {JobExecutionStatus.READY, JobExecutionStatus.CLAIMED}:
+                raise ValidationError({"status": ["Only ready or claimed jobs can be canceled."]})
+            job.status = JobExecutionStatus.CANCELED
+            job.save(update_fields=["status", "updated_at"])
+            self._audit(
+                "automation.job.canceled",
                 job,
                 risk_level=job.risk_level,
                 approval_status=job.approval_status,
@@ -354,3 +396,39 @@ class JobViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def claim(self, request, pk=None):
         return self._transition_execution(request, "claim")
+
+    @extend_schema(
+        request=JobExecutionActionSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Execution state validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        return self._transition_execution(request, "complete")
+
+    @extend_schema(
+        request=JobExecutionActionSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Execution state validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def fail(self, request, pk=None):
+        return self._transition_execution(request, "fail")
+
+    @extend_schema(
+        request=JobExecutionActionSerializer,
+        responses={
+            200: JobSerializer,
+            400: OpenApiResponse(description="Execution state validation error"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        return self._transition_execution(request, "cancel")

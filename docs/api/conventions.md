@@ -222,8 +222,13 @@
 - Execution actions:
   - `POST /api/v1/automation/jobs/{id}/mark-ready/`
   - `POST /api/v1/automation/jobs/{id}/claim/`
+  - `POST /api/v1/automation/jobs/{id}/complete/`
+  - `POST /api/v1/automation/jobs/{id}/fail/`
+  - `POST /api/v1/automation/jobs/{id}/cancel/`
 - Only draft jobs can be marked ready.
 - Only ready jobs can be claimed.
+- Only claimed jobs can be completed or failed.
+- Only ready or claimed jobs can be canceled.
 - Claimed jobs cannot be updated or deleted.
 
 ## RBAC access summary
@@ -234,4 +239,4 @@
 - Automation read operations remain available to authenticated users (`viewer` and above)
 - Automation create/update/delete require `ops_admin` or `platform_admin`
 - Automation approve/reject requires `approver` or `platform_admin`
-- Automation mark-ready/claim requires `ops_admin` or `platform_admin`
+- Automation mark-ready/claim/complete/fail/cancel requires `ops_admin` or `platform_admin`

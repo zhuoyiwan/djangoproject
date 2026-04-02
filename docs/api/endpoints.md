@@ -52,13 +52,16 @@
 - `POST /api/v1/automation/jobs/{id}/reject/`
 - `POST /api/v1/automation/jobs/{id}/mark-ready/`
 - `POST /api/v1/automation/jobs/{id}/claim/`
+- `POST /api/v1/automation/jobs/{id}/complete/`
+- `POST /api/v1/automation/jobs/{id}/fail/`
+- `POST /api/v1/automation/jobs/{id}/cancel/`
 
 Automation job behavior:
 - low/medium-risk jobs return `approval_status=not_required` and `status=draft`
 - high-risk jobs return `approval_status=pending` and `status=awaiting_approval` until approved
 - approve/reject actions are for `approver` or `platform_admin`
 - approved jobs return to `status=draft` until an ops user marks them ready
-- mark-ready/claim actions are for `ops_admin` or `platform_admin`
+- mark-ready/claim/complete/fail/cancel actions are for `ops_admin` or `platform_admin`
 
 ## API docs
 - `GET /api/schema/`
