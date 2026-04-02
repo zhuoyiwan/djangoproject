@@ -129,6 +129,23 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["approval_status"], JobApprovalStatus.APPROVED)
         self.assertEqual(response.data["approved_by"], self.approver.id)
         self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+        self.assertEqual(response.data["approval_comment"], "approved")
+        self.assertIsNotNone(response.data["approved_at"])
+        self.assertIsNone(response.data["rejected_by"])
+        self.assertIsNone(response.data["rejected_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.approval_comment, "approved")
+        self.assertEqual(job.approved_by_id, self.approver.id)
+        self.assertIsNotNone(job.approved_at)
+        self.assertIsNone(job.rejected_by_id)
+        self.assertIsNone(job.rejected_at)
+
+        audit = AuditLog.objects.get(action="automation.job.approved")
+        self.assertEqual(audit.actor_id, self.approver.id)
+        self.assertEqual(audit.detail["approved_by"], self.approver.id)
+        self.assertEqual(audit.detail["approval_comment"], "approved")
+        self.assertIn("request_id", audit.detail)
 
     def test_approver_can_reject_pending_high_risk_job(self):
         self.approver.groups.add(Group.objects.create(name=ROLE_APPROVER))
@@ -145,6 +162,23 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["approval_status"], JobApprovalStatus.REJECTED)
         self.assertEqual(response.data["rejected_by"], self.approver.id)
         self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+        self.assertEqual(response.data["approval_comment"], "missing change window")
+        self.assertIsNotNone(response.data["rejected_at"])
+        self.assertIsNone(response.data["approved_by"])
+        self.assertIsNone(response.data["approved_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.approval_comment, "missing change window")
+        self.assertEqual(job.rejected_by_id, self.approver.id)
+        self.assertIsNotNone(job.rejected_at)
+        self.assertIsNone(job.approved_by_id)
+        self.assertIsNone(job.approved_at)
+
+        audit = AuditLog.objects.get(action="automation.job.rejected")
+        self.assertEqual(audit.actor_id, self.approver.id)
+        self.assertEqual(audit.detail["rejected_by"], self.approver.id)
+        self.assertEqual(audit.detail["approval_comment"], "missing change window")
+        self.assertIn("request_id", audit.detail)
 
     def test_requester_cannot_self_approve(self):
         self.user.groups.add(Group.objects.create(name=ROLE_APPROVER))
@@ -699,6 +733,21 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.READY)
         self.assertEqual(response.data["ready_by"], self.user.id)
+        self.assertIsNotNone(response.data["ready_at"])
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.ready_by_id, self.user.id)
+        self.assertIsNotNone(job.ready_at)
+        self.assertIsNone(job.claimed_by_id)
+        self.assertIsNone(job.claimed_at)
+
+        audit = AuditLog.objects.get(action="automation.job.ready_marked")
+        self.assertEqual(audit.actor_id, self.user.id)
+        self.assertEqual(audit.detail["ready_by"], self.user.id)
+        self.assertEqual(audit.detail["comment"], "ready")
+        self.assertIn("request_id", audit.detail)
 
     def test_cannot_mark_pending_high_risk_job_ready(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -749,6 +798,17 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
         self.assertEqual(response.data["claimed_by"], self.user.id)
+        self.assertIsNotNone(response.data["claimed_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.claimed_by_id, self.user.id)
+        self.assertIsNotNone(job.claimed_at)
+
+        audit = AuditLog.objects.get(action="automation.job.claimed")
+        self.assertEqual(audit.actor_id, self.user.id)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["comment"], "claim")
+        self.assertIn("request_id", audit.detail)
 
     def test_cannot_claim_non_ready_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -831,6 +891,12 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
 
+        audit = AuditLog.objects.get(action="automation.job.completed")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["comment"], "override")
+        self.assertIn("request_id", audit.detail)
+
     def test_ops_admin_can_fail_claimed_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -873,6 +939,12 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "override"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+
+        audit = AuditLog.objects.get(action="automation.job.failed")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["comment"], "override")
+        self.assertIn("request_id", audit.detail)
 
     def test_ops_admin_can_cancel_ready_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -928,6 +1000,12 @@ class JobApiTests(TestCase):
         response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "override"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CANCELED)
+
+        audit = AuditLog.objects.get(action="automation.job.canceled")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["comment"], "override")
+        self.assertIn("request_id", audit.detail)
 
     def test_cancel_requires_ready_or_claimed_status(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
