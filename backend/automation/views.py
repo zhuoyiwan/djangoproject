@@ -8,11 +8,11 @@ from rest_framework.response import Response
 from audit.models import AuditLog
 from core.permissions import IsApproverOrPlatformAdmin, IsAuthenticatedReadOnlyOrOps, IsOpsOrPlatformAdmin
 
+from .adapters import build_job_handoff_response
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from .serializers import (
     JobApprovalActionSerializer,
     JobExecutionActionSerializer,
-    JobHandoffItemSerializer,
     JobHandoffQuerySerializer,
     JobHandoffResponseSerializer,
     JobSerializer,
@@ -305,19 +305,7 @@ class JobViewSet(viewsets.ModelViewSet):
         serializer = JobHandoffQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         jobs = serializer.filter_queryset(self.get_queryset())
-        items = JobHandoffItemSerializer(jobs, many=True).data
-        response_data = {
-            "ok": True,
-            "request_id": getattr(request, "request_id", ""),
-            "query": serializer.validated_data,
-            "summary": {
-                "count": len(items),
-                "returned": len(items),
-                "truncated": len(items) == serializer.validated_data["limit"],
-            },
-            "items": items,
-        }
-        return Response(response_data)
+        return build_job_handoff_response(request, jobs, serializer.validated_data)
 
     @extend_schema(
         request=JobApprovalActionSerializer,

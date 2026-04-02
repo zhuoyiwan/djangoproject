@@ -2,10 +2,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory
 
 from audit.models import AuditLog
 from core.permissions import ROLE_APPROVER, ROLE_OPS_ADMIN
 
+from .adapters import build_job_handoff_response
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 
 
@@ -13,6 +16,33 @@ class JobModelTests(TestCase):
     def test_string_representation(self):
         job = Job(name="sync-assets")
         self.assertEqual(str(job), "sync-assets")
+
+
+class JobHandoffAdapterTests(TestCase):
+    def test_build_job_handoff_response_returns_normalized_adapter_shape(self):
+        user = get_user_model().objects.create_user(username="alice", password="password123")
+        job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=user,
+            payload={"target": "prod"},
+        )
+        request = Request(APIRequestFactory().get("/api/v1/automation/jobs/handoff/?status=ready&limit=5"))
+        request.request_id = "req-123"
+
+        response = build_job_handoff_response(request, [job], {"status": JobExecutionStatus.READY, "limit": 5})
+
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["request_id"], "req-123")
+        self.assertEqual(response.data["query"]["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["summary"]["count"], 1)
+        self.assertEqual(response.data["summary"]["returned"], 1)
+        self.assertFalse(response.data["summary"]["truncated"])
+        self.assertEqual(response.data["items"][0]["id"], job.id)
+        self.assertEqual(response.data["items"][0]["ready_by_username"], "alice")
+        self.assertEqual(response.data["items"][0]["payload"], {"target": "prod"})
 
 
 class JobApiTests(TestCase):
