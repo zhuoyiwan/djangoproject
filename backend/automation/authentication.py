@@ -35,9 +35,13 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
             self._audit_failure(request, "missing_headers", f"agent:{key_id or 'unknown'}")
             raise AuthenticationFailed("Missing required agent signature headers.")
 
-        expected_key_id = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", "")
-        secret = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_SECRET", "")
-        if not expected_key_id or not secret or key_id != expected_key_id:
+        keys = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEYS", None)
+        if keys is None:
+            expected_key_id = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", "")
+            secret = getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_SECRET", "")
+            keys = {expected_key_id: secret} if expected_key_id and secret else {}
+        secret = keys.get(key_id, "")
+        if not secret:
             self._audit_failure(request, "unknown_key_id", f"agent:{key_id}")
             raise AuthenticationFailed("Invalid agent key id.")
 

@@ -1940,6 +1940,9 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        assigned_agent_key_id:
+          type: string
+          readOnly: true
         last_reported_by_agent_key:
           type: string
           readOnly: true
@@ -1961,6 +1964,7 @@ components:
       - approved_at
       - approved_by
       - approved_by_username
+      - assigned_agent_key_id
       - claimed_at
       - claimed_by
       - claimed_by_username
@@ -2000,6 +2004,9 @@ components:
       properties:
         comment:
           type: string
+        agent_key_id:
+          type: string
+          maxLength: 255
     JobHandoffItem:
       type: object
       properties:
@@ -2437,6 +2444,9 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        assigned_agent_key_id:
+          type: string
+          readOnly: true
         last_reported_by_agent_key:
           type: string
           readOnly: true

@@ -60,7 +60,7 @@ Audit log behavior:
 - `POST /api/v1/automation/jobs/{id}/approve/` (throttle scope: `approval_write`)
 - `POST /api/v1/automation/jobs/{id}/reject/` (throttle scope: `approval_write`)
 - `POST /api/v1/automation/jobs/{id}/mark-ready/` (throttle scope: `execution_write`)
-- `POST /api/v1/automation/jobs/{id}/claim/` (throttle scope: `execution_write`)
+- `POST /api/v1/automation/jobs/{id}/claim/` (throttle scope: `execution_write`; optional body field: `agent_key_id` to bind a claimed job to a specific runner)
 - `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/cancel/` (throttle scope: `execution_write`)
@@ -72,7 +72,8 @@ Automation job behavior:
 - approve/reject actions are for `approver` or `platform_admin`
 - approved jobs return to `status=draft` until an ops user marks them ready
 - mark-ready/claim/complete/fail/cancel actions are for `ops_admin` or `platform_admin`
-- `agent-report` accepts HMAC-authenticated machine callbacks for claimed jobs and records execution summary/metadata plus audit events
+- `claim` may assign `agent_key_id` to bind the claimed job to a specific runner key
+- `agent-report` accepts HMAC-authenticated machine callbacks for claimed jobs, enforces any assigned runner key, and records execution summary/metadata plus audit events
 
 ## API docs
 - `GET /api/schema/`

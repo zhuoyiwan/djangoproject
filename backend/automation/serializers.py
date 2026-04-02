@@ -39,6 +39,7 @@ class JobSerializer(serializers.ModelSerializer):
             "execution_metadata",
             "completed_at",
             "failed_at",
+            "assigned_agent_key_id",
             "last_reported_by_agent_key",
             "payload",
             "created_at",
@@ -67,6 +68,7 @@ class JobSerializer(serializers.ModelSerializer):
             "execution_metadata",
             "completed_at",
             "failed_at",
+            "assigned_agent_key_id",
             "last_reported_by_agent_key",
             "created_at",
             "updated_at",
@@ -79,6 +81,7 @@ class JobApprovalActionSerializer(serializers.Serializer):
 
 class JobExecutionActionSerializer(serializers.Serializer):
     comment = serializers.CharField(required=False, allow_blank=True)
+    agent_key_id = serializers.CharField(required=False, allow_blank=False, max_length=255)
 
 
 class JobAgentReportSerializer(serializers.Serializer):

@@ -196,6 +196,15 @@ AGENT_INGEST_REPLAY_CACHE_PREFIX = os.getenv("AGENT_INGEST_REPLAY_CACHE_PREFIX",
 AUTOMATION_AGENT_REPORT_ENABLED = os.getenv("AUTOMATION_AGENT_REPORT_ENABLED", "False").lower() == "true"
 AUTOMATION_AGENT_REPORT_HMAC_KEY_ID = os.getenv("AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", "automation-agent-default")
 AUTOMATION_AGENT_REPORT_HMAC_SECRET = os.getenv("AUTOMATION_AGENT_REPORT_HMAC_SECRET", "")
+AUTOMATION_AGENT_REPORT_HMAC_KEYS = {
+    key_id.strip(): secret.strip()
+    for key_id, secret in (
+        entry.split(":", 1)
+        for entry in os.getenv("AUTOMATION_AGENT_REPORT_HMAC_KEYS", "").split(",")
+        if ":" in entry
+    )
+    if key_id.strip() and secret.strip()
+}
 AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS = int(os.getenv("AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS", "300"))
 AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX = os.getenv("AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX", "automation_agent_report:replay")
 

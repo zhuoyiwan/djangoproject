@@ -20,6 +20,12 @@ from .adapters import build_job_handoff_response
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 
 
+TEST_AGENT_KEYS = {
+    "automation-agent-default": "automation-agent-secret-for-tests",
+    "automation-agent-blue": "automation-agent-blue-secret-for-tests",
+}
+
+
 class JobModelTests(TestCase):
     def test_string_representation(self):
         job = Job(name="sync-assets")
@@ -57,6 +63,7 @@ class JobHandoffAdapterTests(TestCase):
     AUTOMATION_AGENT_REPORT_ENABLED=True,
     AUTOMATION_AGENT_REPORT_HMAC_KEY_ID="automation-agent-default",
     AUTOMATION_AGENT_REPORT_HMAC_SECRET="automation-agent-secret-for-tests",
+    AUTOMATION_AGENT_REPORT_HMAC_KEYS=TEST_AGENT_KEYS,
     AUTOMATION_AGENT_REPORT_TIMESTAMP_TOLERANCE_SECONDS=300,
     CACHES={
         "default": {
@@ -75,7 +82,8 @@ class JobApiTests(TestCase):
         self.platform_admin = get_user_model().objects.create_user(username="dave", password="password123")
         self.client.force_authenticate(self.user)
 
-    def _agent_report_signed_headers(self, job_id, payload, timestamp=None, key_id="automation-agent-default", secret="automation-agent-secret-for-tests"):
+    def _agent_report_signed_headers(self, job_id, payload, timestamp=None, key_id="automation-agent-default", secret=None):
+        secret = secret or TEST_AGENT_KEYS.get(key_id, "automation-agent-secret-for-tests")
         ts = str(timestamp or int(time.time()))
         body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         body_hash = hashlib.sha256(body).hexdigest()
@@ -1134,15 +1142,18 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
         self.assertEqual(response.data["claimed_by"], self.user.id)
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertIsNotNone(response.data["claimed_at"])
 
         job.refresh_from_db()
         self.assertEqual(job.claimed_by_id, self.user.id)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertIsNotNone(job.claimed_at)
 
         audit = AuditLog.objects.get(action="automation.job.claimed")
         self.assertEqual(audit.actor_id, self.user.id)
         self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["assigned_agent_key_id"], "")
         self.assertEqual(audit.detail["comment"], "claim")
         self.assertIn("request_id", audit.detail)
 
@@ -1162,10 +1173,12 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
         self.assertEqual(response.data["claimed_by"], self.platform_admin.id)
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
 
         audit = AuditLog.objects.get(action="automation.job.claimed")
         self.assertEqual(audit.actor_id, self.platform_admin.id)
         self.assertEqual(audit.detail["claimed_by"], self.platform_admin.id)
+        self.assertEqual(audit.detail["assigned_agent_key_id"], "")
         self.assertEqual(audit.detail["comment"], "claim")
 
     def test_claim_clears_ready_metadata(self):
@@ -1185,12 +1198,14 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
         self.assertEqual(response.data["claimed_by"], self.user.id)
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertIsNotNone(response.data["claimed_at"])
         self.assertIsNone(response.data["ready_by"])
         self.assertIsNone(response.data["ready_at"])
 
         job.refresh_from_db()
         self.assertEqual(job.claimed_by_id, self.user.id)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertIsNotNone(job.claimed_at)
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
@@ -1599,10 +1614,13 @@ class JobApiTests(TestCase):
 
         ready = self.client.post(f"/api/v1/automation/jobs/{ready_job.id}/mark-ready/", {"comment": "ready"}, format="json")
         self.assertEqual(ready.status_code, 200)
-        claim = self.client.post(f"/api/v1/automation/jobs/{claim_job.id}/claim/", {"comment": "claim"}, format="json")
+        claim = self.client.post(f"/api/v1/automation/jobs/{claim_job.id}/claim/", {"comment": "claim", "agent_key_id": "automation-agent-blue"}, format="json")
         self.assertEqual(claim.status_code, 200)
+        claim_job.refresh_from_db()
+        self.assertEqual(claim_job.assigned_agent_key_id, "automation-agent-blue")
+        audit = AuditLog.objects.get(action="automation.job.claimed")
+        self.assertEqual(audit.detail["assigned_agent_key_id"], "automation-agent-blue")
         self.assertTrue(AuditLog.objects.filter(action="automation.job.ready_marked").exists())
-        self.assertTrue(AuditLog.objects.filter(action="automation.job.claimed").exists())
 
     def test_execution_terminal_actions_write_audit_entries(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -1656,6 +1674,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
         self.assertEqual(response.data["execution_summary"], "completed by executor")
         self.assertEqual(response.data["execution_metadata"], {"run_id": "run-123", "duration_seconds": 14})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
         self.assertIsNotNone(response.data["completed_at"])
         self.assertIsNone(response.data["failed_at"])
@@ -1700,6 +1719,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
         self.assertEqual(response.data["execution_summary"], "executor failed")
         self.assertEqual(response.data["execution_metadata"], {"error_code": "timeout"})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
         self.assertIsNotNone(response.data["failed_at"])
         self.assertIsNone(response.data["completed_at"])
@@ -1708,6 +1728,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.status, JobExecutionStatus.FAILED)
         self.assertEqual(job.execution_summary, "executor failed")
         self.assertEqual(job.execution_metadata, {"error_code": "timeout"})
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "automation-agent-default")
 
         audit = AuditLog.objects.get(action="automation.job.agent_reported_failed")
@@ -1743,6 +1764,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
         self.assertEqual(response.data["execution_summary"], "")
         self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
         self.assertIsNotNone(response.data["failed_at"])
         self.assertIsNone(response.data["completed_at"])
@@ -1755,6 +1777,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.status, JobExecutionStatus.FAILED)
         self.assertEqual(job.execution_summary, "")
         self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "automation-agent-default")
         self.assertIsNone(job.ready_by_id)
         self.assertIsNone(job.ready_at)
@@ -1783,6 +1806,25 @@ class JobApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_agent_report_rejects_unassigned_agent_key(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+            assigned_agent_key_id="automation-agent-blue",
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload, key_id="automation-agent-default")
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertEqual(response.data["error"]["details"]["agent_key_id"], ["Agent key does not match the claimed runner assignment."])
 
     def test_agent_report_rejects_invalid_signature(self):
         job = Job.objects.create(

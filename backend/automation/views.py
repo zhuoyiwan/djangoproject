@@ -93,6 +93,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         serializer.validated_data["execution_metadata"] = {}
         serializer.validated_data["completed_at"] = None
         serializer.validated_data["failed_at"] = None
+        serializer.validated_data["assigned_agent_key_id"] = ""
         serializer.validated_data["last_reported_by_agent_key"] = ""
 
         if risk_level != JobRiskLevel.HIGH:
@@ -193,6 +194,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         job.execution_metadata = {}
         job.completed_at = None
         job.failed_at = None
+        job.assigned_agent_key_id = ""
         job.last_reported_by_agent_key = ""
         if approved:
             job.approval_status = JobApprovalStatus.APPROVED
@@ -254,8 +256,9 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.execution_metadata = {}
             job.completed_at = None
             job.failed_at = None
+            job.assigned_agent_key_id = ""
             job.last_reported_by_agent_key = ""
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "completed_at", "failed_at", "last_reported_by_agent_key", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "completed_at", "failed_at", "assigned_agent_key_id", "last_reported_by_agent_key", "updated_at"])
             self._audit(
                 "automation.job.ready_marked",
                 job,
@@ -268,12 +271,14 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         elif action_name == "claim":
             if job.status != JobExecutionStatus.READY:
                 raise ValidationError({"status": ["Only ready jobs can be claimed."]})
+            agent_key_id = serializer.validated_data.get("agent_key_id", "")
             job.status = JobExecutionStatus.CLAIMED
             job.ready_by = None
             job.ready_at = None
             job.claimed_by = request.user
             job.claimed_at = now
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "updated_at"])
+            job.assigned_agent_key_id = agent_key_id
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "assigned_agent_key_id", "updated_at"])
             self._audit(
                 "automation.job.claimed",
                 job,
@@ -281,6 +286,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
                 approval_status=job.approval_status,
                 status=job.status,
                 claimed_by=job.claimed_by_id,
+                assigned_agent_key_id=job.assigned_agent_key_id,
                 comment=comment,
             )
         elif action_name == "complete":
@@ -296,10 +302,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.claimed_at = None
             job.execution_summary = ""
             job.execution_metadata = {}
+            job.assigned_agent_key_id = ""
             job.last_reported_by_agent_key = ""
             job.completed_at = now
             job.failed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "assigned_agent_key_id", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
             self._audit(
                 "automation.job.completed",
                 job,
@@ -322,10 +329,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.claimed_at = None
             job.execution_summary = ""
             job.execution_metadata = {}
+            job.assigned_agent_key_id = ""
             job.last_reported_by_agent_key = ""
             job.failed_at = now
             job.completed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "last_reported_by_agent_key", "failed_at", "completed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "assigned_agent_key_id", "last_reported_by_agent_key", "failed_at", "completed_at", "updated_at"])
             self._audit(
                 "automation.job.failed",
                 job,
@@ -348,10 +356,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             job.claimed_at = None
             job.execution_summary = ""
             job.execution_metadata = {}
+            job.assigned_agent_key_id = ""
             job.last_reported_by_agent_key = ""
             job.completed_at = None
             job.failed_at = None
-            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
+            job.save(update_fields=["status", "ready_by", "ready_at", "claimed_by", "claimed_at", "execution_summary", "execution_metadata", "assigned_agent_key_id", "last_reported_by_agent_key", "completed_at", "failed_at", "updated_at"])
             self._audit(
                 "automation.job.canceled",
                 job,
@@ -431,6 +440,8 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
 
         if job.status != JobExecutionStatus.CLAIMED:
             raise ValidationError({"status": ["Only claimed jobs can be reported by an agent."]})
+        if job.assigned_agent_key_id and job.assigned_agent_key_id != getattr(request, "agent_key_id", ""):
+            raise ValidationError({"agent_key_id": ["Agent key does not match the claimed runner assignment."]})
 
         outcome = serializer.validated_data["outcome"]
         now = timezone.now()
@@ -467,6 +478,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
                 "claimed_at",
                 "execution_summary",
                 "execution_metadata",
+                "assigned_agent_key_id",
                 "last_reported_by_agent_key",
                 "completed_at",
                 "failed_at",

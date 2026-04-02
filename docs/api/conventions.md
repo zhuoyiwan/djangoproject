@@ -276,7 +276,9 @@
 - Only ready or claimed jobs can be canceled.
 - Only the claimant or a `platform_admin` can cancel a claimed job.
 - Only claimed jobs can be reported by `agent-report`.
-- `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, and writes audit entries.
+- `claim` accepts optional `agent_key_id` to bind a claimed job to a specific automation runner key.
+- `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, enforces any assigned runner key, and writes audit entries.
+- Automation agent report authentication supports multiple runner keys via `AUTOMATION_AGENT_REPORT_HMAC_KEYS` (`key_id:secret` comma-separated), while retaining the single-key settings as a fallback.
 - Claimed jobs cannot be updated or deleted.
 
 ## RBAC access summary

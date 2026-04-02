@@ -40,6 +40,7 @@ class Job(TimeStampedModel):
     execution_metadata = models.JSONField(default=dict, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     failed_at = models.DateTimeField(null=True, blank=True)
+    assigned_agent_key_id = models.CharField(max_length=255, blank=True)
     last_reported_by_agent_key = models.CharField(max_length=255, blank=True)
     approval_requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
