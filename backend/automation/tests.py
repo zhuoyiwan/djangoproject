@@ -776,6 +776,52 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["query"]["risk_level"], JobRiskLevel.HIGH)
         self.assertEqual(response.data["query"]["approval_status"], JobApprovalStatus.APPROVED)
 
+    def test_handoff_supports_text_search_filters(self):
+        matching_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=self.user,
+        )
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            claimed_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?q=restart")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["query"]["q"], "restart")
+
+    def test_handoff_supports_exact_name_filter(self):
+        matching_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=self.user,
+        )
+        Job.objects.create(
+            name="restart-dev",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            ready_by=self.user,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?name=restart-prod")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["query"]["name"], "restart-prod")
+
     def test_handoff_supports_combined_status_and_risk_filters(self):
         matching_job = Job.objects.create(
             name="restart-prod",

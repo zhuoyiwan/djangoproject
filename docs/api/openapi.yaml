@@ -828,6 +828,14 @@ paths:
         schema:
           type: integer
       - in: query
+        name: name
+        schema:
+          type: string
+      - in: query
+        name: q
+        schema:
+          type: string
+      - in: query
         name: risk_level
         schema:
           type: string
@@ -2035,6 +2043,12 @@ components:
     JobHandoffQuery:
       type: object
       properties:
+        q:
+          type: string
+          maxLength: 255
+        name:
+          type: string
+          maxLength: 255
         status:
           $ref: '#/components/schemas/JobHandoffQueryStatusEnum'
         risk_level:

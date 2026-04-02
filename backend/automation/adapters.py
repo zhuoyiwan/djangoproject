@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers
 
 from core.tool_responses import build_normalized_tool_response
@@ -6,6 +7,8 @@ from .models import Job, JobExecutionStatus
 
 
 class JobHandoffQuerySerializer(serializers.Serializer):
+    q = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    name = serializers.CharField(required=False, allow_blank=False, max_length=255)
     status = serializers.ChoiceField(choices=(JobExecutionStatus.READY, JobExecutionStatus.CLAIMED), required=False)
     risk_level = serializers.ChoiceField(choices=Job._meta.get_field("risk_level").choices, required=False)
     approval_status = serializers.ChoiceField(choices=Job._meta.get_field("approval_status").choices, required=False)
@@ -20,6 +23,15 @@ class JobHandoffQuerySerializer(serializers.Serializer):
     def filter_queryset(self, queryset):
         data = self.validated_data
         queryset = queryset.filter(status__in=(JobExecutionStatus.READY, JobExecutionStatus.CLAIMED))
+        if q := data.get("q"):
+            queryset = queryset.filter(
+                Q(name__icontains=q)
+                | Q(status__icontains=q)
+                | Q(risk_level__icontains=q)
+                | Q(approval_status__icontains=q)
+            )
+        if name := data.get("name"):
+            queryset = queryset.filter(name=name)
         if status := data.get("status"):
             queryset = queryset.filter(status=status)
         if risk_level := data.get("risk_level"):
