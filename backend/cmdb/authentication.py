@@ -70,6 +70,7 @@ class AgentHMACAuthentication(authentication.BaseAuthentication):
         return (AgentPrincipal(key_id), None)
 
     def _audit_failure(self, request, reason: str, target: str):
+        request._security_event_audited = True
         AuditLog.objects.create(
             actor=None,
             action="server.agent_ingest.auth_failed",

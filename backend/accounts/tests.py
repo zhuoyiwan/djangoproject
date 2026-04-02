@@ -3,6 +3,8 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from audit.models import AuditLog
+
 
 class UserModelTests(TestCase):
     def test_display_name_falls_back_to_username(self):
@@ -13,6 +15,14 @@ class UserModelTests(TestCase):
 class AuthenticationApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+
+    def test_me_without_auth_writes_security_auth_failure_audit_log(self):
+        response = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(response.status_code, 401)
+        entry = AuditLog.objects.get(action="security.auth.failed")
+        self.assertIsNone(entry.actor)
+        self.assertEqual(entry.target, "GET /api/v1/auth/me/")
+        self.assertEqual(entry.detail["status_code"], 401)
 
     def test_register_endpoint_creates_user(self):
         response = self.client.post(
@@ -54,3 +64,12 @@ class UserApiPermissionTests(TestCase):
         self.user.groups.add(admin_group)
         response = self.client.get("/api/v1/users/")
         self.assertEqual(response.status_code, 200)
+
+    def test_non_admin_user_list_denial_writes_security_audit_log(self):
+        response = self.client.get("/api/v1/users/")
+        self.assertEqual(response.status_code, 403)
+        entry = AuditLog.objects.get(action="security.permission.denied")
+        self.assertEqual(entry.actor, self.user)
+        self.assertEqual(entry.target, "GET /api/v1/users/")
+        self.assertEqual(entry.detail["status_code"], 403)
+        self.assertEqual(entry.detail["username"], "alice")

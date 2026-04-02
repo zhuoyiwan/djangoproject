@@ -290,6 +290,15 @@ class AgentIngestApiTests(TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.data["error"]["code"], "unauthorized")
 
+    def test_agent_ingest_missing_headers_writes_single_auth_failure_audit_log(self):
+        payload = self._base_payload()
+        response = self.client.post("/api/v1/cmdb/servers/agent-ingest/", data=payload, format="json")
+        self.assertEqual(response.status_code, 401)
+        entries = AuditLog.objects.filter(action="server.agent_ingest.auth_failed")
+        self.assertEqual(entries.count(), 1)
+        self.assertEqual(entries.get().detail["reason"], "missing_headers")
+        self.assertFalse(AuditLog.objects.filter(action="security.auth.failed").exists())
+
     def test_agent_ingest_rejects_invalid_signature(self):
         payload = self._base_payload()
         headers, body = self._signed_headers(payload, secret="wrong-secret")
