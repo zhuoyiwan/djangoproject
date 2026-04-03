@@ -7,7 +7,7 @@ info:
 paths:
   /api/schema/:
     get:
-      operationId: schema_retrieve
+      operationId: api_schema_retrieve
       description: |-
         OpenApi3 schema for this API. Format can be selected via content negotiation.
 
@@ -126,7 +126,7 @@ paths:
           - zh-hans
           - zh-hant
       tags:
-      - schema
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -152,7 +152,7 @@ paths:
           description: ''
   /api/v1/audit/logs/:
     get:
-      operationId: v1_audit_logs_list
+      operationId: api_v1_audit_logs_list
       parameters:
       - name: ordering
         required: false
@@ -179,7 +179,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -191,7 +191,7 @@ paths:
           description: ''
   /api/v1/audit/logs/{id}/:
     get:
-      operationId: v1_audit_logs_retrieve
+      operationId: api_v1_audit_logs_retrieve
       parameters:
       - in: path
         name: id
@@ -200,7 +200,7 @@ paths:
         description: A unique integer value identifying this audit log.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -212,7 +212,7 @@ paths:
           description: ''
   /api/v1/audit/logs/tool-query/:
     get:
-      operationId: v1_audit_logs_tool_query_retrieve
+      operationId: api_v1_audit_logs_tool_query_retrieve
       parameters:
       - in: query
         name: action
@@ -247,7 +247,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -265,12 +265,12 @@ paths:
           description: Forbidden
   /api/v1/auth/login/:
     post:
-      operationId: v1_auth_login_create
+      operationId: api_v1_auth_login_create
       description: |-
         Takes a set of user credentials and returns an access and refresh JSON web
         token pair to prove the authentication of those credentials.
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -294,9 +294,9 @@ paths:
           description: ''
   /api/v1/auth/me/:
     get:
-      operationId: v1_auth_me_retrieve
+      operationId: api_v1_auth_me_retrieve
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -308,12 +308,12 @@ paths:
           description: ''
   /api/v1/auth/refresh/:
     post:
-      operationId: v1_auth_refresh_create
+      operationId: api_v1_auth_refresh_create
       description: |-
         Takes a refresh type JSON web token and returns an access type JSON web
         token if the refresh token is valid.
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -337,9 +337,9 @@ paths:
           description: ''
   /api/v1/auth/register/:
     post:
-      operationId: v1_auth_register_create
+      operationId: api_v1_auth_register_create
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -364,7 +364,7 @@ paths:
           description: ''
   /api/v1/automation/jobs/:
     get:
-      operationId: v1_automation_jobs_list
+      operationId: api_v1_automation_jobs_list
       parameters:
       - in: query
         name: approval_status
@@ -449,7 +449,7 @@ paths:
           * `failed` - Failed
           * `canceled` - Canceled
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -460,9 +460,9 @@ paths:
                 $ref: '#/components/schemas/PaginatedJobList'
           description: ''
     post:
-      operationId: v1_automation_jobs_create
+      operationId: api_v1_automation_jobs_create
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -486,7 +486,7 @@ paths:
           description: ''
   /api/v1/automation/jobs/{id}/:
     get:
-      operationId: v1_automation_jobs_retrieve
+      operationId: api_v1_automation_jobs_retrieve
       parameters:
       - in: path
         name: id
@@ -495,7 +495,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -506,7 +506,7 @@ paths:
                 $ref: '#/components/schemas/Job'
           description: ''
     put:
-      operationId: v1_automation_jobs_update
+      operationId: api_v1_automation_jobs_update
       parameters:
       - in: path
         name: id
@@ -515,7 +515,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -538,7 +538,7 @@ paths:
                 $ref: '#/components/schemas/Job'
           description: ''
     patch:
-      operationId: v1_automation_jobs_partial_update
+      operationId: api_v1_automation_jobs_partial_update
       parameters:
       - in: path
         name: id
@@ -547,7 +547,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -569,7 +569,7 @@ paths:
                 $ref: '#/components/schemas/Job'
           description: ''
     delete:
-      operationId: v1_automation_jobs_destroy
+      operationId: api_v1_automation_jobs_destroy
       parameters:
       - in: path
         name: id
@@ -578,7 +578,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -586,7 +586,7 @@ paths:
           description: No response body
   /api/v1/automation/jobs/{id}/agent-claim/:
     post:
-      operationId: v1_automation_jobs_agent_claim_create
+      operationId: api_v1_automation_jobs_agent_claim_create
       parameters:
       - in: header
         name: X-Agent-Key-Id
@@ -610,7 +610,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -639,7 +639,7 @@ paths:
           description: Rate limit exceeded
   /api/v1/automation/jobs/{id}/agent-report/:
     post:
-      operationId: v1_automation_jobs_agent_report_create
+      operationId: api_v1_automation_jobs_agent_report_create
       parameters:
       - in: header
         name: X-Agent-Key-Id
@@ -663,7 +663,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -693,7 +693,7 @@ paths:
           description: Rate limit exceeded
   /api/v1/automation/jobs/{id}/approve/:
     post:
-      operationId: v1_automation_jobs_approve_create
+      operationId: api_v1_automation_jobs_approve_create
       parameters:
       - in: path
         name: id
@@ -702,7 +702,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -729,7 +729,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/cancel/:
     post:
-      operationId: v1_automation_jobs_cancel_create
+      operationId: api_v1_automation_jobs_cancel_create
       description: Cancel a ready or claimed automation job. Human-claimed jobs can
         only be canceled by the claimant or a platform admin. Agent-claimed jobs with
         no human claimant can also be canceled by an ops admin or platform admin as
@@ -742,7 +742,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -769,7 +769,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/claim/:
     post:
-      operationId: v1_automation_jobs_claim_create
+      operationId: api_v1_automation_jobs_claim_create
       parameters:
       - in: path
         name: id
@@ -778,7 +778,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -805,7 +805,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/complete/:
     post:
-      operationId: v1_automation_jobs_complete_create
+      operationId: api_v1_automation_jobs_complete_create
       description: Complete a claimed automation job. Human-claimed jobs can only
         be completed by the claimant or a platform admin. Agent-claimed jobs with
         no human claimant can also be completed by an ops admin or platform admin
@@ -818,7 +818,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -845,7 +845,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/fail/:
     post:
-      operationId: v1_automation_jobs_fail_create
+      operationId: api_v1_automation_jobs_fail_create
       description: Fail a claimed automation job. Human-claimed jobs can only be failed
         by the claimant or a platform admin. Agent-claimed jobs with no human claimant
         can also be failed by an ops admin or platform admin as a recovery action.
@@ -857,7 +857,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -884,7 +884,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/mark-ready/:
     post:
-      operationId: v1_automation_jobs_mark_ready_create
+      operationId: api_v1_automation_jobs_mark_ready_create
       parameters:
       - in: path
         name: id
@@ -893,7 +893,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -920,7 +920,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/reject/:
     post:
-      operationId: v1_automation_jobs_reject_create
+      operationId: api_v1_automation_jobs_reject_create
       parameters:
       - in: path
         name: id
@@ -929,7 +929,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -956,7 +956,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/{id}/requeue/:
     post:
-      operationId: v1_automation_jobs_requeue_create
+      operationId: api_v1_automation_jobs_requeue_create
       description: Requeue a failed or claimed automation job back to ready. Human-claimed
         jobs can only be requeued by the claimant or a platform admin. Agent-claimed
         jobs with no human claimant can also be requeued by an ops admin or platform
@@ -969,7 +969,7 @@ paths:
         description: A unique integer value identifying this job.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -996,7 +996,7 @@ paths:
           description: Forbidden
   /api/v1/automation/jobs/handoff/:
     get:
-      operationId: v1_automation_jobs_handoff_retrieve
+      operationId: api_v1_automation_jobs_handoff_retrieve
       description: Return a normalized read-only execution handoff feed for automation
         jobs that are ready or claimed. Requires at least one filter and exposes runner
         assignment/report fields for executor consumers.
@@ -1046,7 +1046,7 @@ paths:
           - claimed
           - ready
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1062,7 +1062,7 @@ paths:
           description: Authentication required
   /api/v1/automation/jobs/tool-query/:
     get:
-      operationId: v1_automation_jobs_tool_query_retrieve
+      operationId: api_v1_automation_jobs_tool_query_retrieve
       description: Return a normalized read-only tool-query response for automation
         jobs. Requires at least one filter and supports broad discovery across job
         state, risk, approval, and runner-key fields.
@@ -1117,7 +1117,7 @@ paths:
           - failed
           - ready
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1133,7 +1133,7 @@ paths:
           description: Authentication required
   /api/v1/cmdb/idcs/:
     get:
-      operationId: v1_cmdb_idcs_list
+      operationId: api_v1_cmdb_idcs_list
       parameters:
       - name: ordering
         required: false
@@ -1160,7 +1160,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1171,9 +1171,9 @@ paths:
                 $ref: '#/components/schemas/PaginatedIDCList'
           description: ''
     post:
-      operationId: v1_cmdb_idcs_create
+      operationId: api_v1_cmdb_idcs_create
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1197,7 +1197,7 @@ paths:
           description: ''
   /api/v1/cmdb/idcs/{id}/:
     get:
-      operationId: v1_cmdb_idcs_retrieve
+      operationId: api_v1_cmdb_idcs_retrieve
       parameters:
       - in: path
         name: id
@@ -1206,7 +1206,7 @@ paths:
         description: A unique integer value identifying this idc.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1217,7 +1217,7 @@ paths:
                 $ref: '#/components/schemas/IDC'
           description: ''
     put:
-      operationId: v1_cmdb_idcs_update
+      operationId: api_v1_cmdb_idcs_update
       parameters:
       - in: path
         name: id
@@ -1226,7 +1226,7 @@ paths:
         description: A unique integer value identifying this idc.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1249,7 +1249,7 @@ paths:
                 $ref: '#/components/schemas/IDC'
           description: ''
     patch:
-      operationId: v1_cmdb_idcs_partial_update
+      operationId: api_v1_cmdb_idcs_partial_update
       parameters:
       - in: path
         name: id
@@ -1258,7 +1258,7 @@ paths:
         description: A unique integer value identifying this idc.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1280,7 +1280,7 @@ paths:
                 $ref: '#/components/schemas/IDC'
           description: ''
     delete:
-      operationId: v1_cmdb_idcs_destroy
+      operationId: api_v1_cmdb_idcs_destroy
       parameters:
       - in: path
         name: id
@@ -1289,7 +1289,7 @@ paths:
         description: A unique integer value identifying this idc.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1297,7 +1297,7 @@ paths:
           description: No response body
   /api/v1/cmdb/idcs/tool-query/:
     get:
-      operationId: v1_cmdb_idcs_tool_query_retrieve
+      operationId: api_v1_cmdb_idcs_tool_query_retrieve
       parameters:
       - in: query
         name: code
@@ -1324,7 +1324,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1350,7 +1350,7 @@ paths:
           description: Authentication required
   /api/v1/cmdb/servers/:
     get:
-      operationId: v1_cmdb_servers_list
+      operationId: api_v1_cmdb_servers_list
       parameters:
       - in: query
         name: environment
@@ -1431,7 +1431,7 @@ paths:
           * `agent` - agent
           * `api` - api
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1442,9 +1442,9 @@ paths:
                 $ref: '#/components/schemas/PaginatedServerList'
           description: ''
     post:
-      operationId: v1_cmdb_servers_create
+      operationId: api_v1_cmdb_servers_create
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1468,7 +1468,7 @@ paths:
           description: ''
   /api/v1/cmdb/servers/{id}/:
     get:
-      operationId: v1_cmdb_servers_retrieve
+      operationId: api_v1_cmdb_servers_retrieve
       parameters:
       - in: path
         name: id
@@ -1477,7 +1477,7 @@ paths:
         description: A unique integer value identifying this server.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1488,7 +1488,7 @@ paths:
                 $ref: '#/components/schemas/Server'
           description: ''
     put:
-      operationId: v1_cmdb_servers_update
+      operationId: api_v1_cmdb_servers_update
       parameters:
       - in: path
         name: id
@@ -1497,7 +1497,7 @@ paths:
         description: A unique integer value identifying this server.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1520,7 +1520,7 @@ paths:
                 $ref: '#/components/schemas/Server'
           description: ''
     patch:
-      operationId: v1_cmdb_servers_partial_update
+      operationId: api_v1_cmdb_servers_partial_update
       parameters:
       - in: path
         name: id
@@ -1529,7 +1529,7 @@ paths:
         description: A unique integer value identifying this server.
         required: true
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1551,7 +1551,7 @@ paths:
                 $ref: '#/components/schemas/Server'
           description: ''
     delete:
-      operationId: v1_cmdb_servers_destroy
+      operationId: api_v1_cmdb_servers_destroy
       parameters:
       - in: path
         name: id
@@ -1560,7 +1560,7 @@ paths:
         description: A unique integer value identifying this server.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1568,9 +1568,9 @@ paths:
           description: No response body
   /api/v1/cmdb/servers/agent-ingest/:
     post:
-      operationId: v1_cmdb_servers_agent_ingest_create
+      operationId: api_v1_cmdb_servers_agent_ingest_create
       tags:
-      - v1
+      - api
       requestBody:
         content:
           application/json:
@@ -1614,7 +1614,7 @@ paths:
           description: Authentication/signature error
   /api/v1/cmdb/servers/tool-query/:
     get:
-      operationId: v1_cmdb_servers_tool_query_retrieve
+      operationId: api_v1_cmdb_servers_tool_query_retrieve
       parameters:
       - in: query
         name: environment
@@ -1645,7 +1645,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1671,9 +1671,9 @@ paths:
           description: Authentication required
   /api/v1/health/:
     get:
-      operationId: v1_health_retrieve
+      operationId: api_v1_health_retrieve
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       - {}
@@ -1686,7 +1686,7 @@ paths:
           description: ''
   /api/v1/users/:
     get:
-      operationId: v1_users_list
+      operationId: api_v1_users_list
       parameters:
       - name: ordering
         required: false
@@ -1713,7 +1713,7 @@ paths:
         schema:
           type: string
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1725,7 +1725,7 @@ paths:
           description: ''
   /api/v1/users/{id}/:
     get:
-      operationId: v1_users_retrieve
+      operationId: api_v1_users_retrieve
       parameters:
       - in: path
         name: id
@@ -1734,7 +1734,7 @@ paths:
         description: A unique integer value identifying this user.
         required: true
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:
@@ -1746,9 +1746,9 @@ paths:
           description: ''
   /api/v1/users/me/:
     get:
-      operationId: v1_users_me_retrieve
+      operationId: api_v1_users_me_retrieve
       tags:
-      - v1
+      - api
       security:
       - jwtAuth: []
       responses:

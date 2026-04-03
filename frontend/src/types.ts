@@ -87,6 +87,9 @@ export type JobQuery = {
   ordering?: string;
   page?: string;
   page_size?: string;
+  status?: string;
+  risk_level?: string;
+  approval_status?: string;
 };
 
 export type JobCreateInput = {
