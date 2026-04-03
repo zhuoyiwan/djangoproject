@@ -2090,6 +2090,31 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["claimed_by"], None)
         self.assertEqual(audit.detail["comment"], "recover")
 
+    def test_platform_admin_can_complete_agent_claimed_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-blue",
+            claimed_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/complete/", {"comment": "override"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+
+        audit = AuditLog.objects.get(action="automation.job.completed")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
+        self.assertEqual(audit.detail["comment"], "override")
+
     def test_ops_admin_can_fail_claimed_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -2254,6 +2279,31 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.actor_id, self.user.id)
         self.assertEqual(audit.detail["claimed_by"], None)
         self.assertEqual(audit.detail["comment"], "recover")
+
+    def test_platform_admin_can_fail_agent_claimed_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-blue",
+            claimed_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/fail/", {"comment": "override"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.FAILED)
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+
+        audit = AuditLog.objects.get(action="automation.job.failed")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
+        self.assertEqual(audit.detail["comment"], "override")
 
     def test_ops_admin_can_cancel_ready_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -2430,6 +2480,31 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.actor_id, self.user.id)
         self.assertEqual(audit.detail["claimed_by"], None)
         self.assertEqual(audit.detail["comment"], "recover")
+
+    def test_platform_admin_can_cancel_agent_claimed_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-blue",
+            claimed_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/cancel/", {"comment": "override"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CANCELED)
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+
+        audit = AuditLog.objects.get(action="automation.job.canceled")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
+        self.assertEqual(audit.detail["comment"], "override")
 
     def test_cancel_requires_ready_or_claimed_status(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
@@ -2629,6 +2704,33 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["claimed_by"], None)
         self.assertEqual(audit.detail["ready_by"], self.user.id)
         self.assertEqual(audit.detail["comment"], "recover")
+
+    def test_platform_admin_can_requeue_agent_claimed_job(self):
+        self.platform_admin.groups.add(Group.objects.create(name=ROLE_PLATFORM_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-blue",
+            claimed_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(self.platform_admin)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/requeue/", {"comment": "override"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.READY)
+        self.assertEqual(response.data["ready_by"], self.platform_admin.id)
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+
+        audit = AuditLog.objects.get(action="automation.job.requeued")
+        self.assertEqual(audit.actor_id, self.platform_admin.id)
+        self.assertEqual(audit.detail["claimed_by"], None)
+        self.assertEqual(audit.detail["ready_by"], self.platform_admin.id)
+        self.assertEqual(audit.detail["comment"], "override")
 
     def test_requeue_requires_claimed_or_failed_status(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
