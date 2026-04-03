@@ -3,6 +3,8 @@ import type {
   AuditQuery,
   AuditToolQuery,
   AuditToolQueryResponse,
+  IDCToolQuery,
+  IDCToolQueryResponse,
   ApiErrorShape,
   AuthTokens,
   JobCreateInput,
@@ -89,6 +91,15 @@ async function request<T>(
 
 export async function getHealth(baseUrl: string) {
   return request<Record<string, unknown>>(baseUrl, "/api/v1/health/");
+}
+
+export async function getIDCToolQuery(baseUrl: string, token: string, query: IDCToolQuery) {
+  return request<IDCToolQueryResponse>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/idcs/tool-query/${buildListQuery(query)}`,
+    {},
+    token,
+  );
 }
 
 export async function login(baseUrl: string, username: string, password: string) {

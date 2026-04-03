@@ -1,33 +1,33 @@
 export const contractHighlights = [
   {
-    title: "Auth Contract",
-    body: "JWT bearer auth. Login via /api/v1/auth/login/, refresh via /api/v1/auth/refresh/, and current user via /api/v1/auth/me/.",
+    title: "认证契约",
+    body: "统一使用 JWT Bearer。登录走 /api/v1/auth/login/，刷新走 /api/v1/auth/refresh/，当前用户走 /api/v1/auth/me/。",
   },
   {
-    title: "List Response Shape",
-    body: "List endpoints follow DRF pagination: count, next, previous, results.",
+    title: "分页返回形状",
+    body: "标准列表接口遵循 DRF 分页结构：count、next、previous、results。",
   },
   {
-    title: "Stable Error Envelope",
-    body: "Error payloads expose ok=false, error.code, error.message, and request_id for traceability.",
+    title: "统一错误包",
+    body: "错误返回保持 ok=false、error.code、error.message 与 request_id，便于前端追踪和可视化提示。",
   },
   {
-    title: "CMDB Filters",
-    body: "Servers support search, ordering, and exact filters for hostname, internal_ip, external_ip, idc, environment, lifecycle_status, and source.",
+    title: "只读 Tool Query",
+    body: "IDC、服务器、审计和自动化任务都提供标准化 tool-query 读接口，至少需要一个过滤条件。",
   },
   {
-    title: "RBAC Summary",
-    body: "platform_admin can manage across domains, ops_admin can mutate CMDB resources and automation jobs, approver handles high-risk job decisions, auditor reads audit logs, and viewer stays read-only.",
+    title: "执行交接面",
+    body: "自动化任务额外提供 handoff 接口，仅暴露 ready / claimed 的执行可见字段，给 OpenClaw 或 runner 适配层消费。",
   },
   {
-    title: "Automation Approval",
-    body: "High-risk automation jobs enter pending approval and expose explicit approve/reject actions. Requesters cannot approve their own jobs.",
+    title: "RBAC 约束",
+    body: "platform_admin 全域管理，ops_admin 写 CMDB 与自动化执行，approver 审批高风险任务，auditor 读审计，viewer 保持只读。",
   },
 ];
 
 export const endpointGroups = [
   {
-    label: "Auth",
+    label: "认证",
     items: [
       "POST /api/v1/auth/register/",
       "POST /api/v1/auth/login/",
@@ -39,30 +39,45 @@ export const endpointGroups = [
     label: "CMDB",
     items: [
       "GET /api/v1/cmdb/idcs/",
+      "GET /api/v1/cmdb/idcs/tool-query/",
       "GET /api/v1/cmdb/servers/",
+      "GET /api/v1/cmdb/servers/tool-query/",
       "POST /api/v1/cmdb/servers/agent-ingest/",
     ],
   },
   {
-    label: "Audit + Automation",
+    label: "审计",
     items: [
       "GET /api/v1/audit/logs/  (auditor | platform_admin)",
       "GET /api/v1/audit/logs/{id}/",
-      "GET /api/v1/automation/jobs/",
-      "GET /api/v1/automation/jobs/{id}/",
-      "POST /api/v1/automation/jobs/",
-      "POST /api/v1/automation/jobs/{id}/approve/",
-      "POST /api/v1/automation/jobs/{id}/reject/",
+      "GET /api/v1/audit/logs/tool-query/",
     ],
   },
   {
-    label: "Role-sensitive routes",
+    label: "自动化",
+    items: [
+      "GET /api/v1/automation/jobs/",
+      "GET /api/v1/automation/jobs/tool-query/",
+      "GET /api/v1/automation/jobs/handoff/",
+      "POST /api/v1/automation/jobs/",
+      "POST /api/v1/automation/jobs/{id}/approve/",
+      "POST /api/v1/automation/jobs/{id}/reject/",
+      "POST /api/v1/automation/jobs/{id}/mark-ready/",
+      "POST /api/v1/automation/jobs/{id}/claim/",
+      "POST /api/v1/automation/jobs/{id}/complete/",
+      "POST /api/v1/automation/jobs/{id}/fail/",
+      "POST /api/v1/automation/jobs/{id}/cancel/",
+      "POST /api/v1/automation/jobs/{id}/requeue/",
+    ],
+  },
+  {
+    label: "权限敏感路由",
     items: [
       "GET /api/v1/users/  (platform_admin)",
       "CMDB POST/PUT/PATCH/DELETE  (ops_admin | platform_admin)",
-      "CMDB GET  (authenticated read-only allowed)",
       "Audit GET  (auditor | platform_admin)",
       "Automation approve/reject  (approver | platform_admin)",
+      "Automation mark-ready/claim/complete/fail/cancel/requeue  (ops_admin | platform_admin)",
     ],
   },
 ];

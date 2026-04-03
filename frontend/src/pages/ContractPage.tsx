@@ -5,11 +5,8 @@ export function ContractPage() {
     <main className="workspace-grid">
       <section className="panel panel-span-12">
         <div className="panel-heading">
-          <h2>Backend contract workspace</h2>
-          <p>
-            Keep these anchors close while building pages. They mirror the current backend docs and
-            make contract drift easier to spot early.
-          </p>
+          <h2>后端契约工作台</h2>
+          <p>把当前后端文档中的关键约束、只读查询面和角色敏感路由集中展示，减少前端联调时的契约漂移。</p>
         </div>
 
         <div className="highlight-grid">

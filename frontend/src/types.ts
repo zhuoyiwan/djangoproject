@@ -96,6 +96,28 @@ export type ServerToolQueryItem = {
 
 export type ServerToolQueryResponse = ToolQueryEnvelope<ServerToolQueryItem, ServerToolQuery>;
 
+export type IDCToolQuery = {
+  q?: string;
+  code?: string;
+  name?: string;
+  location?: string;
+  status?: "active" | "maintenance" | "inactive" | "";
+  limit?: string;
+};
+
+export type IDCToolQueryItem = {
+  id: number;
+  code: string;
+  name: string;
+  location: string;
+  status: "active" | "maintenance" | "inactive";
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type IDCToolQueryResponse = ToolQueryEnvelope<IDCToolQueryItem, IDCToolQuery>;
+
 export type JobRecord = {
   id: number;
   name: string;
