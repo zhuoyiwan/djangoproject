@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from drf_spectacular.generators import SchemaGenerator
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.test import APIClient
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
@@ -18,6 +19,7 @@ from audit.models import AuditLog
 from core.permissions import ROLE_APPROVER, ROLE_OPS_ADMIN, ROLE_PLATFORM_ADMIN
 
 from .adapters import build_job_handoff_response
+from .authentication import AutomationAgentClaimHMACAuthentication, AutomationAgentHMACAuthentication
 from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 
 
@@ -80,6 +82,54 @@ class JobHandoffAdapterTests(TestCase):
     }
 )
 class AutomationOpenApiTests(TestCase):
+    def test_agent_claim_authentication_advertises_agent_hmac_header(self):
+        authentication = AutomationAgentClaimHMACAuthentication()
+        request = APIRequestFactory().post("/api/v1/automation/jobs/1/agent-claim/")
+
+        self.assertEqual(authentication.authenticate_header(request), "Agent-HMAC")
+
+    def test_agent_report_authentication_advertises_agent_hmac_header(self):
+        authentication = AutomationAgentHMACAuthentication()
+        request = APIRequestFactory().post("/api/v1/automation/jobs/1/agent-report/")
+
+        self.assertEqual(authentication.authenticate_header(request), "Agent-HMAC")
+
+    @override_settings(AUTOMATION_AGENT_CLAIM_REPLAY_CACHE_PREFIX="automation_agent_claim:custom")
+    def test_agent_claim_authentication_honors_custom_replay_prefix(self):
+        authentication = AutomationAgentClaimHMACAuthentication()
+        request = APIRequestFactory().post(
+            "/api/v1/automation/jobs/1/agent-claim/",
+            data=json.dumps({"summary": "claim"}),
+            content_type="application/json",
+            HTTP_X_AGENT_KEY_ID="automation-agent-default",
+            HTTP_X_AGENT_TIMESTAMP=str(int(time.time())),
+            HTTP_X_AGENT_SIGNATURE="sha256=invalid",
+        )
+
+        with self.assertRaisesMessage(AuthenticationFailed, "Invalid agent signature."):
+            authentication.authenticate(request)
+
+        replay_key = "automation_agent_claim:custom:automation-agent-default:POST:/api/v1/automation/jobs/1/agent-claim/:"
+        self.assertFalse(any(key.startswith(replay_key) for key in cache._cache.keys()))
+
+    @override_settings(AUTOMATION_AGENT_REPORT_REPLAY_CACHE_PREFIX="automation_agent_report:custom")
+    def test_agent_report_authentication_honors_custom_replay_prefix(self):
+        authentication = AutomationAgentHMACAuthentication()
+        request = APIRequestFactory().post(
+            "/api/v1/automation/jobs/1/agent-report/",
+            data=json.dumps({"outcome": JobExecutionStatus.COMPLETED}),
+            content_type="application/json",
+            HTTP_X_AGENT_KEY_ID="automation-agent-default",
+            HTTP_X_AGENT_TIMESTAMP=str(int(time.time())),
+            HTTP_X_AGENT_SIGNATURE="sha256=invalid",
+        )
+
+        with self.assertRaisesMessage(AuthenticationFailed, "Invalid agent signature."):
+            authentication.authenticate(request)
+
+        replay_key = "automation_agent_report:custom:automation-agent-default:POST:/api/v1/automation/jobs/1/agent-report/:"
+        self.assertFalse(any(key.startswith(replay_key) for key in cache._cache.keys()))
+
     def test_schema_exposes_agent_claim_hmac_security_scheme(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
 
