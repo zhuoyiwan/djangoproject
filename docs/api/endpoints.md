@@ -65,7 +65,7 @@ Audit log behavior:
 - `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/cancel/` (throttle scope: `execution_write`)
-- `POST /api/v1/automation/jobs/{id}/requeue/` (throttle scope: `execution_write`; moves failed jobs back to ready, or lets the claimant/platform admin recover a claimed job back to ready)
+- `POST /api/v1/automation/jobs/{id}/requeue/` (throttle scope: `execution_write`; moves failed jobs back to ready, or lets the claimant/platform admin recover a human-claimed job back to ready, or lets `ops_admin`/`platform_admin` recover an agent-claimed job back to ready)
 - `POST /api/v1/automation/jobs/{id}/agent-report/` (HMAC-signed machine execution result callback, throttle scope: `agent_report`; may return `429` when the agent report rate limit is exceeded)
 
 Automation job behavior:

@@ -730,6 +730,10 @@ paths:
   /api/v1/automation/jobs/{id}/cancel/:
     post:
       operationId: v1_automation_jobs_cancel_create
+      description: Cancel a ready or claimed automation job. Human-claimed jobs can
+        only be canceled by the claimant or a platform admin. Agent-claimed jobs with
+        no human claimant can also be canceled by an ops admin or platform admin as
+        a recovery action.
       parameters:
       - in: path
         name: id
@@ -802,6 +806,10 @@ paths:
   /api/v1/automation/jobs/{id}/complete/:
     post:
       operationId: v1_automation_jobs_complete_create
+      description: Complete a claimed automation job. Human-claimed jobs can only
+        be completed by the claimant or a platform admin. Agent-claimed jobs with
+        no human claimant can also be completed by an ops admin or platform admin
+        as a recovery action.
       parameters:
       - in: path
         name: id
@@ -838,6 +846,9 @@ paths:
   /api/v1/automation/jobs/{id}/fail/:
     post:
       operationId: v1_automation_jobs_fail_create
+      description: Fail a claimed automation job. Human-claimed jobs can only be failed
+        by the claimant or a platform admin. Agent-claimed jobs with no human claimant
+        can also be failed by an ops admin or platform admin as a recovery action.
       parameters:
       - in: path
         name: id
@@ -946,6 +957,10 @@ paths:
   /api/v1/automation/jobs/{id}/requeue/:
     post:
       operationId: v1_automation_jobs_requeue_create
+      description: Requeue a failed or claimed automation job back to ready. Human-claimed
+        jobs can only be requeued by the claimant or a platform admin. Agent-claimed
+        jobs with no human claimant can also be requeued by an ops admin or platform
+        admin as a recovery action.
       parameters:
       - in: path
         name: id

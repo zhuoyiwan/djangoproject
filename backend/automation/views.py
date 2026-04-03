@@ -688,6 +688,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "claim")
 
     @extend_schema(
+        description=(
+            "Complete a claimed automation job. Human-claimed jobs can only be completed by the claimant "
+            "or a platform admin. Agent-claimed jobs with no human claimant can also be completed by an "
+            "ops admin or platform admin as a recovery action."
+        ),
         request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
@@ -700,6 +705,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "complete")
 
     @extend_schema(
+        description=(
+            "Fail a claimed automation job. Human-claimed jobs can only be failed by the claimant or a "
+            "platform admin. Agent-claimed jobs with no human claimant can also be failed by an ops admin "
+            "or platform admin as a recovery action."
+        ),
         request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
@@ -712,6 +722,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "fail")
 
     @extend_schema(
+        description=(
+            "Cancel a ready or claimed automation job. Human-claimed jobs can only be canceled by the "
+            "claimant or a platform admin. Agent-claimed jobs with no human claimant can also be canceled "
+            "by an ops admin or platform admin as a recovery action."
+        ),
         request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
@@ -724,6 +739,11 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "cancel")
 
     @extend_schema(
+        description=(
+            "Requeue a failed or claimed automation job back to ready. Human-claimed jobs can only be "
+            "requeued by the claimant or a platform admin. Agent-claimed jobs with no human claimant can "
+            "also be requeued by an ops admin or platform admin as a recovery action."
+        ),
         request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,

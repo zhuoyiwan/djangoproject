@@ -322,11 +322,14 @@
 - Only ready jobs can be claimed.
 - Only ready jobs can be claimed by `agent-claim`.
 - Only claimed jobs can be completed or failed.
-- Only the claimant or a `platform_admin` can complete or fail a claimed job.
+- Human-claimed jobs can only be completed or failed by the claimant or a `platform_admin`.
+- Agent-claimed jobs (where `claimed_by` is empty and `assigned_agent_key_id` is set) can also be completed or failed by an `ops_admin` or `platform_admin` as a recovery action.
 - Only ready or claimed jobs can be canceled.
-- Only the claimant or a `platform_admin` can cancel a claimed job.
+- Human-claimed jobs can only be canceled by the claimant or a `platform_admin`.
+- Agent-claimed jobs (where `claimed_by` is empty and `assigned_agent_key_id` is set) can also be canceled by an `ops_admin` or `platform_admin` as a recovery action.
 - Only claimed or failed jobs can be requeued.
-- Only the claimant or a `platform_admin` can requeue a claimed job.
+- Human-claimed jobs can only be requeued by the claimant or a `platform_admin`.
+- Agent-claimed jobs (where `claimed_by` is empty and `assigned_agent_key_id` is set) can also be requeued by an `ops_admin` or `platform_admin` as a recovery action.
 - Requeue transitions the job back to `ready`, clears stale execution result/assignment fields, and records the acting user as `ready_by`.
 - Only claimed jobs can be reported by `agent-report`.
 - `mark-ready`, `complete`, `fail`, `cancel`, and `requeue` accept an optional `comment` field.
