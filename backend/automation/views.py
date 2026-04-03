@@ -30,6 +30,12 @@ from .serializers import (
 )
 
 
+JOB_STATUS_VALUES = [choice for choice, _ in Job._meta.get_field("status").choices]
+JOB_RISK_LEVEL_VALUES = [choice for choice, _ in Job._meta.get_field("risk_level").choices]
+JOB_APPROVAL_STATUS_VALUES = [choice for choice, _ in Job._meta.get_field("approval_status").choices]
+JOB_HANDOFF_STATUS_VALUES = [JobExecutionStatus.READY, JobExecutionStatus.CLAIMED]
+
+
 class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     throttle_scope = "api_read"
     throttle_scope_map = {
@@ -413,9 +419,9 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         parameters=[
             OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
-            OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
-            OpenApiParameter(name="risk_level", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
-            OpenApiParameter(name="approval_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, enum=JOB_STATUS_VALUES),
+            OpenApiParameter(name="risk_level", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, enum=JOB_RISK_LEVEL_VALUES),
+            OpenApiParameter(name="approval_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, enum=JOB_APPROVAL_STATUS_VALUES),
             OpenApiParameter(name="assigned_agent_key_id", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="last_reported_by_agent_key", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),
@@ -438,9 +444,9 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         parameters=[
             OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
-            OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
-            OpenApiParameter(name="risk_level", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
-            OpenApiParameter(name="approval_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
+            OpenApiParameter(name="status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, enum=JOB_HANDOFF_STATUS_VALUES),
+            OpenApiParameter(name="risk_level", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, enum=JOB_RISK_LEVEL_VALUES),
+            OpenApiParameter(name="approval_status", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, enum=JOB_APPROVAL_STATUS_VALUES),
             OpenApiParameter(name="assigned_agent_key_id", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="last_reported_by_agent_key", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="limit", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False),

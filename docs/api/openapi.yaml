@@ -925,6 +925,11 @@ paths:
         name: approval_status
         schema:
           type: string
+          enum:
+          - approved
+          - not_required
+          - pending
+          - rejected
       - in: query
         name: assigned_agent_key_id
         schema:
@@ -949,10 +954,17 @@ paths:
         name: risk_level
         schema:
           type: string
+          enum:
+          - high
+          - low
+          - medium
       - in: query
         name: status
         schema:
           type: string
+          enum:
+          - claimed
+          - ready
       tags:
       - v1
       security:
@@ -976,6 +988,11 @@ paths:
         name: approval_status
         schema:
           type: string
+          enum:
+          - approved
+          - not_required
+          - pending
+          - rejected
       - in: query
         name: assigned_agent_key_id
         schema:
@@ -1000,10 +1017,22 @@ paths:
         name: risk_level
         schema:
           type: string
+          enum:
+          - high
+          - low
+          - medium
       - in: query
         name: status
         schema:
           type: string
+          enum:
+          - awaiting_approval
+          - canceled
+          - claimed
+          - completed
+          - draft
+          - failed
+          - ready
       tags:
       - v1
       security:

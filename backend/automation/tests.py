@@ -102,6 +102,32 @@ class AutomationOpenApiTests(TestCase):
         header_names = {parameter["name"] for parameter in operation["parameters"] if parameter["in"] == "header"}
         self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
 
+    def test_schema_exposes_tool_query_filter_enums(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        parameters = {
+            parameter["name"]: parameter
+            for parameter in schema["paths"]["/api/v1/automation/jobs/tool-query/"]["get"]["parameters"]
+            if parameter["in"] == "query"
+        }
+
+        self.assertCountEqual(parameters["status"]["schema"]["enum"], JobExecutionStatus.values)
+        self.assertCountEqual(parameters["risk_level"]["schema"]["enum"], JobRiskLevel.values)
+        self.assertCountEqual(parameters["approval_status"]["schema"]["enum"], JobApprovalStatus.values)
+
+    def test_schema_exposes_handoff_filter_enums(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        parameters = {
+            parameter["name"]: parameter
+            for parameter in schema["paths"]["/api/v1/automation/jobs/handoff/"]["get"]["parameters"]
+            if parameter["in"] == "query"
+        }
+
+        self.assertCountEqual(parameters["status"]["schema"]["enum"], [JobExecutionStatus.READY, JobExecutionStatus.CLAIMED])
+        self.assertCountEqual(parameters["risk_level"]["schema"]["enum"], JobRiskLevel.values)
+        self.assertCountEqual(parameters["approval_status"]["schema"]["enum"], JobApprovalStatus.values)
+
 
 @override_settings(
     AUTOMATION_AGENT_CLAIM_ENABLED=True,
