@@ -2273,10 +2273,13 @@ class JobApiTests(TestCase):
             approval_status=JobApprovalStatus.NOT_REQUIRED,
             ready_by=self.user,
             ready_at=timezone.now(),
+            claimed_by=self.user,
+            claimed_at=timezone.now(),
             execution_summary="stale summary",
             execution_metadata={"run_id": "run-123"},
             completed_at=timezone.now(),
             failed_at=timezone.now(),
+            assigned_agent_key_id="stale-agent-key",
             last_reported_by_agent_key="stale-agent",
         )
         payload = {"summary": "claiming ready job"}
