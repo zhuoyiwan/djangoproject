@@ -1410,6 +1410,43 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["assigned_agent_key_id"], "")
         self.assertEqual(audit.detail["comment"], "claim")
 
+    def test_claim_can_bind_agent_key_id_for_runner_handoff(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.other_ops,
+            ready_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            f"/api/v1/automation/jobs/{job.id}/claim/",
+            {"comment": "bind runner", "agent_key_id": "automation-agent-blue"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["claimed_by"], self.user.id)
+        self.assertEqual(response.data["assigned_agent_key_id"], "automation-agent-blue")
+        self.assertIsNone(response.data["ready_by"])
+        self.assertIsNone(response.data["ready_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.claimed_by_id, self.user.id)
+        self.assertEqual(job.assigned_agent_key_id, "automation-agent-blue")
+        self.assertIsNone(job.ready_by_id)
+        self.assertIsNone(job.ready_at)
+
+        audit = AuditLog.objects.get(action="automation.job.claimed")
+        self.assertEqual(audit.actor_id, self.user.id)
+        self.assertEqual(audit.detail["claimed_by"], self.user.id)
+        self.assertEqual(audit.detail["assigned_agent_key_id"], "automation-agent-blue")
+        self.assertEqual(audit.detail["comment"], "bind runner")
+        self.assertIn("request_id", audit.detail)
+
     def test_claim_clears_ready_metadata(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         ready_at = timezone.now()
