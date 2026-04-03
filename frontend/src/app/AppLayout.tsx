@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "./auth";
 import { BorderGlow } from "../components/BorderGlow";
+import RotatingText from "../components/RotatingText";
 
 export function AppLayout() {
   const { accessToken, authSummary, profile, signOut } = useAuth();
@@ -14,21 +15,26 @@ export function AppLayout() {
       <header className="workspace-header">
         <div className="workspace-brand">
           <p className="eyebrow">Django 智能运维前端</p>
-          <h1 className="brand-title-lockup" aria-label="智能运维控制台">
-            <span className="brand-title-row brand-title-row-top" aria-hidden="true">
-              <span>智</span>
-              <span>能</span>
-              <span>运</span>
-              <span>维</span>
-            </span>
-            <span className="brand-title-row brand-title-row-bottom" aria-hidden="true">
-              <span>控</span>
-              <span>制</span>
-              <span>台</span>
-            </span>
+          <h1 className="brand-title-inline" aria-label="智能运维">
+            <span className="brand-title-static">智能运维</span>
+            <RotatingText
+              animate={{ y: 0 }}
+              auto
+              exit={{ y: "-120%" }}
+              initial={{ y: "100%" }}
+              mainClassName="brand-title-rotating"
+              rotationInterval={3000}
+              splitLevelClassName="brand-title-rotating-segment"
+              staggerDuration={0.025}
+              staggerFrom="last"
+              texts={["可观测", "自动化", "高可用", "可审计"]}
+              transition={{ type: "spring", damping: 30, stiffness: 400 }}
+            />
           </h1>
           <p className="hero-copy">
-            面向日常资产查看、任务提报与处理进度追踪的企业工作台。界面只保留普通使用者真正需要的路径，让信息更聚焦。
+            统一承载资产巡检、任务协同与运行状态追踪，
+            <br />
+            帮助团队在同一工作台内完成日常运维操作与过程闭环。
           </p>
         </div>
 

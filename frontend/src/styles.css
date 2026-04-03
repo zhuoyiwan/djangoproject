@@ -1,8 +1,12 @@
 :root {
   font-family:
+    "SF Pro Rounded",
+    "Segoe UI Rounded",
     "SF Pro Display",
     "SF Pro Text",
+    "Nunito",
     "Inter",
+    "Segoe UI Variable Display",
     "Segoe UI Variable Text",
     "PingFang SC",
     "Microsoft YaHei UI",
@@ -50,6 +54,15 @@
   --idle: #4d7cbc;
   --warning: #ab7a2f;
   --nav-height: 74px;
+  --font-rounded:
+    "SF Pro Rounded",
+    "Segoe UI Rounded",
+    "Nunito",
+    "SF Pro Display",
+    "Segoe UI Variable Display",
+    "PingFang SC",
+    "Microsoft YaHei UI",
+    sans-serif;
 }
 
 * {
@@ -147,6 +160,8 @@ button {
   border-radius: 999px;
   padding: 0.86rem 1.24rem;
   cursor: pointer;
+  font-family: var(--font-rounded);
+  font-weight: 600;
   color: var(--text-inverse);
   background:
     linear-gradient(180deg, rgba(112, 158, 223, 0.98), rgba(75, 135, 223, 0.98)),
@@ -192,6 +207,8 @@ textarea {
   border-radius: 22px;
   border: 1px solid rgba(137, 158, 184, 0.2);
   padding: 0.96rem 1.05rem;
+  font-family: var(--font-rounded);
+  font-weight: 500;
   color: var(--text-primary);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 251, 255, 0.84)),
@@ -315,6 +332,8 @@ a {
   padding: 0.8rem 1.14rem;
   border-radius: 999px;
   text-decoration: none;
+  font-family: var(--font-rounded);
+  font-weight: 600;
   color: var(--text-secondary);
   border: 1px solid transparent;
   background: transparent;
@@ -366,6 +385,7 @@ a {
   margin: 0 0 14px;
   color: #6f85a0;
   font-size: 0.74rem;
+  font-family: var(--font-rounded);
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -375,36 +395,93 @@ a {
   margin: 0;
   max-width: none;
   font-size: clamp(3.2rem, 6vw, 5.3rem);
-  line-height: 0.9;
+  line-height: 0.94;
   letter-spacing: 0;
 }
 
-.brand-title-lockup {
-  display: inline-grid;
-  --brand-title-gap: 0.22em;
-  gap: 0.22em;
-}
-
-.brand-title-row {
-  display: grid;
-  justify-content: center;
-}
-
-.brand-title-row-top {
-  grid-template-columns: repeat(4, 1em);
-  column-gap: var(--brand-title-gap);
-}
-
-.brand-title-row-bottom {
-  grid-template-columns: repeat(3, 1em);
-  column-gap: var(--brand-title-gap);
-  margin-left: calc(-0.1em + (var(--brand-title-gap) / 2));
-}
-
-.brand-title-row span {
+.brand-title-inline {
   display: inline-flex;
   align-items: center;
+  gap: 0.16em;
+}
+
+.brand-title-static {
+  color: #506b95;
+  font-family:
+    "SF Pro Rounded",
+    "Arial Rounded MT Bold",
+    "Nunito",
+    "SF Pro Display",
+    "Segoe UI Variable Display",
+    "PingFang SC",
+    "Microsoft YaHei UI",
+    sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.96),
+    0 12px 28px rgba(104, 126, 163, 0.12),
+    0 0 1px rgba(122, 142, 176, 0.18);
+}
+
+.brand-title-rotating {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 3.24em;
   justify-content: center;
+  padding: 0.09em 0.18em 0.14em;
+  border-radius: 0.36em;
+  color: #506b95;
+  font-family:
+    "SF Pro Rounded",
+    "Arial Rounded MT Bold",
+    "Nunito",
+    "SF Pro Display",
+    "Segoe UI Variable Display",
+    "PingFang SC",
+    "Microsoft YaHei UI",
+    sans-serif;
+  font-size: 0.45em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82),
+    0 10px 22px rgba(104, 126, 163, 0.1),
+    0 0 1px rgba(122, 142, 176, 0.16);
+  background:
+    linear-gradient(180deg, rgba(241, 247, 255, 0.9), rgba(221, 233, 248, 0.74)),
+    rgba(235, 243, 252, 0.54);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -8px 18px rgba(198, 214, 233, 0.18),
+    0 12px 26px rgba(150, 171, 198, 0.14);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.brand-title-rotating-segment {
+  font-family:
+    "SF Pro Rounded",
+    "Arial Rounded MT Bold",
+    "Nunito",
+    "SF Pro Display",
+    "Segoe UI Variable Display",
+    "PingFang SC",
+    "Microsoft YaHei UI",
+    sans-serif;
+  overflow: hidden;
+  padding-bottom: 0.04em;
+}
+
+.brand-title-rotating .text-rotate {
+  flex-wrap: nowrap;
+}
+
+.brand-title-rotating .text-rotate-element {
+  min-width: 1ch;
+  text-align: center;
 }
 
 .hero-copy {
@@ -412,6 +489,28 @@ a {
   margin-top: 20px;
   color: var(--text-muted);
   font-size: 1.04rem;
+  font-weight: 500;
+}
+
+.login-submit-button {
+  min-height: 54px;
+  padding-inline: 1.5rem;
+  border-radius: 999px;
+  font-size: 1.18rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background:
+    linear-gradient(180deg, rgba(121, 166, 229, 0.98), rgba(82, 138, 221, 0.98)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 14px 28px rgba(90, 142, 220, 0.24);
+}
+
+.login-submit-button:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 18px 32px rgba(90, 142, 220, 0.28);
 }
 
 .border-glow {
@@ -738,6 +837,7 @@ a {
 
 .field span {
   font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .actions {
@@ -836,6 +936,7 @@ td {
 th {
   color: #7387a1;
   font-size: 0.76rem;
+  font-family: var(--font-rounded);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;

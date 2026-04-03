@@ -55,7 +55,9 @@ export function LoginPage() {
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          <button type="submit">登录</button>
+          <button className="login-submit-button" type="submit">
+            登录
+          </button>
         </form>
 
         <p className={`status ${authState}`}>{authSummary}</p>
