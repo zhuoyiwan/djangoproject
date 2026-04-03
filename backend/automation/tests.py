@@ -595,6 +595,27 @@ class JobApiTests(TestCase):
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["name"], "restart-prod")
 
+    def test_tool_query_supports_exact_name_filter(self):
+        matching_job = Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+        Job.objects.create(
+            name="restart-dev",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?name=restart-prod")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["items"]), 1)
+        self.assertEqual(response.data["items"][0]["id"], matching_job.id)
+        self.assertEqual(response.data["query"]["name"], "restart-prod")
+
     def test_tool_query_supports_assigned_agent_key_filter(self):
         matching_job = Job.objects.create(
             name="restart-prod",
