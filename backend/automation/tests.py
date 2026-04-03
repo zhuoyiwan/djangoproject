@@ -130,6 +130,29 @@ class AutomationOpenApiTests(TestCase):
         self.assertCountEqual(parameters["risk_level"]["schema"]["enum"], JobRiskLevel.values)
         self.assertCountEqual(parameters["approval_status"]["schema"]["enum"], JobApprovalStatus.values)
 
+    def test_schema_exposes_action_request_bodies_for_approval_and_execution_endpoints(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        operations = {
+            "/api/v1/automation/jobs/{id}/approve/": "JobApprovalAction",
+            "/api/v1/automation/jobs/{id}/reject/": "JobApprovalAction",
+            "/api/v1/automation/jobs/{id}/mark-ready/": "JobCommentAction",
+            "/api/v1/automation/jobs/{id}/claim/": "JobClaimAction",
+            "/api/v1/automation/jobs/{id}/complete/": "JobCommentAction",
+            "/api/v1/automation/jobs/{id}/fail/": "JobCommentAction",
+            "/api/v1/automation/jobs/{id}/cancel/": "JobCommentAction",
+            "/api/v1/automation/jobs/{id}/requeue/": "JobCommentAction",
+        }
+
+        for path, schema_name in operations.items():
+            with self.subTest(path=path):
+                operation = schema["paths"][path]["post"]
+                body_schema = operation["requestBody"]["content"]["application/json"]["schema"]
+                self.assertEqual(body_schema["$ref"], f"#/components/schemas/{schema_name}")
+                self.assertEqual(operation["security"], [{"jwtAuth": []}])
+                self.assertIn("400", operation["responses"])
+                self.assertIn("403", operation["responses"])
+
 
 @override_settings(
     AUTOMATION_AGENT_CLAIM_ENABLED=True,
