@@ -154,6 +154,23 @@ class AutomationOpenApiTests(TestCase):
         self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
         self.assertIn("429", operation["responses"])
 
+    def test_schema_exposes_agent_callback_request_bodies(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        operations = {
+            "/api/v1/automation/jobs/{id}/agent-claim/": "JobAgentClaim",
+            "/api/v1/automation/jobs/{id}/agent-report/": "JobAgentReport",
+        }
+
+        for path, schema_name in operations.items():
+            with self.subTest(path=path):
+                operation = schema["paths"][path]["post"]
+                body_schema = operation["requestBody"]["content"]["application/json"]["schema"]
+                self.assertEqual(body_schema["$ref"], f"#/components/schemas/{schema_name}")
+                self.assertIn("400", operation["responses"])
+                self.assertIn("401", operation["responses"])
+                self.assertIn("429", operation["responses"])
+
     def test_schema_exposes_list_and_tool_query_filter_enums(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
 
