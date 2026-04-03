@@ -2615,6 +2615,31 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
         self.assertEqual(response.data["assigned_agent_key_id"], "automation-agent-default")
 
+    def test_agent_claim_accepts_non_default_configured_runner_key(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        payload = {"summary": "claiming with blue runner key"}
+        headers, body = self._agent_claim_signed_headers(job.id, payload, key_id="automation-agent-blue")
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-claim/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.CLAIMED)
+        self.assertEqual(response.data["assigned_agent_key_id"], "automation-agent-blue")
+
+        job.refresh_from_db()
+        self.assertEqual(job.assigned_agent_key_id, "automation-agent-blue")
+
+        audit = AuditLog.objects.get(action="automation.job.agent_claimed")
+        self.assertEqual(audit.detail["agent_key_id"], "automation-agent-blue")
+        self.assertEqual(audit.detail["summary"], "claiming with blue runner key")
+
     def test_agent_report_completes_claimed_job_and_records_metadata(self):
         job = Job.objects.create(
             name="sync-assets",
@@ -3125,3 +3150,34 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
         self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
+
+    def test_agent_report_accepts_non_default_configured_runner_key(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-blue",
+        )
+        payload = {
+            "outcome": JobExecutionStatus.COMPLETED,
+            "summary": "completed with blue runner key",
+            "metadata": {"runner": "blue"},
+        }
+        headers, body = self._agent_report_signed_headers(job.id, payload, key_id="automation-agent-blue")
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+        self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-blue")
+        self.assertEqual(response.data["execution_metadata"], {"runner": "blue"})
+
+        job.refresh_from_db()
+        self.assertEqual(job.last_reported_by_agent_key, "automation-agent-blue")
+        self.assertEqual(job.execution_metadata, {"runner": "blue"})
+
+        audit = AuditLog.objects.get(action="automation.job.agent_reported_completed")
+        self.assertEqual(audit.detail["agent_key_id"], "automation-agent-blue")
+        self.assertEqual(audit.detail["metadata"], {"runner": "blue"})
