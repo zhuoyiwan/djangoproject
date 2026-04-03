@@ -545,6 +545,7 @@ class JobApiTests(TestCase):
             approved_by=self.approver,
             ready_by=self.user,
             ready_at=timezone.now(),
+            assigned_agent_key_id="automation-agent-blue",
             payload={"target": "prod"},
         )
 
@@ -566,6 +567,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["execution_metadata"], {})
         self.assertIsNone(response.data["completed_at"])
         self.assertIsNone(response.data["failed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
@@ -580,6 +582,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.execution_metadata, {})
         self.assertIsNone(job.completed_at)
         self.assertIsNone(job.failed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
         self.assertTrue(AuditLog.objects.filter(action="automation.job.updated").exists())
@@ -639,6 +642,7 @@ class JobApiTests(TestCase):
             execution_summary="completed by executor",
             execution_metadata={"run_id": "run-123"},
             completed_at=completed_at,
+            assigned_agent_key_id="automation-agent-blue",
             last_reported_by_agent_key="automation-agent-default",
             payload={"target": "dev"},
         )
@@ -655,6 +659,7 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["execution_metadata"], {})
         self.assertIsNone(response.data["completed_at"])
         self.assertIsNone(response.data["failed_at"])
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
         self.assertEqual(response.data["last_reported_by_agent_key"], "")
 
         job.refresh_from_db()
@@ -663,6 +668,7 @@ class JobApiTests(TestCase):
         self.assertEqual(job.execution_metadata, {})
         self.assertIsNone(job.completed_at)
         self.assertIsNone(job.failed_at)
+        self.assertEqual(job.assigned_agent_key_id, "")
         self.assertEqual(job.last_reported_by_agent_key, "")
 
     def test_tool_query_requires_at_least_one_filter(self):
