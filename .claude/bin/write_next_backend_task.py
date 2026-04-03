@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import json
 import subprocess
-from pathlib import Path
 
-REPO_ROOT = Path("/Users/zhuoyiwan/Code/django")
+from repo_runtime import REPO_ROOT
+
 NEXT_TASK_FILE = REPO_ROOT / ".claude/next_backend_task.md"
 
 

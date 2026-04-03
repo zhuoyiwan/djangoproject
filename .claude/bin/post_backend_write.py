@@ -4,8 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path("/Users/zhuoyiwan/Code/django")
-PYTHON = REPO_ROOT / ".venv/bin/python"
+from repo_runtime import REPO_ROOT, resolve_python
+
+PYTHON = resolve_python()
 RELEVANT_PREFIXES = (
     REPO_ROOT / "backend",
     REPO_ROOT / "docs/api",
@@ -28,7 +29,7 @@ def main() -> int:
         return 0
 
     result = subprocess.run(
-        [str(PYTHON), "backend/manage.py", "check"],
+        [PYTHON, "backend/manage.py", "check"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

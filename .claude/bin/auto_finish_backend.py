@@ -2,13 +2,12 @@
 import json
 import os
 import subprocess
-import sys
 from datetime import datetime, UTC
-from pathlib import Path
 
-REPO_ROOT = Path("/Users/zhuoyiwan/Code/django")
-PYTHON = REPO_ROOT / ".venv/bin/python"
-INFO_CLIENT = REPO_ROOT / "info-exchange-api/scripts/info_client.py"
+from repo_runtime import REPO_ROOT, resolve_info_client, resolve_python
+
+PYTHON = resolve_python()
+INFO_CLIENT = resolve_info_client()
 NEXT_TASK_WRITER = REPO_ROOT / ".claude/bin/write_next_backend_task.py"
 DRY_RUN = os.environ.get("CLAUDE_AUTOFLOW_DRY_RUN") == "1"
 EXCLUDED_PREFIXES = (
@@ -96,9 +95,9 @@ def main() -> int:
         if upstream:
             git("pull", "--rebase", "--autostash", "origin", branch)
 
-        run([str(PYTHON), "backend/manage.py", "check"])
-        run([str(PYTHON), "backend/manage.py", "test", "accounts", "cmdb", "audit", "automation"])
-        run([str(PYTHON), "backend/manage.py", "spectacular", "--file", "docs/api/openapi.yaml"])
+        run([PYTHON, "backend/manage.py", "check"])
+        run([PYTHON, "backend/manage.py", "test", "accounts", "cmdb", "audit", "automation"])
+        run([PYTHON, "backend/manage.py", "spectacular", "--file", "docs/api/openapi.yaml"])
 
         changed_after = [path for _, path in status_entries()]
         committable_after = [path for path in changed_after if is_committable(path)]
@@ -125,38 +124,39 @@ def main() -> int:
 
         occurred_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
         next_step = "Continue backend roadmap implementation in the next autonomous iteration."
-        run([str(PYTHON), str(NEXT_TASK_WRITER)])
-        run(
-            [
-                str(PYTHON),
-                str(INFO_CLIENT),
-                "create-record",
-                "--project-id",
-                "cmngwpdyk0001qj285szo4spq",
-                "--title",
-                subject,
-                "--content",
-                "Validated backend changes, synced with origin, committed, pushed, recorded the update, and prepared the next-session handoff.",
-                "--result",
-                f"Pushed {commit_hash[:7]} on {branch}.",
-                "--next-step",
-                next_step,
-                "--risk",
-                "medium",
-                "--status",
-                "done",
-                "--occurred-at",
-                occurred_at,
-                "--branch-name",
-                branch,
-                "--commit-hash",
-                commit_hash,
-                "--changed-files",
-                "\n".join(committable_after),
-                "--diff-summary",
-                diff_summary or subject,
-            ]
-        )
+        run([PYTHON, str(NEXT_TASK_WRITER)])
+        if INFO_CLIENT:
+            run(
+                [
+                    PYTHON,
+                    INFO_CLIENT,
+                    "create-record",
+                    "--project-id",
+                    "cmngwpdyk0001qj285szo4spq",
+                    "--title",
+                    subject,
+                    "--content",
+                    "Validated backend changes, synced with origin, committed, pushed, recorded the update, and prepared the next-session handoff.",
+                    "--result",
+                    f"Pushed {commit_hash[:7]} on {branch}.",
+                    "--next-step",
+                    next_step,
+                    "--risk",
+                    "medium",
+                    "--status",
+                    "done",
+                    "--occurred-at",
+                    occurred_at,
+                    "--branch-name",
+                    branch,
+                    "--commit-hash",
+                    commit_hash,
+                    "--changed-files",
+                    "\n".join(committable_after),
+                    "--diff-summary",
+                    diff_summary or subject,
+                ]
+            )
 
         print_json(f"Autoflow: validated, pushed, recorded {commit_hash[:7]} on {branch}, and wrote next-session handoff.")
         return 0
