@@ -49,7 +49,7 @@ Audit log behavior:
 - Security event `detail` payloads may include `request_id`, `status_code`, `username`, `reason`, and `path`.
 
 ## Automation
-- `GET /api/v1/automation/jobs/` (throttle scope: `api_read`)
+- `GET /api/v1/automation/jobs/` (throttle scope: `api_read`; supports DRF list filters on `name`, `status`, `risk_level`, `approval_status`, `assigned_agent_key_id`, and `last_reported_by_agent_key`, plus `search`, `ordering`, `page`, and `page_size`)
 - `GET /api/v1/automation/jobs/tool-query/` (normalized read-only tool query, throttle scope: `tool_query`; filters: `q`, `name`, `status`, `risk_level`, `approval_status`, `assigned_agent_key_id`, `last_reported_by_agent_key`, `limit`)
 - `GET /api/v1/automation/jobs/handoff/` (read-only execution handoff feed for OpenClaw/adapter consumers, throttle scope: `handoff`; filters: `q`, `name`, `status`, `risk_level`, `approval_status`, `assigned_agent_key_id`, `last_reported_by_agent_key`, `limit`; items include runner assignment/report key fields for executor visibility)
 - `POST /api/v1/automation/jobs/` (throttle scope: `api_write`)

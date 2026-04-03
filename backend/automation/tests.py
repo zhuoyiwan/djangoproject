@@ -154,8 +154,17 @@ class AutomationOpenApiTests(TestCase):
         self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
         self.assertIn("429", operation["responses"])
 
-    def test_schema_exposes_tool_query_filter_enums(self):
+    def test_schema_exposes_list_and_tool_query_filter_enums(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        list_parameters = {
+            parameter["name"]: parameter
+            for parameter in schema["paths"]["/api/v1/automation/jobs/"]["get"]["parameters"]
+            if parameter["in"] == "query"
+        }
+        self.assertCountEqual(list_parameters["status"]["schema"]["enum"], JobExecutionStatus.values)
+        self.assertCountEqual(list_parameters["risk_level"]["schema"]["enum"], JobRiskLevel.values)
+        self.assertCountEqual(list_parameters["approval_status"]["schema"]["enum"], JobApprovalStatus.values)
 
         parameters = {
             parameter["name"]: parameter
@@ -257,6 +266,54 @@ class JobApiTests(TestCase):
         response = self.client.get("/api/v1/automation/jobs/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
+
+    def test_list_jobs_supports_structured_filters(self):
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="runner-blue",
+            last_reported_by_agent_key="runner-blue",
+        )
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+            assigned_agent_key_id="runner-red",
+            last_reported_by_agent_key="runner-red",
+        )
+
+        response = self.client.get(
+            "/api/v1/automation/jobs/?status=ready&risk_level=low&assigned_agent_key_id=runner-blue"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["name"], "sync-assets")
+
+    def test_list_jobs_supports_last_reported_by_agent_key_filter(self):
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.COMPLETED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            last_reported_by_agent_key="runner-blue",
+        )
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.FAILED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            last_reported_by_agent_key="runner-red",
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/?last_reported_by_agent_key=runner-blue")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["name"], "sync-assets")
 
     def test_unauthenticated_user_cannot_list_jobs(self):
         Job.objects.create(name="sync-assets")

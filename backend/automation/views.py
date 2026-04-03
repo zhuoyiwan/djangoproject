@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema
 from rest_framework import filters, permissions, viewsets
 from rest_framework.decorators import action
@@ -62,7 +63,15 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     ).order_by("-created_at")
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticatedReadOnlyOrOps]
-    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
+    filterset_fields = (
+        "name",
+        "status",
+        "risk_level",
+        "approval_status",
+        "assigned_agent_key_id",
+        "last_reported_by_agent_key",
+    )
     search_fields = ("name", "status", "risk_level", "approval_status")
     ordering_fields = ("created_at", "name", "status", "risk_level", "approval_status")
 

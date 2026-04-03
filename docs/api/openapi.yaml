@@ -366,6 +366,32 @@ paths:
     get:
       operationId: v1_automation_jobs_list
       parameters:
+      - in: query
+        name: approval_status
+        schema:
+          type: string
+          enum:
+          - approved
+          - not_required
+          - pending
+          - rejected
+        description: |-
+          * `not_required` - Not required
+          * `pending` - Pending
+          * `approved` - Approved
+          * `rejected` - Rejected
+      - in: query
+        name: assigned_agent_key_id
+        schema:
+          type: string
+      - in: query
+        name: last_reported_by_agent_key
+        schema:
+          type: string
+      - in: query
+        name: name
+        schema:
+          type: string
       - name: ordering
         required: false
         in: query
@@ -384,12 +410,44 @@ paths:
         description: Number of results to return per page.
         schema:
           type: integer
+      - in: query
+        name: risk_level
+        schema:
+          type: string
+          enum:
+          - high
+          - low
+          - medium
+        description: |-
+          * `low` - Low
+          * `medium` - Medium
+          * `high` - High
       - name: search
         required: false
         in: query
         description: A search term.
         schema:
           type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - awaiting_approval
+          - canceled
+          - claimed
+          - completed
+          - draft
+          - failed
+          - ready
+        description: |-
+          * `draft` - Draft
+          * `awaiting_approval` - Awaiting approval
+          * `ready` - Ready
+          * `claimed` - Claimed
+          * `completed` - Completed
+          * `failed` - Failed
+          * `canceled` - Canceled
       tags:
       - v1
       security:

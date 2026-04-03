@@ -233,6 +233,18 @@
 - Requesters cannot approve or reject their own pending job.
 
 ## Automation execution baseline
+- Standard list endpoint: `GET /api/v1/automation/jobs/`
+- List filters:
+  - `name`
+  - `status`
+  - `risk_level`
+  - `approval_status`
+  - `assigned_agent_key_id`
+  - `last_reported_by_agent_key`
+  - `search`
+  - `ordering`
+  - `page`
+  - `page_size`
 - Tool query endpoint: `GET /api/v1/automation/jobs/tool-query/`
 - Handoff endpoint: `GET /api/v1/automation/jobs/handoff/`
 - Handoff filters:
