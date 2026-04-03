@@ -475,6 +475,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             200: JobSerializer,
             400: OpenApiResponse(description="Agent claim validation error"),
             401: OpenApiResponse(description="Authentication/signature error"),
+            429: OpenApiResponse(description="Rate limit exceeded"),
         },
     )
     @action(
@@ -546,6 +547,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             200: JobSerializer,
             400: OpenApiResponse(description="Agent report validation error"),
             401: OpenApiResponse(description="Authentication/signature error"),
+            429: OpenApiResponse(description="Rate limit exceeded"),
         },
     )
     @action(

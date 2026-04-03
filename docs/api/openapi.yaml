@@ -577,6 +577,8 @@ paths:
           description: Agent claim validation error
         '401':
           description: Authentication/signature error
+        '429':
+          description: Rate limit exceeded
   /api/v1/automation/jobs/{id}/agent-report/:
     post:
       operationId: v1_automation_jobs_agent_report_create
@@ -629,6 +631,8 @@ paths:
           description: Agent report validation error
         '401':
           description: Authentication/signature error
+        '429':
+          description: Rate limit exceeded
   /api/v1/automation/jobs/{id}/approve/:
     post:
       operationId: v1_automation_jobs_approve_create

@@ -90,6 +90,7 @@ class AutomationOpenApiTests(TestCase):
         self.assertEqual(operation["security"], [{"automationAgentClaimHmacAuth": []}])
         header_names = {parameter["name"] for parameter in operation["parameters"] if parameter["in"] == "header"}
         self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
+        self.assertIn("429", operation["responses"])
 
     def test_schema_exposes_agent_report_hmac_security_scheme(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
@@ -101,6 +102,7 @@ class AutomationOpenApiTests(TestCase):
         self.assertEqual(operation["security"], [{"automationAgentHmacAuth": []}])
         header_names = {parameter["name"] for parameter in operation["parameters"] if parameter["in"] == "header"}
         self.assertEqual(header_names, {"X-Agent-Key-Id", "X-Agent-Timestamp", "X-Agent-Signature"})
+        self.assertIn("429", operation["responses"])
 
     def test_schema_exposes_tool_query_filter_enums(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
