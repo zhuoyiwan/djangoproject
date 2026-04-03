@@ -381,6 +381,47 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["name"], "sync-assets")
 
+    def test_list_jobs_supports_search(self):
+        Job.objects.create(
+            name="restart-prod",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.HIGH,
+            approval_status=JobApprovalStatus.APPROVED,
+        )
+        Job.objects.create(
+            name="sync-assets",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/?search=restart")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["name"], "restart-prod")
+
+    def test_list_jobs_supports_ordering(self):
+        Job.objects.create(
+            name="zeta-sync",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+        Job.objects.create(
+            name="alpha-restart",
+            status=JobExecutionStatus.DRAFT,
+            risk_level=JobRiskLevel.MEDIUM,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/?ordering=name")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(response.data["results"][0]["name"], "alpha-restart")
+        self.assertEqual(response.data["results"][1]["name"], "zeta-sync")
+
     def test_unauthenticated_user_cannot_list_jobs(self):
         Job.objects.create(name="sync-assets")
         self.client.force_authenticate(user=None)
