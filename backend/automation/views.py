@@ -318,7 +318,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.status != JobExecutionStatus.CLAIMED:
                 raise ValidationError({"status": ["Only claimed jobs can be completed."]})
             claimant_id = job.claimed_by_id
-            if claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            if claimant_id is not None and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can complete a claimed job.")
             job.status = JobExecutionStatus.COMPLETED
             job.ready_by = None
@@ -345,7 +345,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.status != JobExecutionStatus.CLAIMED:
                 raise ValidationError({"status": ["Only claimed jobs can be failed."]})
             claimant_id = job.claimed_by_id
-            if claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            if claimant_id is not None and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can fail a claimed job.")
             job.status = JobExecutionStatus.FAILED
             job.ready_by = None
@@ -372,7 +372,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.status not in {JobExecutionStatus.READY, JobExecutionStatus.CLAIMED}:
                 raise ValidationError({"status": ["Only ready or claimed jobs can be canceled."]})
             claimant_id = job.claimed_by_id
-            if job.status == JobExecutionStatus.CLAIMED and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            if job.status == JobExecutionStatus.CLAIMED and claimant_id is not None and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can cancel a claimed job.")
             job.status = JobExecutionStatus.CANCELED
             job.ready_by = None
@@ -399,7 +399,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             if job.status not in {JobExecutionStatus.CLAIMED, JobExecutionStatus.FAILED}:
                 raise ValidationError({"status": ["Only claimed or failed jobs can be requeued."]})
             claimant_id = job.claimed_by_id
-            if job.status == JobExecutionStatus.CLAIMED and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+            if job.status == JobExecutionStatus.CLAIMED and claimant_id is not None and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
                 raise PermissionDenied("Only the claimant or a platform admin can requeue a claimed job.")
             job.status = JobExecutionStatus.READY
             job.ready_by = request.user
