@@ -79,8 +79,11 @@ class JobApprovalActionSerializer(serializers.Serializer):
     comment = serializers.CharField(required=False, allow_blank=True)
 
 
-class JobExecutionActionSerializer(serializers.Serializer):
+class JobCommentActionSerializer(serializers.Serializer):
     comment = serializers.CharField(required=False, allow_blank=True)
+
+
+class JobClaimActionSerializer(JobCommentActionSerializer):
     agent_key_id = serializers.CharField(required=False, allow_blank=False, max_length=255)
 
 

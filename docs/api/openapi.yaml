@@ -685,13 +685,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
       security:
       - jwtAuth: []
       responses:
@@ -721,13 +721,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobClaimAction'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobClaimAction'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobClaimAction'
       security:
       - jwtAuth: []
       responses:
@@ -757,13 +757,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
       security:
       - jwtAuth: []
       responses:
@@ -793,13 +793,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
       security:
       - jwtAuth: []
       responses:
@@ -829,13 +829,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
       security:
       - jwtAuth: []
       responses:
@@ -901,13 +901,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobExecutionAction'
+              $ref: '#/components/schemas/JobCommentAction'
       security:
       - jwtAuth: []
       responses:
@@ -2166,7 +2166,7 @@ components:
       properties:
         comment:
           type: string
-    JobExecutionAction:
+    JobClaimAction:
       type: object
       properties:
         comment:
@@ -2174,6 +2174,11 @@ components:
         agent_key_id:
           type: string
           maxLength: 255
+    JobCommentAction:
+      type: object
+      properties:
+        comment:
+          type: string
     JobExecutionStatusEnum:
       enum:
       - draft

@@ -317,7 +317,8 @@
 - Only the claimant or a `platform_admin` can requeue a claimed job.
 - Requeue transitions the job back to `ready`, clears stale execution result/assignment fields, and records the acting user as `ready_by`.
 - Only claimed jobs can be reported by `agent-report`.
-- `claim` accepts optional `agent_key_id` to bind a claimed job to a specific automation runner key.
+- `mark-ready`, `complete`, `fail`, `cancel`, and `requeue` accept an optional `comment` field.
+- `claim` accepts an optional `comment` plus optional `agent_key_id` to bind a claimed job to a specific automation runner key.
 - `agent-claim` binds the claimed job to the HMAC-authenticated runner key and records a machine audit event.
 - `agent-report` is only valid for agent-claimed jobs with an assigned runner key.
 - `agent-report` accepts `outcome` of `completed` or `failed`, stores execution summary/metadata, records the reporting agent key, enforces the assigned runner key, and writes audit entries.

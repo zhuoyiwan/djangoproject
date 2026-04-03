@@ -60,7 +60,7 @@ Audit log behavior:
 - `POST /api/v1/automation/jobs/{id}/approve/` (throttle scope: `approval_write`)
 - `POST /api/v1/automation/jobs/{id}/reject/` (throttle scope: `approval_write`)
 - `POST /api/v1/automation/jobs/{id}/mark-ready/` (throttle scope: `execution_write`)
-- `POST /api/v1/automation/jobs/{id}/claim/` (throttle scope: `execution_write`; optional body field: `agent_key_id` to bind a claimed job to a specific runner)
+- `POST /api/v1/automation/jobs/{id}/claim/` (throttle scope: `execution_write`; body supports `comment` and optional `agent_key_id` to bind a claimed job to a specific runner)
 - `POST /api/v1/automation/jobs/{id}/agent-claim/` (HMAC-signed machine claim callback for ready jobs, throttle scope: `agent_claim`; may return `429` when the agent claim rate limit is exceeded)
 - `POST /api/v1/automation/jobs/{id}/complete/` (throttle scope: `execution_write`)
 - `POST /api/v1/automation/jobs/{id}/fail/` (throttle scope: `execution_write`)

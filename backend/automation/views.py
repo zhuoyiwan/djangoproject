@@ -22,7 +22,8 @@ from .serializers import (
     JobAgentClaimSerializer,
     JobAgentReportSerializer,
     JobApprovalActionSerializer,
-    JobExecutionActionSerializer,
+    JobClaimActionSerializer,
+    JobCommentActionSerializer,
     JobSerializer,
     JobToolQueryResponseSerializer,
     JobToolQuerySerializer,
@@ -244,7 +245,8 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
 
     def _transition_execution(self, request, action_name):
         job = self.get_object()
-        serializer = JobExecutionActionSerializer(data=request.data)
+        action_serializer_class = JobClaimActionSerializer if action_name == "claim" else JobCommentActionSerializer
+        serializer = action_serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         comment = serializer.validated_data.get("comment", "")
         now = timezone.now()
@@ -653,7 +655,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_approval(request, pk, approved=False)
 
     @extend_schema(
-        request=JobExecutionActionSerializer,
+        request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
             400: OpenApiResponse(description="Execution state validation error"),
@@ -665,7 +667,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "mark_ready")
 
     @extend_schema(
-        request=JobExecutionActionSerializer,
+        request=JobClaimActionSerializer,
         responses={
             200: JobSerializer,
             400: OpenApiResponse(description="Execution state validation error"),
@@ -677,7 +679,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "claim")
 
     @extend_schema(
-        request=JobExecutionActionSerializer,
+        request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
             400: OpenApiResponse(description="Execution state validation error"),
@@ -689,7 +691,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "complete")
 
     @extend_schema(
-        request=JobExecutionActionSerializer,
+        request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
             400: OpenApiResponse(description="Execution state validation error"),
@@ -701,7 +703,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "fail")
 
     @extend_schema(
-        request=JobExecutionActionSerializer,
+        request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
             400: OpenApiResponse(description="Execution state validation error"),
@@ -713,7 +715,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return self._transition_execution(request, "cancel")
 
     @extend_schema(
-        request=JobExecutionActionSerializer,
+        request=JobCommentActionSerializer,
         responses={
             200: JobSerializer,
             400: OpenApiResponse(description="Execution state validation error"),
