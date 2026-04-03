@@ -512,6 +512,14 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
 
+    def test_unauthenticated_user_cannot_access_tool_query(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
+
     def test_tool_query_returns_normalized_matches(self):
         Job.objects.create(
             name="restart-prod",
@@ -907,6 +915,14 @@ class JobApiTests(TestCase):
         response = self.client.get("/api/v1/automation/jobs/handoff/")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+
+    def test_unauthenticated_user_cannot_access_handoff(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=ready")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["error"]["code"], "unauthorized")
 
     def test_handoff_returns_ready_and_claimed_jobs(self):
         ready_job = Job.objects.create(
