@@ -1,33 +1,48 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "./auth";
+import { BorderGlow } from "../components/BorderGlow";
 
 export function AppLayout() {
-  const { accessToken, authSummary, baseUrl, profile, refreshProfile, setBaseUrl, signOut } = useAuth();
+  const { accessToken, authSummary, profile, signOut } = useAuth();
+  const displayName = profile?.display_name || profile?.username || "访客";
 
   return (
     <div className="app-shell">
+      <div aria-hidden="true" className="ambient-blur ambient-blur-one" />
+      <div aria-hidden="true" className="ambient-blur ambient-blur-two" />
+      <div aria-hidden="true" className="ambient-blur ambient-blur-three" />
       <header className="workspace-header">
         <div className="workspace-brand">
           <p className="eyebrow">Django 智能运维前端</p>
-          <h1>契约驱动工作台</h1>
+          <h1 className="brand-title-lockup" aria-label="智能运维控制台">
+            <span className="brand-title-row brand-title-row-top" aria-hidden="true">
+              <span>智</span>
+              <span>能</span>
+              <span>运</span>
+              <span>维</span>
+            </span>
+            <span className="brand-title-row brand-title-row-bottom" aria-hidden="true">
+              <span>控</span>
+              <span>制</span>
+              <span>台</span>
+            </span>
+          </h1>
           <p className="hero-copy">
-            面向 CMDB、自动化执行与审计联调的前端外壳。保留健康探测、只读查询面和角色敏感路径，持续对齐当前 Django 后端文档。
+            面向日常资产查看、任务提报与处理进度追踪的企业工作台。界面只保留普通使用者真正需要的路径，让信息更聚焦。
           </p>
         </div>
 
         <div className="workspace-status">
-          <div className="hero-card">
-            <span>后端目标</span>
-            <label className="inline-field">
-              <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
-            </label>
+          <BorderGlow className="hero-card">
+            <span>当前用户</span>
+            <strong>{displayName}</strong>
+            <small>{profile?.email || (accessToken ? "已登录，可继续查看资源与任务。" : "登录后可进入完整工作台。")}</small>
+          </BorderGlow>
+          <BorderGlow className="hero-card">
+            <span>工作区状态</span>
+            <strong>{accessToken ? "已连接" : "等待登录"}</strong>
             <small>{authSummary}</small>
-          </div>
-          <div className="hero-card">
-            <span>当前身份</span>
-            <strong>{profile?.display_name || profile?.username || "访客模式"}</strong>
-            <small>{profile?.email || (accessToken ? "访问令牌已加载" : "尚未登录")}</small>
-          </div>
+          </BorderGlow>
         </div>
       </header>
 
@@ -42,10 +57,7 @@ export function AppLayout() {
           自动化
         </NavLink>
         <NavLink to="/audit" className={({ isActive }) => navClassName(isActive)}>
-          审计
-        </NavLink>
-        <NavLink to="/contract" className={({ isActive }) => navClassName(isActive)}>
-          契约
+          记录
         </NavLink>
         {!accessToken ? (
           <NavLink to="/login" className={({ isActive }) => navClassName(isActive)}>
@@ -54,14 +66,9 @@ export function AppLayout() {
         ) : null}
         <div className="nav-spacer" />
         {accessToken ? (
-          <>
-            <button className="button-ghost" onClick={() => void refreshProfile()} type="button">
-              刷新身份
-            </button>
-            <button className="button-ghost" onClick={signOut} type="button">
-              退出登录
-            </button>
-          </>
+          <button className="button-ghost" onClick={signOut} type="button">
+            退出登录
+          </button>
         ) : null}
       </nav>
 

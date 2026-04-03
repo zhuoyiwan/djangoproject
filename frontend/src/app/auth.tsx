@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [authState, setAuthState] = useState<RequestState>("idle");
-  const [authSummary, setAuthSummary] = useState("登录后可解锁完整工作台。");
+  const [authSummary, setAuthSummary] = useState("登录后可进入完整工作台。");
 
   useEffect(() => {
     const savedBaseUrl = window.localStorage.getItem(BASE_URL_STORAGE_KEY);
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (savedToken) {
       setAccessToken(savedToken);
-      setAuthSummary("已从本地存储恢复访问令牌。");
+      setAuthSummary("已恢复上次登录状态。");
     }
   }, []);
 
@@ -66,20 +66,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!activeToken) {
       setProfile(null);
       setAuthState("idle");
-      setAuthSummary("登录后可解锁完整工作台。");
+      setAuthSummary("登录后可进入完整工作台。");
       return;
     }
 
     if (!silent) {
       setAuthState("loading");
-      setAuthSummary("正在刷新当前用户信息...");
+      setAuthSummary("正在同步当前账号信息...");
     }
 
     try {
       const response = await getCurrentUser(baseUrl, activeToken);
       setProfile(response);
       setAuthState("success");
-      setAuthSummary(`当前已认证为 ${response.display_name || response.username}。`);
+      setAuthSummary(`当前账号：${response.display_name || response.username}。`);
     } catch (error) {
       setProfile(null);
       setAuthState("error");
@@ -89,12 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loginWithPassword(username: string, password: string) {
     setAuthState("loading");
-    setAuthSummary("正在调用 /api/v1/auth/login/ 进行认证...");
+    setAuthSummary("正在登录...");
     try {
       const tokens = await login(baseUrl, username, password);
       setAccessToken(tokens.access);
       setAuthState("success");
-      setAuthSummary("登录成功，正在加载当前用户信息...");
+      setAuthSummary("登录成功，正在同步账号信息...");
       await refreshProfile(tokens.access, true);
     } catch (error) {
       setProfile(null);
@@ -113,14 +113,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAuthState("idle");
-    setAuthSummary("访问令牌已写入本地，可刷新用户信息验证其有效性。");
+    setAuthSummary("访问令牌已保存，可继续验证其是否有效。");
   }
 
   function signOut() {
     setAccessToken("");
     setProfile(null);
     setAuthState("idle");
-    setAuthSummary("已退出登录。");
+    setAuthSummary("已退出当前账号。");
   }
 
   function setBaseUrl(value: string) {

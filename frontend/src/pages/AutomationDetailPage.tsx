@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../app/auth";
+import { BorderGlow } from "../components/BorderGlow";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import {
   approveJob,
@@ -91,10 +92,10 @@ export function AutomationDetailPage() {
 
   return (
     <main className="workspace-grid">
-      <section className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12">
         <div className="panel-heading">
           <h2>自动化任务详情</h2>
-          <p>围绕审批、执行状态、执行结果和运行器绑定信息，对单条任务进行完整审阅。</p>
+          <p>围绕审批、执行状态、执行结果和执行器信息，对单条任务进行完整审阅。</p>
         </div>
         <div className="actions">
           <Link className="button-link button-link-ghost" to="/automation">
@@ -105,47 +106,47 @@ export function AutomationDetailPage() {
           </button>
         </div>
         <p className={`status ${detailState}`}>{detailSummary}</p>
-      </section>
+      </BorderGlow>
 
-      <section className="panel panel-span-8">
+      <BorderGlow as="section" className="panel panel-span-8">
         {job ? (
           <div className="detail-shell">
             <div className="summary-grid">
-              <article className="summary-card">
+              <BorderGlow as="article" className="summary-card">
                 <span>任务名称</span>
                 <strong>{job.name}</strong>
                 <small>执行状态：{getStatusLabel(job.status)}</small>
-              </article>
-              <article className="summary-card">
+              </BorderGlow>
+              <BorderGlow as="article" className="summary-card">
                 <span>风险与审批</span>
                 <strong>{getRiskLabel(job.risk_level)}</strong>
                 <small>审批状态：{getApprovalLabel(job.approval_status)}</small>
-              </article>
-              <article className="summary-card">
+              </BorderGlow>
+              <BorderGlow as="article" className="summary-card">
                 <span>申请人</span>
                 <strong>{job.approval_requested_by_username || "未记录"}</strong>
                 <small>
                   申请时间：{job.approval_requested_at ? formatDateTime(job.approval_requested_at) : "未记录"}
                 </small>
-              </article>
-              <article className="summary-card">
+              </BorderGlow>
+              <BorderGlow as="article" className="summary-card">
                 <span>更新信息</span>
                 <strong>{formatDateTime(job.updated_at)}</strong>
                 <small>创建于：{formatDateTime(job.created_at)}</small>
-              </article>
-              <article className="summary-card">
-                <span>运行器绑定</span>
+              </BorderGlow>
+              <BorderGlow as="article" className="summary-card">
+                <span>执行器绑定</span>
                 <strong>{job.assigned_agent_key_id || "未绑定"}</strong>
                 <small>最近上报：{job.last_reported_by_agent_key || "未记录"}</small>
-              </article>
+              </BorderGlow>
             </div>
 
-            <article className="highlight-card compact-card">
+            <BorderGlow as="article" className="highlight-card compact-card">
               <h3>任务载荷</h3>
               <pre className="json-block">{JSON.stringify(job.payload, null, 2)}</pre>
-            </article>
+            </BorderGlow>
 
-            <article className="highlight-card compact-card">
+            <BorderGlow as="article" className="highlight-card compact-card">
               <h3>执行轨迹</h3>
               <dl className="profile-card">
                 <div>
@@ -173,37 +174,37 @@ export function AutomationDetailPage() {
                   <dd>{formatDateTime(job.failed_at)}</dd>
                 </div>
               </dl>
-            </article>
+            </BorderGlow>
 
-            <article className="highlight-card compact-card">
+            <BorderGlow as="article" className="highlight-card compact-card">
               <h3>执行结果</h3>
               <p>{job.execution_summary || "暂未记录执行摘要。"}</p>
               <pre className="json-block">{JSON.stringify(job.execution_metadata, null, 2)}</pre>
-            </article>
+            </BorderGlow>
           </div>
         ) : (
           <p className="status idle">当前没有加载到任务。</p>
         )}
-      </section>
+      </BorderGlow>
 
-      <section className="panel panel-span-4">
+      <BorderGlow as="section" className="panel panel-span-4">
         {job ? (
           <div className="stack-grid">
-            <article className="highlight-card compact-card">
+            <BorderGlow as="article" className="highlight-card compact-card">
               <h3>审批轨迹</h3>
               <p>批准人：{job.approved_by_username || "未记录"}</p>
               <p>拒绝人：{job.rejected_by_username || "未记录"}</p>
               <p>审批备注：{job.approval_comment || "暂未记录。"}</p>
-            </article>
+            </BorderGlow>
 
-            <article className="highlight-card compact-card">
+            <BorderGlow as="article" className="highlight-card compact-card">
               <h3>操作面板</h3>
               <label className="field">
                 <span>操作备注</span>
                 <textarea rows={4} value={comment} onChange={(event) => setComment(event.target.value)} />
               </label>
               <label className="field">
-                <span>运行器 Key ID（认领时可选）</span>
+                <span>执行器 ID（认领时可选）</span>
                 <input value={agentKeyId} onChange={(event) => setAgentKeyId(event.target.value)} />
               </label>
               <div className="actions">
@@ -234,19 +235,19 @@ export function AutomationDetailPage() {
               </div>
               <p className="status idle">
                 {job.status === "draft"
-                  ? "草稿任务满足契约条件后可标记为就绪；高风险任务需先批准。"
+                  ? "草稿任务在条件满足后可标记为就绪；高风险任务需先批准。"
                   : job.status === "ready"
-                    ? "就绪任务可由人工认领，也可在认领时绑定运行器 Key。"
+                    ? "就绪任务可由人工认领，也可在认领时绑定执行器 ID。"
                     : job.status === "claimed"
                       ? "已认领任务可完成、失败、取消或重新排队。权限最终由后端校验。"
                       : job.status === "failed"
-                        ? "失败任务可以重新排队回到待执行状态。"
-                        : "审批和执行动作会根据当前状态动态生效。"}
+                      ? "失败任务可以重新排队回到待执行状态。"
+                      : "审批和执行动作会根据当前状态动态生效。"}
               </p>
-            </article>
+            </BorderGlow>
           </div>
         ) : null}
-      </section>
+      </BorderGlow>
     </main>
   );
 }
