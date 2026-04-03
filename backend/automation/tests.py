@@ -1253,6 +1253,13 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["last_reported_by_agent_key"], "automation-agent-blue")
         self.assertEqual(response.data["query"]["last_reported_by_agent_key"], "automation-agent-blue")
 
+    def test_job_agent_key_filters_use_database_indexes(self):
+        assigned_field = Job._meta.get_field("assigned_agent_key_id")
+        reported_field = Job._meta.get_field("last_reported_by_agent_key")
+
+        self.assertTrue(assigned_field.db_index)
+        self.assertTrue(reported_field.db_index)
+
     def test_handoff_rejects_invalid_status_filter(self):
         response = self.client.get("/api/v1/automation/jobs/handoff/?status=completed")
 
