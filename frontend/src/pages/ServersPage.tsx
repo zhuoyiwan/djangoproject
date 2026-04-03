@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../app/auth";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import { getServers, getServerToolQuery } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 import type {
@@ -96,7 +97,7 @@ export function ServersPage() {
       setToolQuerySummaryText(buildQuerySummary(response.summary, "Server Tool Query"));
     } catch (error) {
       setToolQueryState("error");
-      setToolQuerySummaryText((error as Error).message);
+      setToolQuerySummaryText(getUserFacingErrorMessage(error));
     }
   }
 

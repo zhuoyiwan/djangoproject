@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import type { PaginatedResponse, RequestState } from "../types";
 
 type UsePaginatedResourceOptions<TItem, TQuery> = {
@@ -48,7 +49,7 @@ export function usePaginatedResource<TItem, TQuery>({
       return response;
     } catch (error) {
       setState("error");
-      setSummary((error as Error).message);
+      setSummary(getUserFacingErrorMessage(error));
       return null;
     }
   }

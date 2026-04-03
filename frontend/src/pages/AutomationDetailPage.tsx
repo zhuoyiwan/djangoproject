@@ -13,6 +13,7 @@ import {
   rejectJob,
   requeueJob,
 } from "../lib/api";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import type { JobRecord } from "../types";
 
@@ -33,10 +34,10 @@ export function AutomationDetailPage() {
   } = useResourceDetail<JobRecord>({
     accessToken,
     resourceId: numericJobId,
-    initialSummary: "Load a job to inspect approval state.",
-    missingTokenSummary: "Login is required before loading automation job detail.",
-    loadingSummary: (id) => `Loading automation job ${id} detail ...`,
-    successSummary: (response) => `Loaded ${response.name} with ${response.approval_status} approval status.`,
+    initialSummary: "选择一条任务后查看审批与执行详情。",
+    missingTokenSummary: "请先登录后再查看自动化任务详情。",
+    loadingSummary: (id) => `正在加载自动化任务 ${id} 的详情...`,
+    successSummary: (response) => `已加载任务 ${response.name}，当前审批状态为 ${getApprovalLabel(response.approval_status)}。`,
     fetcher: (token, id) => getJob(baseUrl, token, id),
   });
 
@@ -70,7 +71,7 @@ export function AutomationDetailPage() {
       setDetailSummary(`任务 ${response.name} 已更新为 ${getStatusLabel(response.status)}。`);
     } catch (error) {
       setDetailState("error");
-      setDetailSummary((error as Error).message);
+      setDetailSummary(getUserFacingErrorMessage(error));
     }
   }
 

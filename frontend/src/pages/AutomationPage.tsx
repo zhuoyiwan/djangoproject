@@ -10,6 +10,7 @@ import {
   getJobToolQuery,
   rejectJob,
 } from "../lib/api";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import type {
   JobCreateInput,
@@ -183,7 +184,7 @@ export function AutomationPage() {
         setSelectedJobId(created.id);
       }
     } catch (error) {
-      setFormError((error as Error).message);
+      setFormError(getUserFacingErrorMessage(error));
       console.error(error);
     }
   }
@@ -224,7 +225,7 @@ export function AutomationPage() {
       setToolQuerySummaryText(buildQuerySummary(response.summary, "Tool Query"));
     } catch (error) {
       setToolQueryState("error");
-      setToolQuerySummaryText((error as Error).message);
+      setToolQuerySummaryText(getUserFacingErrorMessage(error));
     }
   }
 
@@ -248,7 +249,7 @@ export function AutomationPage() {
       setHandoffSummaryText(buildQuerySummary(response.summary, "Handoff"));
     } catch (error) {
       setHandoffState("error");
-      setHandoffSummaryText((error as Error).message);
+      setHandoffSummaryText(getUserFacingErrorMessage(error));
     }
   }
 

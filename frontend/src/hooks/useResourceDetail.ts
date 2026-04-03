@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import type { RequestState } from "../types";
 
 type UseResourceDetailOptions<TItem> = {
@@ -55,7 +56,7 @@ export function useResourceDetail<TItem>({
       return response;
     } catch (error) {
       setState("error");
-      setSummary((error as Error).message);
+      setSummary(getUserFacingErrorMessage(error));
       return null;
     }
   }

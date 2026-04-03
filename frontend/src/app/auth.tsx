@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import { getCurrentUser, login } from "../lib/api";
 import type { RequestState, UserProfile } from "../types";
 
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       setProfile(null);
       setAuthState("error");
-      setAuthSummary((error as Error).message);
+      setAuthSummary(getUserFacingErrorMessage(error));
     }
   }
 
@@ -98,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       setProfile(null);
       setAuthState("error");
-      setAuthSummary((error as Error).message);
+      setAuthSummary(getUserFacingErrorMessage(error));
       throw error;
     }
   }

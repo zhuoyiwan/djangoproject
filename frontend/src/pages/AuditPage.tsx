@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useAuth } from "../app/auth";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { useResourceDetail } from "../hooks/useResourceDetail";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { getAuditLog, getAuditLogs, getAuditToolQuery } from "../lib/api";
 import type {
@@ -108,7 +109,7 @@ export function AuditPage() {
       setToolQuerySummaryText(buildQuerySummary(response.summary, "Audit Tool Query"));
     } catch (error) {
       setToolQueryState("error");
-      setToolQuerySummaryText((error as Error).message);
+      setToolQuerySummaryText(getUserFacingErrorMessage(error));
     }
   }
 

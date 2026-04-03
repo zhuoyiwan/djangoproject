@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useAuth } from "../app/auth";
 import { contractHighlights } from "../contract";
+import { getUserFacingErrorMessage } from "../lib/errors";
 import { getHealth, getIDCToolQuery } from "../lib/api";
 import type { IDCToolQuery, IDCToolQueryResponse, RequestState, ToolQuerySummary } from "../types";
 
@@ -32,7 +33,7 @@ export function OverviewPage() {
       setHealthSummary(`后端健康检查通过，返回字段：${Object.keys(response).join("、")}。`);
     } catch (error) {
       setHealthState("error");
-      setHealthSummary((error as Error).message);
+      setHealthSummary(getUserFacingErrorMessage(error));
     }
   }
 
@@ -70,7 +71,7 @@ export function OverviewPage() {
       setIdcToolSummary(buildQuerySummary(response.summary, "IDC Tool Query"));
     } catch (error) {
       setIdcToolState("error");
-      setIdcToolSummary((error as Error).message);
+      setIdcToolSummary(getUserFacingErrorMessage(error));
     }
   }
 
