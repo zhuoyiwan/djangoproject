@@ -77,7 +77,7 @@ class AutomationAgentHMACAuthentication(authentication.BaseAuthentication):
             raise AuthenticationFailed("Invalid agent signature.")
 
         prefix = getattr(settings, self.replay_prefix_setting, self.default_replay_prefix)
-        replay_key = f"{prefix}:{key_id}:{timestamp}:{body_hash}"
+        replay_key = f"{prefix}:{key_id}:{request.method}:{request.path}:{timestamp}:{body_hash}"
         if not cache.add(replay_key, 1, timeout=tolerance):
             self._audit_failure(request, "replay_detected", f"agent:{key_id}")
             raise AuthenticationFailed("Replay request detected.")

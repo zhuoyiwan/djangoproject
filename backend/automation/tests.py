@@ -2832,6 +2832,33 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-report/")
         self.assertIn("request_id", audit.detail)
 
+    def test_agent_report_allows_same_timestamp_and_payload_on_different_jobs(self):
+        timestamp = int(time.time())
+        first_job = Job.objects.create(
+            name="sync-assets-1",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-default",
+        )
+        second_job = Job.objects.create(
+            name="sync-assets-2",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-default",
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED, "summary": "completed by executor"}
+        first_headers, first_body = self._agent_report_signed_headers(first_job.id, payload, timestamp=timestamp)
+        second_headers, second_body = self._agent_report_signed_headers(second_job.id, payload, timestamp=timestamp)
+
+        self.client.force_authenticate(user=None)
+        first = self.client.post(f"/api/v1/automation/jobs/{first_job.id}/agent-report/", data=first_body, **first_headers)
+        second = self.client.post(f"/api/v1/automation/jobs/{second_job.id}/agent-report/", data=second_body, **second_headers)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+
     def test_agent_report_rejects_stale_timestamp(self):
         job = Job.objects.create(
             name="sync-assets",
