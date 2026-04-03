@@ -1539,6 +1539,14 @@ class JobApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
 
+        job.refresh_from_db()
+        self.assertEqual(job.name, "sync-assets")
+        self.assertEqual(job.status, JobExecutionStatus.CLAIMED)
+        self.assertEqual(job.claimed_by_id, self.user.id)
+        self.assertFalse(
+            AuditLog.objects.filter(action="automation.job.updated", target=f"job:{job.id}:{job.name}").exists()
+        )
+
     def test_claimed_job_cannot_be_deleted(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         job = Job.objects.create(
@@ -1551,6 +1559,10 @@ class JobApiTests(TestCase):
         response = self.client.delete(f"/api/v1/automation/jobs/{job.id}/")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertTrue(Job.objects.filter(id=job.id).exists())
+        self.assertFalse(
+            AuditLog.objects.filter(action="automation.job.deleted", target=f"job:{job.id}:{job.name}").exists()
+        )
 
     def test_ops_admin_can_complete_claimed_job(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
