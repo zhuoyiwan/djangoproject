@@ -229,6 +229,52 @@ class AutomationOpenApiTests(TestCase):
                 self.assertIn("400", operation["responses"])
                 self.assertIn("403", operation["responses"])
 
+    def test_schema_exposes_handoff_response_fields_for_runner_consumers(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        operation = schema["paths"]["/api/v1/automation/jobs/handoff/"]["get"]
+        response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
+        self.assertEqual(response_schema["$ref"], "#/components/schemas/JobHandoffResponse")
+
+        handoff_item = schema["components"]["schemas"]["JobHandoffItem"]
+        self.assertIn("assigned_agent_key_id", handoff_item["properties"])
+        self.assertIn("last_reported_by_agent_key", handoff_item["properties"])
+        self.assertIn("payload", handoff_item["properties"])
+        self.assertEqual(handoff_item["properties"]["assigned_agent_key_id"]["type"], "string")
+        self.assertEqual(handoff_item["properties"]["last_reported_by_agent_key"]["type"], "string")
+        self.assertEqual(handoff_item["properties"]["payload"], {})
+
+    def test_schema_documents_execution_recovery_actions(self):
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+
+        expected_descriptions = {
+            "/api/v1/automation/jobs/{id}/complete/": (
+                "Complete a claimed automation job. Human-claimed jobs can only be completed by the claimant "
+                "or a platform admin. Agent-claimed jobs with no human claimant can also be completed by an "
+                "ops admin or platform admin as a recovery action."
+            ),
+            "/api/v1/automation/jobs/{id}/fail/": (
+                "Fail a claimed automation job. Human-claimed jobs can only be failed by the claimant or a "
+                "platform admin. Agent-claimed jobs with no human claimant can also be failed by an ops admin "
+                "or platform admin as a recovery action."
+            ),
+            "/api/v1/automation/jobs/{id}/cancel/": (
+                "Cancel a ready or claimed automation job. Human-claimed jobs can only be canceled by the "
+                "claimant or a platform admin. Agent-claimed jobs with no human claimant can also be canceled "
+                "by an ops admin or platform admin as a recovery action."
+            ),
+            "/api/v1/automation/jobs/{id}/requeue/": (
+                "Requeue a failed or claimed automation job back to ready. Human-claimed jobs can only be "
+                "requeued by the claimant or a platform admin. Agent-claimed jobs with no human claimant can "
+                "also be requeued by an ops admin or platform admin as a recovery action."
+            ),
+        }
+
+        for path, expected_description in expected_descriptions.items():
+            with self.subTest(path=path):
+                operation = schema["paths"][path]["post"]
+                self.assertEqual(operation["description"], expected_description)
+
 
 @override_settings(
     AUTOMATION_AGENT_CLAIM_ENABLED=True,
