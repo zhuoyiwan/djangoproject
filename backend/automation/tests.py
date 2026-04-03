@@ -668,6 +668,20 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["last_reported_by_agent_key"], "automation-agent-blue")
         self.assertEqual(response.data["query"]["last_reported_by_agent_key"], "automation-agent-blue")
 
+    def test_tool_query_rejects_invalid_status_filter(self):
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?status=unknown")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertIn("status", response.data["error"]["details"])
+
+    def test_tool_query_rejects_limit_above_maximum(self):
+        response = self.client.get("/api/v1/automation/jobs/tool-query/?q=restart&limit=21")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertIn("limit", response.data["error"]["details"])
+
     def test_tool_query_does_not_mark_exact_limit_as_truncated(self):
         Job.objects.create(
             name="restart-prod-1",
@@ -1238,6 +1252,20 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["items"][0]["id"], matching_job.id)
         self.assertEqual(response.data["items"][0]["last_reported_by_agent_key"], "automation-agent-blue")
         self.assertEqual(response.data["query"]["last_reported_by_agent_key"], "automation-agent-blue")
+
+    def test_handoff_rejects_invalid_status_filter(self):
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=completed")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertIn("status", response.data["error"]["details"])
+
+    def test_handoff_rejects_limit_above_maximum(self):
+        response = self.client.get("/api/v1/automation/jobs/handoff/?status=ready&limit=21")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertIn("limit", response.data["error"]["details"])
 
     def test_handoff_does_not_mark_exact_limit_as_truncated(self):
         Job.objects.create(
