@@ -2813,6 +2813,24 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["agent_key_id"], "automation-agent-blue")
         self.assertEqual(audit.detail["summary"], "claiming with blue runner key")
 
+    def test_agent_claim_rejects_summary_above_max_length(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        payload = {"summary": "x" * 2001}
+        headers, body = self._agent_claim_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-claim/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertEqual(response.data["error"]["details"]["summary"], ["Ensure this field has no more than 2000 characters."])
+
     def test_agent_report_completes_claimed_job_and_records_metadata(self):
         job = Job.objects.create(
             name="sync-assets",
@@ -3354,3 +3372,42 @@ class JobApiTests(TestCase):
         audit = AuditLog.objects.get(action="automation.job.agent_reported_completed")
         self.assertEqual(audit.detail["agent_key_id"], "automation-agent-blue")
         self.assertEqual(audit.detail["metadata"], {"runner": "blue"})
+
+    def test_agent_report_rejects_invalid_outcome(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-default",
+        )
+        payload = {"outcome": JobExecutionStatus.CANCELED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertEqual(response.data["error"]["details"]["outcome"], [f'"{JobExecutionStatus.CANCELED}" is not a valid choice.'])
+
+    def test_agent_report_rejects_summary_above_max_length(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-default",
+        )
+        payload = {
+            "outcome": JobExecutionStatus.COMPLETED,
+            "summary": "x" * 2001,
+        }
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"]["code"], "validation_error")
+        self.assertEqual(response.data["error"]["details"]["summary"], ["Ensure this field has no more than 2000 characters."])
