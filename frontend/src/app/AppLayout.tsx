@@ -14,7 +14,7 @@ export function AppLayout() {
       <div aria-hidden="true" className="ambient-blur ambient-blur-three" />
       <header className="workspace-header">
         <div className="workspace-brand">
-          <p className="eyebrow">Django 智能运维前端</p>
+          <p className="eyebrow">Django 智能运维平台</p>
           <h1 className="brand-title-inline" aria-label="智能运维">
             <span className="brand-title-static">智能运维</span>
             <RotatingText
@@ -42,7 +42,7 @@ export function AppLayout() {
           <BorderGlow className="hero-card">
             <span>当前用户</span>
             <strong>{displayName}</strong>
-            <small>{profile?.email || (accessToken ? "已登录，可继续查看资源与任务。" : "登录后可进入完整工作台。")}</small>
+            <small>{profile?.email || (accessToken ? "身份已验证，可继续访问平台资源与任务。" : "登录后可访问平台完整能力与业务视图。")}</small>
           </BorderGlow>
           <BorderGlow className="hero-card">
             <span>工作区状态</span>

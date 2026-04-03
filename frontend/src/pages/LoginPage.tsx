@@ -37,23 +37,26 @@ export function LoginPage() {
     <main className="workspace-grid">
       <BorderGlow as="section" className="panel panel-span-7">
         <div className="panel-heading">
-          <h2>登录工作区</h2>
-          <p>优先使用账号密码进入工作台。令牌和连接地址仍可保留在高级设置里，但不会占用主界面注意力。</p>
+          <h2>登录平台</h2>
+          <p>通过统一认证入口访问平台能力。默认使用账号密码完成身份校验；如需切换接入地址或使用访问令牌，可在高级连接设置中进行配置。</p>
         </div>
 
         <form className="form-grid" onSubmit={handleLogin}>
           <label className="field">
             <span>用户名</span>
-            <input value={username} onChange={(event) => setUsername(event.target.value)} />
+            <input placeholder="例如：ops_admin" value={username} onChange={(event) => setUsername(event.target.value)} />
+            <small className="field-hint">示例账号：frontenddemo</small>
           </label>
           <label className="field">
             <span>密码</span>
             <input
               autoComplete="current-password"
+              placeholder="请输入登录密码"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            <small className="field-hint">示例密码：FrontendDemo123!</small>
           </label>
           <button className="login-submit-button" type="submit">
             登录
@@ -63,15 +66,33 @@ export function LoginPage() {
         <p className={`status ${authState}`}>{authSummary}</p>
 
         <details className="advanced-settings">
-          <summary>高级连接设置</summary>
+          <summary className="advanced-settings-toggle">
+            <span className="advanced-settings-title">高级连接设置</span>
+            <span className="advanced-settings-button" aria-hidden="true">
+              <span className="advanced-settings-button-label advanced-settings-button-label-open">展开</span>
+              <span className="advanced-settings-button-label advanced-settings-button-label-close">收起</span>
+              <span className="advanced-settings-chevron" />
+            </span>
+          </summary>
           <div className="stack-grid">
             <label className="field">
               <span>服务地址</span>
-              <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
+              <input
+                placeholder="例如：http://127.0.0.1:8000"
+                value={baseUrl}
+                onChange={(event) => setBaseUrl(event.target.value)}
+              />
+              <small className="field-hint">示例：本地开发环境可使用 `http://127.0.0.1:8000`</small>
             </label>
             <label className="field">
               <span>访问令牌</span>
-              <textarea rows={5} value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} />
+              <textarea
+                placeholder="例如：eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                rows={5}
+                value={tokenDraft}
+                onChange={(event) => setTokenDraft(event.target.value)}
+              />
+              <small className="field-hint">适用于临时验证、调试接入或切换测试身份。</small>
             </label>
             <div className="actions">
               <button type="button" onClick={() => void handleTokenValidation()}>
@@ -87,17 +108,17 @@ export function LoginPage() {
 
       <BorderGlow as="section" className="panel panel-span-5">
         <div className="panel-heading">
-          <h2>使用说明</h2>
-          <p>如果你正在使用当前仓库的本地演示环境，可以直接用下面这组账号快速进入。登录后会自动跳转到上一页或总览页。</p>
+          <h2>访问说明</h2>
+          <p>当前页面提供本地演示环境的标准测试账号，可用于验证登录流程与前端交互。认证完成后，系统将自动返回上一次访问页面或进入平台总览。</p>
         </div>
 
         <dl className="profile-card">
           <div>
-            <dt>演示账号</dt>
+            <dt>测试账号</dt>
             <dd>frontenddemo</dd>
           </div>
           <div>
-            <dt>演示密码</dt>
+            <dt>测试密码</dt>
             <dd>FrontendDemo123!</dd>
           </div>
           <div>

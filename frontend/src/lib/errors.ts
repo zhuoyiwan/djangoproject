@@ -15,7 +15,7 @@ export function getUserFacingErrorMessage(error: unknown) {
   }
 
   if (rawMessage.includes("Failed to fetch") || rawMessage.includes("NetworkError")) {
-    return "无法连接到后端服务，请检查地址配置、网络状态或后端是否已启动。";
+    return "当前无法建立平台服务连接，请检查服务地址配置、网络连通性及后端服务状态。";
   }
 
   const statusMatch = rawMessage.match(/Request failed with\s+(\d{3})/i);
