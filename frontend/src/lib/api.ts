@@ -4,8 +4,12 @@ import type {
   ApiErrorShape,
   AuthTokens,
   JobCreateInput,
+  JobHandoffQuery,
+  JobHandoffResponse,
   JobQuery,
   JobRecord,
+  JobToolQuery,
+  JobToolQueryResponse,
   PaginatedResponse,
   ServerQuery,
   ServerRecord,
@@ -114,6 +118,24 @@ export async function getJobs(baseUrl: string, token: string, query: JobQuery) {
 
 export async function getJob(baseUrl: string, token: string, jobId: number) {
   return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/`, {}, token);
+}
+
+export async function getJobToolQuery(baseUrl: string, token: string, query: JobToolQuery) {
+  return request<JobToolQueryResponse>(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/tool-query/${buildListQuery(query)}`,
+    {},
+    token,
+  );
+}
+
+export async function getJobHandoff(baseUrl: string, token: string, query: JobHandoffQuery) {
+  return request<JobHandoffResponse>(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/handoff/${buildListQuery(query)}`,
+    {},
+    token,
+  );
 }
 
 export async function createJob(baseUrl: string, token: string, payload: JobCreateInput) {

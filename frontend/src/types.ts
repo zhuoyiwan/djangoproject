@@ -113,6 +113,78 @@ export type JobQuery = {
   approval_status?: string;
 };
 
+export type JobToolQuery = {
+  q?: string;
+  name?: string;
+  status?: JobExecutionStatus | "";
+  risk_level?: JobRecord["risk_level"] | "";
+  approval_status?: JobRecord["approval_status"] | "";
+  assigned_agent_key_id?: string;
+  last_reported_by_agent_key?: string;
+  limit?: string;
+};
+
+export type JobHandoffQuery = {
+  q?: string;
+  name?: string;
+  status?: "ready" | "claimed" | "";
+  risk_level?: JobRecord["risk_level"] | "";
+  approval_status?: JobRecord["approval_status"] | "";
+  assigned_agent_key_id?: string;
+  last_reported_by_agent_key?: string;
+  limit?: string;
+};
+
+export type ToolQuerySummary = {
+  count: number;
+  returned: number;
+  truncated: boolean;
+};
+
+export type ToolQueryEnvelope<TItem, TQuery> = {
+  ok: boolean;
+  request_id: string;
+  query: TQuery;
+  summary: ToolQuerySummary;
+  items: TItem[];
+};
+
+export type JobToolQueryItem = {
+  id: number;
+  name: string;
+  status: JobExecutionStatus;
+  risk_level: JobRecord["risk_level"];
+  approval_status: JobRecord["approval_status"];
+  approval_requested_by_username: string | null;
+  approved_by_username: string | null;
+  rejected_by_username: string | null;
+  ready_by_username: string | null;
+  claimed_by_username: string | null;
+  assigned_agent_key_id: string;
+  last_reported_by_agent_key: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JobHandoffItem = {
+  id: number;
+  name: string;
+  status: "ready" | "claimed";
+  risk_level: JobRecord["risk_level"];
+  approval_status: JobRecord["approval_status"];
+  ready_at: string | null;
+  ready_by_username: string | null;
+  claimed_at: string | null;
+  claimed_by_username: string | null;
+  assigned_agent_key_id: string;
+  last_reported_by_agent_key: string;
+  payload: Record<string, unknown>;
+  updated_at: string;
+};
+
+export type JobToolQueryResponse = ToolQueryEnvelope<JobToolQueryItem, JobToolQuery>;
+export type JobHandoffResponse = ToolQueryEnvelope<JobHandoffItem, JobHandoffQuery>;
+
 export type JobCreateInput = {
   name: string;
   status: JobExecutionStatus;

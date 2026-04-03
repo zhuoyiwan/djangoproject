@@ -298,6 +298,13 @@ textarea {
   margin-top: 16px;
 }
 
+.tool-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .filter-chip {
   display: inline-flex;
   align-items: center;
@@ -471,6 +478,88 @@ tbody tr {
   gap: 20px;
 }
 
+.query-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.tool-result-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+  border-radius: 26px;
+  padding: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 24px 54px rgba(3, 10, 22, 0.28);
+}
+
+.tool-result-card::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+.tool-result-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.tool-result-header h3 {
+  margin: 6px 0 0;
+  font-size: 1.12rem;
+}
+
+.tool-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.tool-result-list {
+  margin: 18px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.tool-result-list dt {
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.tool-result-list dd {
+  margin: 0;
+  color: #f6f3ec;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.payload-preview {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(5, 12, 23, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.payload-preview span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -513,6 +602,11 @@ tbody tr {
 .pill.draft {
   background: rgba(255, 191, 71, 0.18);
   color: var(--accent);
+}
+
+.pill.neutral {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f1e8;
 }
 
 .pill.rejected {
