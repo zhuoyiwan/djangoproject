@@ -2446,6 +2446,33 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["path"], f"/api/v1/automation/jobs/{job.id}/agent-claim/")
         self.assertIn("request_id", audit.detail)
 
+    def test_agent_claim_allows_same_timestamp_and_payload_on_different_jobs(self):
+        timestamp = int(time.time())
+        first_job = Job.objects.create(
+            name="sync-assets-1",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        second_job = Job.objects.create(
+            name="sync-assets-2",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.READY,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            ready_by=self.user,
+        )
+        payload = {"summary": "claiming ready job"}
+        first_headers, first_body = self._agent_claim_signed_headers(first_job.id, payload, timestamp=timestamp)
+        second_headers, second_body = self._agent_claim_signed_headers(second_job.id, payload, timestamp=timestamp)
+
+        self.client.force_authenticate(user=None)
+        first = self.client.post(f"/api/v1/automation/jobs/{first_job.id}/agent-claim/", data=first_body, **first_headers)
+        second = self.client.post(f"/api/v1/automation/jobs/{second_job.id}/agent-claim/", data=second_body, **second_headers)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+
     @override_settings(AUTOMATION_AGENT_CLAIM_ENABLED=False)
     def test_agent_claim_rejects_when_disabled(self):
         job = Job.objects.create(
