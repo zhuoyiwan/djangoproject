@@ -361,6 +361,18 @@ class JobApiTests(TestCase):
         self.assertEqual(response.data["risk_level"], JobRiskLevel.LOW)
         self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
 
+    def test_ops_admin_can_create_medium_risk_job_without_approval(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        response = self.client.post(
+            "/api/v1/automation/jobs/",
+            {"name": "sync-staging", "status": JobExecutionStatus.DRAFT, "risk_level": JobRiskLevel.MEDIUM, "payload": {}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["approval_status"], JobApprovalStatus.NOT_REQUIRED)
+        self.assertEqual(response.data["risk_level"], JobRiskLevel.MEDIUM)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+
     def test_ops_admin_can_create_high_risk_job_pending_approval(self):
         self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
         response = self.client.post(
@@ -640,6 +652,49 @@ class JobApiTests(TestCase):
 
         job.refresh_from_db()
         self.assertEqual(job.risk_level, JobRiskLevel.LOW)
+        self.assertEqual(job.approval_status, JobApprovalStatus.NOT_REQUIRED)
+        self.assertEqual(job.status, JobExecutionStatus.DRAFT)
+        self.assertIsNone(job.approval_requested_by_id)
+        self.assertIsNone(job.approval_requested_at)
+        self.assertIsNone(job.approved_by_id)
+        self.assertIsNone(job.approved_at)
+        self.assertEqual(job.approval_comment, "")
+
+    def test_updating_job_to_medium_risk_clears_approval_metadata(self):
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        requested_at = timezone.now()
+        approved_at = timezone.now()
+        job = Job.objects.create(
+            name="restart-prod",
+            risk_level=JobRiskLevel.HIGH,
+            status=JobExecutionStatus.DRAFT,
+            approval_status=JobApprovalStatus.APPROVED,
+            approval_requested_by=self.user,
+            approval_requested_at=requested_at,
+            approved_by=self.approver,
+            approved_at=approved_at,
+            approval_comment="approved",
+            payload={"target": "prod"},
+        )
+
+        response = self.client.patch(
+            f"/api/v1/automation/jobs/{job.id}/",
+            {"risk_level": JobRiskLevel.MEDIUM},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["risk_level"], JobRiskLevel.MEDIUM)
+        self.assertEqual(response.data["approval_status"], JobApprovalStatus.NOT_REQUIRED)
+        self.assertEqual(response.data["status"], JobExecutionStatus.DRAFT)
+        self.assertIsNone(response.data["approval_requested_by"])
+        self.assertIsNone(response.data["approval_requested_at"])
+        self.assertIsNone(response.data["approved_by"])
+        self.assertIsNone(response.data["approved_at"])
+        self.assertEqual(response.data["approval_comment"], "")
+
+        job.refresh_from_db()
+        self.assertEqual(job.risk_level, JobRiskLevel.MEDIUM)
         self.assertEqual(job.approval_status, JobApprovalStatus.NOT_REQUIRED)
         self.assertEqual(job.status, JobExecutionStatus.DRAFT)
         self.assertIsNone(job.approval_requested_by_id)
