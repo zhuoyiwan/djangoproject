@@ -2416,6 +2416,56 @@ class JobApiTests(TestCase):
         self.assertEqual(audit.detail["metadata"], {"error_code": "timeout"})
         self.assertIn("request_id", audit.detail)
 
+    def test_agent_report_completed_without_summary_or_metadata_clears_stale_failure_state(self):
+        job = Job.objects.create(
+            name="sync-assets",
+            risk_level=JobRiskLevel.LOW,
+            status=JobExecutionStatus.CLAIMED,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="automation-agent-default",
+            ready_by=self.other_ops,
+            ready_at=timezone.now(),
+            execution_summary="stale summary",
+            execution_metadata={"error_code": "timeout"},
+            failed_at=timezone.now(),
+            last_reported_by_agent_key="stale-agent",
+        )
+        payload = {"outcome": JobExecutionStatus.COMPLETED}
+        headers, body = self._agent_report_signed_headers(job.id, payload)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.post(f"/api/v1/automation/jobs/{job.id}/agent-report/", data=body, **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], JobExecutionStatus.COMPLETED)
+        self.assertEqual(response.data["execution_summary"], "")
+        self.assertEqual(response.data["execution_metadata"], {})
+        self.assertEqual(response.data["assigned_agent_key_id"], "")
+        self.assertEqual(response.data["last_reported_by_agent_key"], "automation-agent-default")
+        self.assertIsNotNone(response.data["completed_at"])
+        self.assertIsNone(response.data["failed_at"])
+        self.assertIsNone(response.data["ready_by"])
+        self.assertIsNone(response.data["ready_at"])
+        self.assertIsNone(response.data["claimed_by"])
+        self.assertIsNone(response.data["claimed_at"])
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobExecutionStatus.COMPLETED)
+        self.assertEqual(job.execution_summary, "")
+        self.assertEqual(job.execution_metadata, {})
+        self.assertEqual(job.assigned_agent_key_id, "")
+        self.assertEqual(job.last_reported_by_agent_key, "automation-agent-default")
+        self.assertIsNone(job.ready_by_id)
+        self.assertIsNone(job.ready_at)
+        self.assertIsNone(job.claimed_by_id)
+        self.assertIsNone(job.claimed_at)
+        self.assertIsNotNone(job.completed_at)
+        self.assertIsNone(job.failed_at)
+
+        audit = AuditLog.objects.get(action="automation.job.agent_reported_completed")
+        self.assertEqual(audit.detail["summary"], "")
+        self.assertEqual(audit.detail["metadata"], {})
+
     def test_agent_report_without_summary_or_metadata_clears_stale_execution_fields(self):
         job = Job.objects.create(
             name="sync-assets",
