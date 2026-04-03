@@ -4,7 +4,7 @@ import { useAuth } from "../app/auth";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { approveJob, createJob, getJobs, rejectJob } from "../lib/api";
 import { formatDateTime } from "../lib/format";
-import type { JobCreateInput, JobQuery, JobRecord } from "../types";
+import type { JobCreateInput, JobExecutionStatus, JobQuery, JobRecord } from "../types";
 
 const initialQuery: JobQuery = {
   search: "",
@@ -67,14 +67,14 @@ const riskLabelMap: Record<string, string> = {
 
 type JobFormState = {
   name: string;
-  status: string;
+  status: JobExecutionStatus;
   risk_level: JobCreateInput["risk_level"];
   payloadText: string;
 };
 
 const initialForm: JobFormState = {
   name: "restart-prod",
-  status: "pending",
+  status: "draft",
   risk_level: "high",
   payloadText: '{\n  "target": "prod-web-01",\n  "change_window": "maintenance-window-a"\n}',
 };
@@ -336,10 +336,14 @@ export function AutomationPage() {
           </label>
           <label className="field">
             <span>初始状态</span>
-            <input
+            <select
               value={form.status}
-              onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-            />
+              onChange={(event) =>
+                setForm((current) => ({ ...current, status: event.target.value as JobExecutionStatus }))
+              }
+            >
+              <option value="draft">草稿（推荐）</option>
+            </select>
           </label>
           <label className="field">
             <span>风险等级</span>

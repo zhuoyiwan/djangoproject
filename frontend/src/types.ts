@@ -31,6 +31,15 @@ export type UserProfile = {
   display_name: string;
 };
 
+export type JobExecutionStatus =
+  | "draft"
+  | "awaiting_approval"
+  | "ready"
+  | "claimed"
+  | "completed"
+  | "failed"
+  | "canceled";
+
 export type ServerRecord = {
   id: number;
   hostname: string;
@@ -64,7 +73,7 @@ export type ServerQuery = {
 export type JobRecord = {
   id: number;
   name: string;
-  status: string;
+  status: JobExecutionStatus;
   risk_level: "low" | "medium" | "high";
   approval_status: "not_required" | "pending" | "approved" | "rejected";
   approval_requested_by: number | null;
@@ -76,7 +85,19 @@ export type JobRecord = {
   rejected_by: number | null;
   rejected_by_username: string | null;
   rejected_at: string | null;
+  ready_by: number | null;
+  ready_by_username: string | null;
+  ready_at: string | null;
+  claimed_by: number | null;
+  claimed_by_username: string | null;
+  claimed_at: string | null;
   approval_comment: string;
+  execution_summary: string;
+  execution_metadata: Record<string, unknown>;
+  completed_at: string | null;
+  failed_at: string | null;
+  assigned_agent_key_id: string;
+  last_reported_by_agent_key: string;
   payload: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -94,7 +115,7 @@ export type JobQuery = {
 
 export type JobCreateInput = {
   name: string;
-  status: string;
+  status: JobExecutionStatus;
   risk_level: "low" | "medium" | "high";
   payload: Record<string, unknown>;
 };

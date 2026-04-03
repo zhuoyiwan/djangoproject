@@ -496,6 +496,25 @@ tbody tr {
   color: var(--success);
 }
 
+.pill.ready,
+.pill.claimed,
+.pill.completed {
+  background: rgba(156, 185, 255, 0.15);
+  color: var(--idle);
+}
+
+.pill.failed,
+.pill.canceled {
+  background: rgba(255, 156, 137, 0.14);
+  color: var(--error);
+}
+
+.pill.awaiting_approval,
+.pill.draft {
+  background: rgba(255, 191, 71, 0.18);
+  color: var(--accent);
+}
+
 .pill.rejected {
   background: rgba(255, 156, 137, 0.14);
   color: var(--error);

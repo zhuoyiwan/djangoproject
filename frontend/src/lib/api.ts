@@ -123,18 +123,58 @@ export async function createJob(baseUrl: string, token: string, payload: JobCrea
   }, token);
 }
 
-export async function approveJob(baseUrl: string, token: string, jobId: number, comment: string) {
-  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/approve/`, {
+async function postJobAction(
+  baseUrl: string,
+  token: string,
+  jobId: number,
+  action: string,
+  payload: Record<string, unknown>,
+) {
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/${action}/`, {
     method: "POST",
-    body: JSON.stringify({ comment }),
+    body: JSON.stringify(payload),
   }, token);
 }
 
+export async function approveJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return postJobAction(baseUrl, token, jobId, "approve", { comment });
+}
+
 export async function rejectJob(baseUrl: string, token: string, jobId: number, comment: string) {
-  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/reject/`, {
-    method: "POST",
-    body: JSON.stringify({ comment }),
-  }, token);
+  return postJobAction(baseUrl, token, jobId, "reject", { comment });
+}
+
+export async function markReadyJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return postJobAction(baseUrl, token, jobId, "mark-ready", { comment });
+}
+
+export async function claimJob(
+  baseUrl: string,
+  token: string,
+  jobId: number,
+  comment: string,
+  agentKeyId?: string,
+) {
+  return postJobAction(baseUrl, token, jobId, "claim", {
+    comment,
+    ...(agentKeyId ? { agent_key_id: agentKeyId } : {}),
+  });
+}
+
+export async function completeJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return postJobAction(baseUrl, token, jobId, "complete", { comment });
+}
+
+export async function failJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return postJobAction(baseUrl, token, jobId, "fail", { comment });
+}
+
+export async function cancelJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return postJobAction(baseUrl, token, jobId, "cancel", { comment });
+}
+
+export async function requeueJob(baseUrl: string, token: string, jobId: number, comment: string) {
+  return postJobAction(baseUrl, token, jobId, "requeue", { comment });
 }
 
 export async function getAuditLogs(baseUrl: string, token: string, query: AuditQuery) {
