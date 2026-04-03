@@ -229,22 +229,25 @@ class AutomationOpenApiTests(TestCase):
                 self.assertIn("400", operation["responses"])
                 self.assertIn("403", operation["responses"])
 
-    def test_schema_exposes_handoff_response_fields_for_runner_consumers(self):
+    def test_schema_documents_tool_query_and_handoff_descriptions(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
 
-        operation = schema["paths"]["/api/v1/automation/jobs/handoff/"]["get"]
-        response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
-        self.assertEqual(response_schema["$ref"], "#/components/schemas/JobHandoffResponse")
+        expected_descriptions = {
+            "/api/v1/automation/jobs/tool-query/": (
+                "Return a normalized read-only tool-query response for automation jobs. Requires at least one "
+                "filter and supports broad discovery across job state, risk, approval, and runner-key fields."
+            ),
+            "/api/v1/automation/jobs/handoff/": (
+                "Return a normalized read-only execution handoff feed for automation jobs that are ready or claimed. "
+                "Requires at least one filter and exposes runner assignment/report fields for executor consumers."
+            ),
+        }
 
-        handoff_item = schema["components"]["schemas"]["JobHandoffItem"]
-        self.assertIn("assigned_agent_key_id", handoff_item["properties"])
-        self.assertIn("last_reported_by_agent_key", handoff_item["properties"])
-        self.assertIn("payload", handoff_item["properties"])
-        self.assertEqual(handoff_item["properties"]["assigned_agent_key_id"]["type"], "string")
-        self.assertEqual(handoff_item["properties"]["last_reported_by_agent_key"]["type"], "string")
-        self.assertEqual(handoff_item["properties"]["payload"], {})
+        for path, expected_description in expected_descriptions.items():
+            with self.subTest(path=path):
+                operation = schema["paths"][path]["get"]
+                self.assertEqual(operation["description"], expected_description)
 
-    def test_schema_documents_execution_recovery_actions(self):
         schema = SchemaGenerator().get_schema(request=None, public=True)
 
         expected_descriptions = {

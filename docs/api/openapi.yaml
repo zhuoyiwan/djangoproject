@@ -997,6 +997,9 @@ paths:
   /api/v1/automation/jobs/handoff/:
     get:
       operationId: v1_automation_jobs_handoff_retrieve
+      description: Return a normalized read-only execution handoff feed for automation
+        jobs that are ready or claimed. Requires at least one filter and exposes runner
+        assignment/report fields for executor consumers.
       parameters:
       - in: query
         name: approval_status
@@ -1060,6 +1063,9 @@ paths:
   /api/v1/automation/jobs/tool-query/:
     get:
       operationId: v1_automation_jobs_tool_query_retrieve
+      description: Return a normalized read-only tool-query response for automation
+        jobs. Requires at least one filter and supports broad discovery across job
+        state, risk, approval, and runner-key fields.
       parameters:
       - in: query
         name: approval_status

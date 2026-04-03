@@ -427,6 +427,10 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return Response(JobSerializer(job).data)
 
     @extend_schema(
+        description=(
+            "Return a normalized read-only tool-query response for automation jobs. Requires at least one "
+            "filter and supports broad discovery across job state, risk, approval, and runner-key fields."
+        ),
         parameters=[
             OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
@@ -452,6 +456,10 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         return build_normalized_tool_response(request, serializer.validated_data, items)
 
     @extend_schema(
+        description=(
+            "Return a normalized read-only execution handoff feed for automation jobs that are ready or claimed. "
+            "Requires at least one filter and exposes runner assignment/report fields for executor consumers."
+        ),
         parameters=[
             OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
             OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
