@@ -3,16 +3,9 @@ import type {
   AuditQuery,
   ApiErrorShape,
   AuthTokens,
-  JobClaimInput,
-  JobCommentInput,
   JobCreateInput,
-  JobHandoffItem,
-  JobHandoffQuery,
   JobQuery,
   JobRecord,
-  JobToolQuery,
-  JobToolQueryItem,
-  NormalizedQueryResponse,
   PaginatedResponse,
   ServerQuery,
   ServerRecord,
@@ -26,14 +19,21 @@ function joinUrl(baseUrl: string, path: string) {
 }
 
 function buildQuery(params: ServerQuery) {
-  return buildListQuery(params);
-}
-
-function buildListQuery(params: Record<string, string | number | undefined>) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value) {
-      search.set(key, String(value));
+      search.set(key, value);
+    }
+  }
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
+
+function buildListQuery(params: Record<string, string | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      search.set(key, value);
     }
   }
   const query = search.toString();
@@ -123,102 +123,18 @@ export async function createJob(baseUrl: string, token: string, payload: JobCrea
   }, token);
 }
 
-async function postJobAction<TPayload extends Record<string, unknown>>(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  action: string,
-  payload: TPayload,
-) {
-  return request<JobRecord>(
-    baseUrl,
-    `${API_PREFIX}/automation/jobs/${jobId}/${action}/`,
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    },
-    token,
-  );
-}
-
 export async function approveJob(baseUrl: string, token: string, jobId: number, comment: string) {
-  return postJobAction(baseUrl, token, jobId, "approve", { comment });
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/approve/`, {
+    method: "POST",
+    body: JSON.stringify({ comment }),
+  }, token);
 }
 
 export async function rejectJob(baseUrl: string, token: string, jobId: number, comment: string) {
-  return postJobAction(baseUrl, token, jobId, "reject", { comment });
-}
-
-export async function markJobReady(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  payload: JobCommentInput,
-) {
-  return postJobAction(baseUrl, token, jobId, "mark-ready", payload);
-}
-
-export async function claimJob(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  payload: JobClaimInput,
-) {
-  return postJobAction(baseUrl, token, jobId, "claim", payload);
-}
-
-export async function completeJob(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  payload: JobCommentInput,
-) {
-  return postJobAction(baseUrl, token, jobId, "complete", payload);
-}
-
-export async function failJob(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  payload: JobCommentInput,
-) {
-  return postJobAction(baseUrl, token, jobId, "fail", payload);
-}
-
-export async function cancelJob(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  payload: JobCommentInput,
-) {
-  return postJobAction(baseUrl, token, jobId, "cancel", payload);
-}
-
-export async function requeueJob(
-  baseUrl: string,
-  token: string,
-  jobId: number,
-  payload: JobCommentInput,
-) {
-  return postJobAction(baseUrl, token, jobId, "requeue", payload);
-}
-
-export async function getJobToolQuery(baseUrl: string, token: string, query: JobToolQuery) {
-  return request<NormalizedQueryResponse<JobToolQuery, JobToolQueryItem>>(
-    baseUrl,
-    `${API_PREFIX}/automation/jobs/tool-query/${buildListQuery(query)}`,
-    {},
-    token,
-  );
-}
-
-export async function getJobHandoff(baseUrl: string, token: string, query: JobHandoffQuery) {
-  return request<NormalizedQueryResponse<JobHandoffQuery, JobHandoffItem>>(
-    baseUrl,
-    `${API_PREFIX}/automation/jobs/handoff/${buildListQuery(query)}`,
-    {},
-    token,
-  );
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/reject/`, {
+    method: "POST",
+    body: JSON.stringify({ comment }),
+  }, token);
 }
 
 export async function getAuditLogs(baseUrl: string, token: string, query: AuditQuery) {

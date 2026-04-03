@@ -8,11 +8,11 @@ export function AppLayout() {
     <div className="app-shell">
       <header className="workspace-header">
         <div className="workspace-brand">
-          <p className="eyebrow">ChatOps operations glass</p>
-          <h1>Operator workflow studio</h1>
+          <p className="eyebrow">ChatOps CMDB frontend</p>
+          <h1>Operator workspace</h1>
           <p className="hero-copy">
-            A glassmorphic frontend shell for authenticated CMDB browsing, automation workflow
-            orchestration, and contract-aware coordination with the live Django backend.
+            A routed frontend shell for health checks, authenticated CMDB browsing, and API
+            contract collaboration against the live Django backend.
           </p>
         </div>
 

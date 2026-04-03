@@ -31,19 +31,6 @@ export type UserProfile = {
   display_name: string;
 };
 
-export type JobRiskLevel = "low" | "medium" | "high";
-
-export type JobApprovalStatus = "not_required" | "pending" | "approved" | "rejected";
-
-export type JobExecutionStatus =
-  | "draft"
-  | "awaiting_approval"
-  | "ready"
-  | "claimed"
-  | "completed"
-  | "failed"
-  | "canceled";
-
 export type ServerRecord = {
   id: number;
   hostname: string;
@@ -77,9 +64,9 @@ export type ServerQuery = {
 export type JobRecord = {
   id: number;
   name: string;
-  status: JobExecutionStatus;
-  risk_level: JobRiskLevel;
-  approval_status: JobApprovalStatus;
+  status: string;
+  risk_level: "low" | "medium" | "high";
+  approval_status: "not_required" | "pending" | "approved" | "rejected";
   approval_requested_by: number | null;
   approval_requested_by_username: string | null;
   approval_requested_at: string | null;
@@ -89,19 +76,7 @@ export type JobRecord = {
   rejected_by: number | null;
   rejected_by_username: string | null;
   rejected_at: string | null;
-  ready_by: number | null;
-  ready_by_username: string | null;
-  ready_at: string | null;
-  claimed_by: number | null;
-  claimed_by_username: string | null;
-  claimed_at: string | null;
   approval_comment: string;
-  execution_summary: string;
-  execution_metadata: Record<string, unknown>;
-  completed_at: string | null;
-  failed_at: string | null;
-  assigned_agent_key_id: string;
-  last_reported_by_agent_key: string;
   payload: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -109,12 +84,6 @@ export type JobRecord = {
 
 export type JobQuery = {
   search?: string;
-  name?: string;
-  status?: JobExecutionStatus | "";
-  risk_level?: JobRiskLevel | "";
-  approval_status?: JobApprovalStatus | "";
-  assigned_agent_key_id?: string;
-  last_reported_by_agent_key?: string;
   ordering?: string;
   page?: string;
   page_size?: string;
@@ -122,82 +91,9 @@ export type JobQuery = {
 
 export type JobCreateInput = {
   name: string;
-  status: JobExecutionStatus;
-  risk_level: JobRiskLevel;
+  status: string;
+  risk_level: "low" | "medium" | "high";
   payload: Record<string, unknown>;
-};
-
-export type JobCommentInput = {
-  comment?: string;
-};
-
-export type JobClaimInput = JobCommentInput & {
-  agent_key_id?: string;
-};
-
-export type JobToolQuery = {
-  q?: string;
-  name?: string;
-  status?: JobExecutionStatus | "";
-  risk_level?: JobRiskLevel | "";
-  approval_status?: JobApprovalStatus | "";
-  assigned_agent_key_id?: string;
-  last_reported_by_agent_key?: string;
-  limit?: string;
-};
-
-export type JobToolQueryItem = {
-  id: number;
-  name: string;
-  status: JobExecutionStatus;
-  risk_level: JobRiskLevel;
-  approval_status: JobApprovalStatus;
-  approval_requested_by_username: string | null;
-  approved_by_username: string | null;
-  rejected_by_username: string | null;
-  ready_by_username: string | null;
-  claimed_by_username: string | null;
-  assigned_agent_key_id: string;
-  last_reported_by_agent_key: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type JobHandoffStatus = "ready" | "claimed";
-
-export type JobHandoffQuery = {
-  q?: string;
-  name?: string;
-  status?: JobHandoffStatus | "";
-  risk_level?: JobRiskLevel | "";
-  approval_status?: JobApprovalStatus | "";
-  assigned_agent_key_id?: string;
-  last_reported_by_agent_key?: string;
-  limit?: string;
-};
-
-export type JobHandoffItem = {
-  id: number;
-  name: string;
-  status: JobHandoffStatus;
-  risk_level: JobRiskLevel;
-  approval_status: JobApprovalStatus;
-  ready_at: string | null;
-  ready_by_username: string | null;
-  claimed_at: string | null;
-  claimed_by_username: string | null;
-  assigned_agent_key_id: string;
-  last_reported_by_agent_key: string;
-  payload: Record<string, unknown>;
-  updated_at: string;
-};
-
-export type NormalizedQueryResponse<TQuery, TItem> = {
-  ok: boolean;
-  request_id: string;
-  query: TQuery;
-  summary: Record<string, unknown>;
-  items: TItem[];
 };
 
 export type AuditLogRecord = {
