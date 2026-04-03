@@ -1,6 +1,8 @@
 import type {
   AuditLogRecord,
   AuditQuery,
+  AuditToolQuery,
+  AuditToolQueryResponse,
   ApiErrorShape,
   AuthTokens,
   JobCreateInput,
@@ -203,6 +205,15 @@ export async function getAuditLogs(baseUrl: string, token: string, query: AuditQ
   return request<PaginatedResponse<AuditLogRecord>>(
     baseUrl,
     `${API_PREFIX}/audit/logs/${buildListQuery(query)}`,
+    {},
+    token,
+  );
+}
+
+export async function getAuditToolQuery(baseUrl: string, token: string, query: AuditToolQuery) {
+  return request<AuditToolQueryResponse>(
+    baseUrl,
+    `${API_PREFIX}/audit/logs/tool-query/${buildListQuery(query)}`,
     {},
     token,
   );

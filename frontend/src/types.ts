@@ -209,3 +209,25 @@ export type AuditQuery = {
   page?: string;
   page_size?: string;
 };
+
+export type AuditToolQuery = {
+  q?: string;
+  action?: string;
+  target?: string;
+  actor_username?: string;
+  detail_reason?: string;
+  detail_path?: string;
+  detail_status_code?: string;
+  limit?: string;
+};
+
+export type AuditToolQueryItem = {
+  id: number;
+  action: string;
+  target: string;
+  actor_username: string | null;
+  detail: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AuditToolQueryResponse = ToolQueryEnvelope<AuditToolQueryItem, AuditToolQuery>;
