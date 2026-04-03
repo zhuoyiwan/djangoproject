@@ -15,6 +15,8 @@ import type {
   PaginatedResponse,
   ServerQuery,
   ServerRecord,
+  ServerToolQuery,
+  ServerToolQueryResponse,
   UserProfile,
 } from "../types";
 
@@ -104,6 +106,15 @@ export async function getServers(baseUrl: string, token: string, query: ServerQu
   return request<PaginatedResponse<ServerRecord>>(
     baseUrl,
     `${API_PREFIX}/cmdb/servers/${buildQuery(query)}`,
+    {},
+    token,
+  );
+}
+
+export async function getServerToolQuery(baseUrl: string, token: string, query: ServerToolQuery) {
+  return request<ServerToolQueryResponse>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/tool-query/${buildListQuery(query)}`,
     {},
     token,
   );

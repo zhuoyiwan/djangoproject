@@ -70,6 +70,32 @@ export type ServerQuery = {
   source?: string;
 };
 
+export type ServerToolQuery = {
+  q?: string;
+  hostname?: string;
+  internal_ip?: string;
+  environment?: ServerRecord["environment"] | "";
+  lifecycle_status?: ServerRecord["lifecycle_status"] | "";
+  idc_code?: string;
+  limit?: string;
+};
+
+export type ServerToolQueryItem = {
+  id: number;
+  hostname: string;
+  internal_ip: string;
+  external_ip: string | null;
+  environment: ServerRecord["environment"];
+  lifecycle_status: ServerRecord["lifecycle_status"];
+  source: ServerRecord["source"];
+  os_version: string;
+  idc_code: string;
+  idc_name: string;
+  last_seen_at: string | null;
+};
+
+export type ServerToolQueryResponse = ToolQueryEnvelope<ServerToolQueryItem, ServerToolQuery>;
+
 export type JobRecord = {
   id: number;
   name: string;
