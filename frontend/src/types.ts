@@ -70,6 +70,19 @@ export type ServerQuery = {
   source?: string;
 };
 
+export type ServerCreateInput = {
+  hostname: string;
+  internal_ip: string;
+  external_ip?: string | null;
+  os_version: string;
+  cpu_cores: number;
+  memory_gb: string;
+  disk_summary?: string;
+  lifecycle_status: ServerRecord["lifecycle_status"];
+  environment: ServerRecord["environment"];
+  idc: number | null;
+};
+
 export type ServerToolQuery = {
   q?: string;
   hostname?: string;
@@ -117,6 +130,14 @@ export type IDCToolQueryItem = {
 };
 
 export type IDCToolQueryResponse = ToolQueryEnvelope<IDCToolQueryItem, IDCToolQuery>;
+export type IDCRecord = IDCToolQueryItem;
+
+export type IDCListQuery = {
+  ordering?: string;
+  page?: string;
+  page_size?: string;
+  status?: "active" | "maintenance" | "inactive" | "";
+};
 
 export type JobRecord = {
   id: number;

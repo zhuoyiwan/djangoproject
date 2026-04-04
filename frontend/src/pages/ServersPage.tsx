@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
+import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
-import { getServers } from "../lib/api";
-import { formatDateTime } from "../lib/format";
-import type { ServerQuery, ServerRecord } from "../types";
+import { createServer, getIDCs, getServers } from "../lib/api";
+import { getUserFacingErrorMessage } from "../lib/errors";
+import { formatDateTimeZh, formatDateTimeZhParts } from "../lib/format";
+import type { RequestState, ServerCreateInput, ServerQuery, ServerRecord } from "../types";
 
 const initialQuery: ServerQuery = {
   search: "",
@@ -16,10 +18,49 @@ const initialQuery: ServerQuery = {
   source: "",
 };
 
+const initialCreateForm: ServerCreateInput = {
+  hostname: "",
+  internal_ip: "",
+  external_ip: "",
+  os_version: "Ubuntu 22.04",
+  cpu_cores: 4,
+  memory_gb: "8.00",
+  disk_summary: "",
+  lifecycle_status: "online",
+  environment: "dev",
+  idc: null,
+};
+
+const environmentOptions: GlassSelectOption[] = [
+  { value: "", label: "全部" },
+  { value: "dev", label: "dev" },
+  { value: "test", label: "test" },
+  { value: "prod", label: "prod" },
+];
+
+const createEnvironmentOptions: GlassSelectOption[] = environmentOptions.filter((option) => option.value);
+
+const lifecycleOptions: GlassSelectOption[] = [
+  { value: "", label: "全部" },
+  { value: "online", label: "online" },
+  { value: "offline", label: "offline" },
+  { value: "maintenance", label: "maintenance" },
+  { value: "pre_allocated", label: "pre_allocated" },
+];
+
+const createLifecycleOptions: GlassSelectOption[] = lifecycleOptions.filter((option) => option.value);
+
 export function ServersPage() {
   const { accessToken, baseUrl } = useAuth();
   const [query, setQuery] = useState<ServerQuery>(initialQuery);
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<ServerCreateInput>(initialCreateForm);
+  const [createState, setCreateState] = useState<RequestState>("idle");
+  const [createSummary, setCreateSummary] = useState("在统一入口登记服务器资产信息，提交完成后系统会刷新清单并自动定位至新记录。");
+  const [idcOptions, setIdcOptions] = useState<GlassSelectOption[]>([]);
+  const [idcState, setIdcState] = useState<RequestState>("idle");
+  const [idcSummary, setIdcSummary] = useState("正在同步机房列表。");
   const {
     page: serverPage,
     state: serverState,
@@ -35,6 +76,17 @@ export function ServersPage() {
     fetcher: (token, activeQuery) => getServers(baseUrl, token, activeQuery),
   });
 
+  useEffect(() => {
+    if (!accessToken) {
+      setIdcOptions([]);
+      setIdcState("idle");
+      setIdcSummary("请先登录后再加载机房列表。");
+      return;
+    }
+
+    void loadIDCs();
+  }, [accessToken, baseUrl]);
+
   function updateQuery<K extends keyof ServerQuery>(key: K, value: ServerQuery[K]) {
     setQuery((current) => ({
       ...current,
@@ -43,8 +95,88 @@ export function ServersPage() {
     }));
   }
 
+  function updateCreateForm<K extends keyof ServerCreateInput>(key: K, value: ServerCreateInput[K]) {
+    setCreateForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function loadIDCs() {
+    if (!accessToken) {
+      return;
+    }
+
+    setIdcState("loading");
+    setIdcSummary("正在同步机房列表。");
+
+    try {
+      const response = await getIDCs(baseUrl, accessToken, {
+        ordering: "code",
+        page: "1",
+        page_size: "100",
+      });
+      const options = response.results.map((idc) => ({
+        value: String(idc.id),
+        label: `${idc.code} · ${idc.name}`,
+      }));
+      setIdcOptions(options);
+      setIdcState("success");
+      setIdcSummary(`已加载 ${options.length} 个机房选项。`);
+    } catch (error) {
+      setIdcState("error");
+      setIdcSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handleCreateServer() {
+    if (!accessToken) {
+      setCreateState("error");
+      setCreateSummary("请先完成身份验证后再执行服务器资产登记。");
+      return;
+    }
+
+    if (!createForm.idc) {
+      setCreateState("error");
+      setCreateSummary("请选择所属机房后再提交服务器资产信息。");
+      return;
+    }
+
+    setCreateState("loading");
+    setCreateSummary("正在提交服务器资产信息，并同步最新资产清单...");
+
+    try {
+      const selectedIdc = createForm.idc;
+      const created = await createServer(baseUrl, accessToken, {
+        ...createForm,
+        idc: selectedIdc,
+        external_ip: createForm.external_ip?.trim() ? createForm.external_ip.trim() : null,
+        disk_summary: createForm.disk_summary?.trim() || "",
+      });
+      await refreshServers();
+      setSelectedServerId(created.id);
+      setCreateState("success");
+      setCreateSummary(`服务器 ${created.hostname} 已完成登记，并已纳入当前资产清单。`);
+      setCreateForm(initialCreateForm);
+      setCreateOpen(false);
+    } catch (error) {
+      setCreateState("error");
+      setCreateSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
   const selectedServer =
     serverPage?.results.find((server) => server.id === selectedServerId) || serverPage?.results[0] || null;
+
+  function renderDateTime(value: string | null) {
+    const { date, time } = formatDateTimeZhParts(value);
+    return (
+      <span className="time-stack">
+        <span>{date}</span>
+        {time ? <span>{time}</span> : null}
+      </span>
+    );
+  }
 
   return (
     <main className="workspace-grid">
@@ -59,28 +191,22 @@ export function ServersPage() {
             <span>关键词</span>
             <input value={query.search || ""} onChange={(event) => updateQuery("search", event.target.value)} />
           </label>
-          <label className="field">
+          <div className="field">
             <span>环境</span>
-            <select value={query.environment || ""} onChange={(event) => updateQuery("environment", event.target.value)}>
-              <option value="">全部</option>
-              <option value="dev">dev</option>
-              <option value="test">test</option>
-              <option value="prod">prod</option>
-            </select>
-          </label>
-          <label className="field">
+            <GlassSelect
+              options={environmentOptions}
+              value={query.environment || ""}
+              onChange={(value) => updateQuery("environment", value)}
+            />
+          </div>
+          <div className="field">
             <span>生命周期</span>
-            <select
+            <GlassSelect
+              options={lifecycleOptions}
               value={query.lifecycle_status || ""}
-              onChange={(event) => updateQuery("lifecycle_status", event.target.value)}
-            >
-              <option value="">全部</option>
-              <option value="online">online</option>
-              <option value="offline">offline</option>
-              <option value="maintenance">maintenance</option>
-              <option value="pre_allocated">pre_allocated</option>
-            </select>
-          </label>
+              onChange={(value) => updateQuery("lifecycle_status", value)}
+            />
+          </div>
         </div>
 
         <div className="actions">
@@ -95,7 +221,131 @@ export function ServersPage() {
           >
             刷新列表
           </button>
+          <button className="button-ghost" onClick={() => setCreateOpen((current) => !current)} type="button">
+            {createOpen ? "收起新增" : "新增服务器"}
+          </button>
         </div>
+
+        {createOpen ? (
+          <div className="advanced-settings server-create-panel">
+            <div className="panel-heading server-create-heading">
+              <h2>新增服务器</h2>
+              <p>请补充服务器的基础档案信息，包括主机标识、网络地址、资源规格、部署环境与机房归属，以便纳入统一资产台账。</p>
+            </div>
+
+            <div className="form-grid server-create-grid">
+              <label className="field">
+                <span>主机名</span>
+                <input
+                  placeholder="例如：app-prod-01"
+                  value={createForm.hostname}
+                  onChange={(event) => updateCreateForm("hostname", event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>内网 IP</span>
+                <input
+                  placeholder="例如：10.0.0.21"
+                  value={createForm.internal_ip}
+                  onChange={(event) => updateCreateForm("internal_ip", event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>外网 IP</span>
+                <input
+                  placeholder="可选，例如：1.2.3.4"
+                  value={createForm.external_ip || ""}
+                  onChange={(event) => updateCreateForm("external_ip", event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>系统版本</span>
+                <input
+                  placeholder="例如：Ubuntu 22.04"
+                  value={createForm.os_version}
+                  onChange={(event) => updateCreateForm("os_version", event.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>CPU 核数</span>
+                <input
+                  min="1"
+                  type="number"
+                  value={createForm.cpu_cores}
+                  onChange={(event) => updateCreateForm("cpu_cores", Number(event.target.value) || 1)}
+                />
+              </label>
+              <label className="field">
+                <span>内存容量</span>
+                <input
+                  placeholder="例如：8.00"
+                  value={createForm.memory_gb}
+                  onChange={(event) => updateCreateForm("memory_gb", event.target.value)}
+                />
+                <small className="field-hint">单位为GB</small>
+              </label>
+              <div className="field">
+                <span>环境</span>
+                <GlassSelect
+                  options={createEnvironmentOptions}
+                  value={createForm.environment}
+                  onChange={(value) => updateCreateForm("environment", value as ServerCreateInput["environment"])}
+                />
+              </div>
+              <div className="field">
+                <span>生命周期</span>
+                <GlassSelect
+                  options={createLifecycleOptions}
+                  value={createForm.lifecycle_status}
+                  onChange={(value) =>
+                    updateCreateForm("lifecycle_status", value as ServerCreateInput["lifecycle_status"])
+                  }
+                />
+              </div>
+              <div className="field">
+                <span>所属机房</span>
+                <GlassSelect
+                  disabled={idcState === "loading" || !idcOptions.length}
+                  options={idcOptions}
+                  placeholder={idcState === "loading" ? "正在加载机房列表" : "请选择机房"}
+                  value={createForm.idc ? String(createForm.idc) : ""}
+                  onChange={(value) => updateCreateForm("idc", value ? Number(value) : null)}
+                />
+                <small className={`field-hint${idcState === "error" ? " field-hint-error" : ""}`}>{idcSummary}</small>
+              </div>
+            </div>
+
+            <label className="field stacked-field">
+              <span>磁盘摘要</span>
+              <textarea
+                className="server-create-textarea"
+                placeholder="可选，例如：system:100G,data:500G"
+                rows={4}
+                value={createForm.disk_summary || ""}
+                onChange={(event) => updateCreateForm("disk_summary", event.target.value)}
+              />
+            </label>
+
+            <div className="actions">
+              <button onClick={() => void handleCreateServer()} type="button">
+                创建服务器
+              </button>
+              <button
+                className="button-ghost"
+                onClick={() => {
+                  setCreateForm(initialCreateForm);
+                  setCreateState("idle");
+                  setCreateSummary("在统一入口登记服务器资产信息，提交完成后系统会刷新清单并自动定位至新记录。");
+                }}
+                type="button"
+              >
+                重置表单
+              </button>
+            </div>
+
+            <p className={`status ${createState}`}>{createSummary}</p>
+          </div>
+        ) : null}
 
         <p className={`status ${serverState}`}>{serverSummary}</p>
 
@@ -128,7 +378,7 @@ export function ServersPage() {
                     <td>{server.environment}</td>
                     <td>{server.lifecycle_status}</td>
                     <td>{server.source}</td>
-                    <td>{formatDateTime(server.updated_at)}</td>
+                    <td>{renderDateTime(server.updated_at)}</td>
                   </tr>
                 ))
               ) : (
@@ -141,7 +391,7 @@ export function ServersPage() {
         </div>
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-4">
+      <BorderGlow as="section" className="panel panel-span-4 panel-fit-content">
         <div className="panel-heading">
           <h2>选中服务器</h2>
           <p>聚合展示当前服务器的核心属性与运行概况，帮助快速确认主机配置、网络信息与最近状态。</p>
@@ -176,11 +426,11 @@ export function ServersPage() {
               </div>
               <div>
                 <dt>最近心跳</dt>
-                <dd>{formatDateTime(selectedServer.last_seen_at)}</dd>
+                <dd>{formatDateTimeZh(selectedServer.last_seen_at)}</dd>
               </div>
               <div>
                 <dt>更新时间</dt>
-                <dd>{formatDateTime(selectedServer.updated_at)}</dd>
+                <dd>{formatDateTimeZh(selectedServer.updated_at)}</dd>
               </div>
             </dl>
 

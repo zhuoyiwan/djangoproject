@@ -3,6 +3,8 @@ import type {
   AuditQuery,
   AuditToolQuery,
   AuditToolQueryResponse,
+  IDCListQuery,
+  IDCRecord,
   IDCToolQuery,
   IDCToolQueryResponse,
   ApiErrorShape,
@@ -15,6 +17,7 @@ import type {
   JobToolQuery,
   JobToolQueryResponse,
   PaginatedResponse,
+  ServerCreateInput,
   ServerQuery,
   ServerRecord,
   ServerToolQuery,
@@ -102,6 +105,15 @@ export async function getIDCToolQuery(baseUrl: string, token: string, query: IDC
   );
 }
 
+export async function getIDCs(baseUrl: string, token: string, query: IDCListQuery) {
+  return request<PaginatedResponse<IDCRecord>>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/idcs/${buildListQuery(query)}`,
+    {},
+    token,
+  );
+}
+
 export async function login(baseUrl: string, username: string, password: string) {
   return request<AuthTokens>(baseUrl, `${API_PREFIX}/auth/login/`, {
     method: "POST",
@@ -118,6 +130,18 @@ export async function getServers(baseUrl: string, token: string, query: ServerQu
     baseUrl,
     `${API_PREFIX}/cmdb/servers/${buildQuery(query)}`,
     {},
+    token,
+  );
+}
+
+export async function createServer(baseUrl: string, token: string, payload: ServerCreateInput) {
+  return request<ServerRecord>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
     token,
   );
 }

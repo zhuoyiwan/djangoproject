@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
+import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { createJob, getJobs } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
@@ -18,7 +19,7 @@ const initialQuery: JobQuery = {
   approval_status: "",
 };
 
-const statusOptions = [
+const statusOptions: GlassSelectOption[] = [
   { value: "", label: "全部执行状态" },
   { value: "draft", label: "草稿" },
   { value: "awaiting_approval", label: "待审批" },
@@ -29,14 +30,14 @@ const statusOptions = [
   { value: "canceled", label: "已取消" },
 ];
 
-const riskOptions = [
+const riskOptions: GlassSelectOption[] = [
   { value: "", label: "全部风险等级" },
   { value: "low", label: "低风险" },
   { value: "medium", label: "中风险" },
   { value: "high", label: "高风险" },
 ];
 
-const approvalOptions = [
+const approvalOptions: GlassSelectOption[] = [
   { value: "", label: "全部审批状态" },
   { value: "not_required", label: "无需审批" },
   { value: "pending", label: "审批中" },
@@ -172,39 +173,26 @@ export function AutomationPage() {
             <span>关键词</span>
             <input value={query.search || ""} onChange={(event) => updateQuery("search", event.target.value)} />
           </label>
-          <label className="field">
+          <div className="field">
             <span>执行状态</span>
-            <select value={query.status || ""} onChange={(event) => updateQuery("status", event.target.value)}>
-              {statusOptions.map((option) => (
-                <option key={option.value || "all-status"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
+            <GlassSelect options={statusOptions} value={query.status || ""} onChange={(value) => updateQuery("status", value)} />
+          </div>
+          <div className="field">
             <span>风险等级</span>
-            <select value={query.risk_level || ""} onChange={(event) => updateQuery("risk_level", event.target.value)}>
-              {riskOptions.map((option) => (
-                <option key={option.value || "all-risk"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
+            <GlassSelect
+              options={riskOptions}
+              value={query.risk_level || ""}
+              onChange={(value) => updateQuery("risk_level", value)}
+            />
+          </div>
+          <div className="field">
             <span>审批状态</span>
-            <select
+            <GlassSelect
+              options={approvalOptions}
               value={query.approval_status || ""}
-              onChange={(event) => updateQuery("approval_status", event.target.value)}
-            >
-              {approvalOptions.map((option) => (
-                <option key={option.value || "all-approval"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => updateQuery("approval_status", value)}
+            />
+          </div>
         </div>
 
         <div className="actions">
@@ -293,22 +281,19 @@ export function AutomationPage() {
             <span>任务名称</span>
             <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
           </label>
-          <label className="field">
+          <div className="field">
             <span>风险等级</span>
-            <select
+            <GlassSelect
+              options={riskOptions.filter((option) => option.value)}
               value={form.risk_level}
-              onChange={(event) =>
+              onChange={(value) =>
                 setForm((current) => ({
                   ...current,
-                  risk_level: event.target.value as JobCreateInput["risk_level"],
+                  risk_level: value as JobCreateInput["risk_level"],
                 }))
               }
-            >
-              <option value="low">低风险</option>
-              <option value="medium">中风险</option>
-              <option value="high">高风险</option>
-            </select>
-          </label>
+            />
+          </div>
           <label className="field">
             <span>任务载荷 JSON</span>
             <textarea

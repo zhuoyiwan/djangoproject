@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   font-family:
     "SF Pro Rounded",
     "Segoe UI Rounded",
@@ -223,6 +223,174 @@ textarea {
     background 180ms ease;
   backdrop-filter: blur(16px) saturate(135%);
   -webkit-backdrop-filter: blur(16px) saturate(135%);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  padding-right: 1.05rem;
+}
+
+select:hover {
+  border-color: rgba(137, 158, 184, 0.2);
+}
+
+select:focus {
+  border-color: rgba(94, 151, 231, 0.34);
+}
+
+select::-ms-expand {
+  display: none;
+}
+
+.glass-select {
+  position: relative;
+  isolation: isolate;
+  border-radius: 22px;
+}
+
+.glass-select.is-open {
+  z-index: 60;
+}
+
+.glass-select-trigger {
+  width: 100%;
+  min-height: 54px;
+  padding: 0.96rem 1.05rem;
+  padding-right: 3.2rem;
+  justify-content: flex-start;
+  border-radius: 22px;
+  border: 1px solid rgba(137, 158, 184, 0.2);
+  font-family: var(--font-rounded);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--text-primary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 251, 255, 0.84)),
+    rgba(255, 255, 255, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 8px 18px rgba(170, 186, 206, 0.08);
+  backdrop-filter: blur(16px) saturate(135%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+}
+
+.glass-select-trigger:hover {
+  transform: none;
+  border-color: rgba(137, 158, 184, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 10px 20px rgba(170, 186, 206, 0.1);
+}
+
+.glass-select.is-open .glass-select-trigger,
+.glass-select-trigger:focus-visible {
+  border-color: rgba(94, 151, 231, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 4px rgba(94, 151, 231, 0.12),
+    0 12px 28px rgba(167, 186, 210, 0.14);
+}
+
+.glass-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass-select-placeholder {
+  color: rgba(113, 132, 156, 0.58);
+}
+
+.glass-select-chevron {
+  position: absolute;
+  top: 50%;
+  right: 1.14rem;
+  width: 0.78rem;
+  height: 0.78rem;
+  border-right: 2px solid rgba(94, 120, 150, 0.84);
+  border-bottom: 2px solid rgba(94, 120, 150, 0.84);
+  transform: translateY(-62%) rotate(45deg);
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.glass-select.is-open .glass-select-chevron {
+  transform: translateY(-36%) rotate(-135deg);
+  border-color: rgba(79, 130, 216, 0.9);
+}
+
+.glass-select-panel {
+  position: fixed;
+  z-index: 2140;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 24px;
+  border: 1px solid rgba(146, 169, 198, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(243, 248, 255, 0.54)),
+    rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -16px 28px rgba(206, 222, 244, 0.16),
+    0 24px 48px rgba(149, 170, 199, 0.18),
+    0 10px 24px rgba(170, 186, 206, 0.14);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
+
+.glass-select-option {
+  min-height: 46px;
+  padding: 0.82rem 0.92rem;
+  justify-content: space-between;
+  border-radius: 18px;
+  font-family: var(--font-rounded);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(244, 248, 254, 0.44)),
+    rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(170, 186, 206, 0.1);
+}
+
+.glass-select-option:hover {
+  transform: none;
+  color: var(--text-primary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(234, 243, 255, 0.62)),
+    rgba(255, 255, 255, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 10px 20px rgba(160, 182, 211, 0.14);
+}
+
+.glass-select-option.is-selected {
+  color: #355277;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(224, 237, 253, 0.78)),
+    rgba(236, 245, 255, 0.5);
+}
+
+.glass-select-check {
+  color: rgba(76, 122, 194, 0.82);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+select option {
+  color: #1d2c40;
+  background: #f6faff;
 }
 
 input:focus,
@@ -936,6 +1104,10 @@ a {
   grid-column: span 5;
 }
 
+.panel-fit-content {
+  align-self: start;
+}
+
 .inline-field {
   display: block;
 }
@@ -1135,6 +1307,39 @@ a {
     0 14px 30px rgba(165, 182, 205, 0.1);
 }
 
+.server-create-panel {
+  margin-bottom: 22px;
+}
+
+.server-create-heading {
+  margin-bottom: 18px;
+}
+
+.server-create-grid {
+  align-items: start;
+}
+
+.server-create-grid .field {
+  align-content: start;
+  grid-template-rows: auto minmax(54px, auto) minmax(0, auto);
+}
+
+.server-create-grid .field input,
+.server-create-grid .field select,
+.server-create-grid .glass-select-trigger {
+  min-height: 54px;
+}
+
+.server-create-grid .field .field-hint {
+  min-height: 2.4em;
+}
+
+.server-create-textarea {
+  min-height: 126px;
+  height: 126px;
+  resize: none;
+}
+
 .advanced-settings summary {
   cursor: pointer;
   list-style: none;
@@ -1215,6 +1420,10 @@ a {
   color: rgba(113, 132, 156, 0.72);
   font-size: 0.84rem;
   line-height: 1.45;
+}
+
+.field-hint-error {
+  color: var(--error);
 }
 
 .actions {
@@ -1360,6 +1569,19 @@ a {
   color: var(--text-primary);
   font-weight: 600;
   word-break: break-word;
+}
+
+.time-stack {
+  display: inline-grid;
+  gap: 0.14rem;
+  justify-items: center;
+  line-height: 1.35;
+}
+
+.time-stack span:last-child {
+  color: var(--text-muted);
+  font-size: 0.88em;
+  font-weight: 500;
 }
 
 .table-shell {
@@ -1632,34 +1854,4 @@ tbody tr:hover {
     padding: 18px;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
