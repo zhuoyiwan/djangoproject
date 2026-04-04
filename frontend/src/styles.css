@@ -91,7 +91,7 @@ body::after {
 }
 
 body::before {
-  inset: 0;
+  inset: -4px;
   background:
     linear-gradient(var(--page-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--page-grid) 1px, transparent 1px);
@@ -293,7 +293,7 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(360px, 420px);
   gap: 36px;
-  align-items: end;
+  align-items: start;
   margin-bottom: 30px;
 }
 
@@ -301,19 +301,21 @@ a {
   display: grid;
   justify-items: start;
   gap: 0;
-  padding: 28px 0 18px;
+  padding: 0 0 18px;
 }
 
 .server-logo-frame {
   position: relative;
+  overflow: visible;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 5.9rem;
-  height: 5.9rem;
-  padding: 0.86rem;
-  margin-bottom: 1rem;
-  border-radius: 1.72rem;
+  width: 7.2rem;
+  height: 7.2rem;
+  padding: 0.9rem;
+  margin-bottom: 1.18rem;
+  border-radius: 1.7rem;
   border: 1px solid rgba(130, 156, 188, 0.28);
   background:
     radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.96), transparent 36%),
@@ -331,7 +333,7 @@ a {
   content: "";
   position: absolute;
   inset: 1px;
-  border-radius: calc(1.72rem - 1px);
+  border-radius: calc(1.7rem - 1px);
   border: 1px solid rgba(255, 255, 255, 0.46);
   pointer-events: none;
 }
@@ -341,9 +343,77 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 4.28rem;
-  height: 3.22rem;
+  width: 7.1rem;
+  height: 5.4rem;
   margin: 0 auto;
+}
+
+.server-logo-shape-blur {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  border-radius: inherit;
+  transform: scale(1.88);
+  transform-origin: center center;
+}
+
+.server-logo-shape-blur canvas {
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 1;
+}
+
+.server-logo-shape-blur-frame {
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  mix-blend-mode: plus-lighter;
+  opacity: 0.08;
+  transition:
+    opacity 220ms ease,
+    filter 220ms ease;
+  filter: blur(0);
+  outline: none;
+}
+
+.server-logo-frame:hover .server-logo-shape-blur-frame,
+.server-logo-frame:focus-within .server-logo-shape-blur-frame {
+  opacity: 0.9;
+  filter: blur(3.6px) saturate(180%);
+}
+
+.server-logo-shape-blur-frame-blue canvas {
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(72%)
+    sepia(38%)
+    saturate(4961%)
+    hue-rotate(184deg)
+    brightness(104%)
+    contrast(112%) drop-shadow(0 0 8px rgba(108, 194, 255, 0.44));
+}
+
+.server-logo-shape-blur-frame-magenta {
+  opacity: 0.065;
+}
+
+.server-logo-frame:hover .server-logo-shape-blur-frame-magenta,
+.server-logo-frame:focus-within .server-logo-shape-blur-frame-magenta {
+  opacity: 0.62;
+}
+
+.server-logo-shape-blur-frame-magenta canvas {
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(63%)
+    sepia(27%)
+    saturate(3478%)
+    hue-rotate(270deg)
+    brightness(102%)
+    contrast(110%) drop-shadow(0 0 8px rgba(220, 128, 255, 0.34));
 }
 
 .server-logo::before {
@@ -372,11 +442,11 @@ a {
 
 .server-logo-svg {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
   height: auto;
   overflow: visible;
-  transform: translateY(0.84rem);
+  transform: translateY(1.676rem) scale(1.42);
 }
 
 .server-logo-star-glow {
@@ -396,6 +466,7 @@ a {
   transform-origin: 100px -14px;
   animation: logo-star-breathe 3.8s ease-in-out infinite;
 }
+
 
 .server-logo-aura {
   fill: rgba(255, 255, 255, 0.08);
@@ -417,7 +488,7 @@ a {
 
 .server-logo-glow-path {
   stroke-width: 18;
-  opacity: 0.34;
+  opacity: 0.62;
   filter: url(#loop-soft-glow);
 }
 
@@ -722,7 +793,7 @@ a {
 .border-glow::before {
   inset: -1px;
   z-index: 0;
-  border-radius: inherit;
+  border-radius: calc(1.72rem + 4px);
   padding: 1px;
   background:
     radial-gradient(circle at var(--pointer-x) var(--pointer-y), color-mix(in srgb, var(--glow-color) 32%, transparent), transparent 38%),
@@ -762,7 +833,7 @@ a {
   position: absolute;
   inset: -18px;
   z-index: 0;
-  border-radius: inherit;
+  border-radius: calc(1.72rem + 4px);
   pointer-events: none;
   background:
     radial-gradient(circle at var(--pointer-x) var(--pointer-y), color-mix(in srgb, var(--glow-color) 28%, transparent), transparent 30%),
@@ -948,7 +1019,7 @@ a {
 }
 
 .automation-filter-grid {
-  align-items: end;
+  align-items: start;
 }
 
 .filter-chip-row,
@@ -1533,8 +1604,8 @@ tbody tr:hover {
   }
 
   .server-logo-frame {
-    width: 5.2rem;
-    height: 5.2rem;
+    width: 7.2rem;
+    height: 7.2rem;
     margin-bottom: 0.82rem;
     padding: 0.78rem;
   }
@@ -1561,4 +1632,34 @@ tbody tr:hover {
     padding: 18px;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

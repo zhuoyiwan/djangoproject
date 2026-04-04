@@ -1,4 +1,4 @@
-export function getUserFacingErrorMessage(error: unknown) {
+﻿export function getUserFacingErrorMessage(error: unknown) {
   const rawMessage =
     error instanceof Error
       ? error.message
@@ -12,6 +12,10 @@ export function getUserFacingErrorMessage(error: unknown) {
 
   if (rawMessage.includes("At least one query filter is required.")) {
     return "至少需要提供一个查询过滤条件。";
+  }
+
+  if (rawMessage.includes("Authentication credentials were not provided or are invalid.")) {
+    return "未提供认证凭据或认证信息无效";
   }
 
   if (rawMessage.includes("Failed to fetch") || rawMessage.includes("NetworkError")) {
@@ -45,3 +49,4 @@ export function getUserFacingErrorMessage(error: unknown) {
 
   return rawMessage;
 }
+

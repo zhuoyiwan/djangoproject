@@ -2,11 +2,12 @@
 import { useAuth } from "./auth";
 import { BorderGlow } from "../components/BorderGlow";
 import RotatingText from "../components/RotatingText";
+import ShapeBlur from "../components/ShapeBlur";
 
 const logoStarPath =
   "M 100 -56 L 113 -28 L 146 -14 L 113 0 L 100 28 L 87 0 L 54 -14 L 87 -28 Z";
 const logoInfinityPath =
-  "M 28 60 C 36 36, 68 28, 100 60 C 132 92, 164 84, 172 60 C 164 36, 132 28, 100 60 C 68 92, 36 84, 28 60";
+  "M 32 60 C 40 39, 72 29, 100 60 C 128 91, 160 81, 168 60 C 160 39, 128 29, 100 60 C 72 91, 40 81, 32 60";
 export function AppLayout() {
   const { accessToken, authSummary, profile, signOut } = useAuth();
   const displayName = profile?.display_name || profile?.username || "访客";
@@ -19,6 +20,26 @@ export function AppLayout() {
       <header className="workspace-header">
         <div className="workspace-brand">
           <div className="server-logo-frame" aria-hidden="true">
+            <ShapeBlur
+              className="server-logo-shape-blur server-logo-shape-blur-frame server-logo-shape-blur-frame-blue"
+              variation={0}
+              pixelRatioProp={typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1}
+              shapeSize={1.005}
+              roundness={0.4}
+              borderSize={0.022}
+              circleSize={0.22}
+              circleEdge={0.82}
+            />
+            <ShapeBlur
+              className="server-logo-shape-blur server-logo-shape-blur-frame server-logo-shape-blur-frame-magenta"
+              variation={0}
+              pixelRatioProp={typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1}
+              shapeSize={1.005}
+              roundness={0.4}
+              borderSize={0.02}
+              circleSize={0.18}
+              circleEdge={0.78}
+            />
             <div className="server-logo">
               <svg className="server-logo-svg" viewBox="0 0 200 120" aria-hidden="true">
                 <defs>
@@ -133,6 +154,27 @@ export function AppLayout() {
 function navClassName(isActive: boolean) {
   return isActive ? "nav-link active" : "nav-link";
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
