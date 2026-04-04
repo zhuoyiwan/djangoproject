@@ -1,4 +1,4 @@
-from audit.models import AuditLog
+﻿from audit.models import AuditLog
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -111,3 +111,5 @@ def api_exception_handler(exc, context):
         details=response.data,
         http_status=response.status_code,
     )
+
+
