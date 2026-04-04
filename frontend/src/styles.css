@@ -1571,6 +1571,19 @@ a {
   word-break: break-word;
 }
 
+.execution-track-grid > div {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  text-align: center;
+}
+
+.execution-track-grid dt,
+.execution-track-grid dd {
+  width: 100%;
+  text-align: center;
+}
+
 .time-stack {
   display: inline-grid;
   gap: 0.14rem;

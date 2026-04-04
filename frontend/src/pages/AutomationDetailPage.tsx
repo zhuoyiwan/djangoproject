@@ -180,7 +180,7 @@ export function AutomationDetailPage() {
 
             <BorderGlow as="article" className="highlight-card compact-card">
               <h3>执行轨迹</h3>
-              <dl className="profile-card">
+              <dl className="profile-card execution-track-grid">
                 <div>
                   <dt>就绪人</dt>
                   <dd>{job.ready_by_username || "未记录"}</dd>
