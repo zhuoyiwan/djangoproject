@@ -18,6 +18,10 @@
     return "未提供认证凭据或认证信息无效";
   }
 
+  if (rawMessage.includes("Claimed jobs cannot be deleted.")) {
+    return "已认领任务不能删除";
+  }
+
   if (rawMessage.includes("Failed to fetch") || rawMessage.includes("NetworkError")) {
     return "当前无法建立平台服务连接，请检查服务地址配置、网络连通性及后端服务状态。";
   }

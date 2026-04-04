@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { createJob, getJobs } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
-import { formatDateTime } from "../lib/format";
+import { formatDateTime, formatDateTimeZhParts } from "../lib/format";
 import type { JobCreateInput, JobQuery, JobRecord } from "../types";
 
 const initialQuery: JobQuery = {
@@ -82,10 +82,13 @@ const initialForm: JobFormState = {
 
 export function AutomationPage() {
   const { accessToken, baseUrl } = useAuth();
+  const location = useLocation();
   const [query, setQuery] = useState<JobQuery>(initialQuery);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [form, setForm] = useState(initialForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const flashMessage = typeof location.state?.flashMessage === "string" ? location.state.flashMessage : "";
+  const flashState = location.state?.flashState === "error" ? "error" : "success";
 
   const {
     page: jobPage,
@@ -160,6 +163,16 @@ export function AutomationPage() {
     [query],
   );
 
+  function renderDateTimeStack(value: string | null) {
+    const { date, time } = formatDateTimeZhParts(value);
+    return (
+      <span className="time-stack">
+        <span>{date}</span>
+        {time ? <span>{time}</span> : null}
+      </span>
+    );
+  }
+
   return (
     <main className="workspace-grid">
       <BorderGlow as="section" className="panel panel-span-8">
@@ -222,6 +235,7 @@ export function AutomationPage() {
           </div>
         ) : null}
 
+        {flashMessage ? <p className={`status ${flashState}`}>{flashMessage}</p> : null}
         <p className={`status ${jobState}`}>{jobSummary}</p>
 
         <div className="table-shell">
@@ -257,7 +271,7 @@ export function AutomationPage() {
                       <span className={`pill ${job.approval_status}`}>{getApprovalStatusLabel(job.approval_status)}</span>
                     </td>
                     <td>{job.approval_requested_by_username || "未记录"}</td>
-                    <td>{formatDateTime(job.updated_at)}</td>
+                    <td>{renderDateTimeStack(job.updated_at)}</td>
                   </tr>
                 ))
               ) : (
@@ -337,7 +351,7 @@ export function AutomationPage() {
             </BorderGlow>
             <BorderGlow as="article" className="summary-card">
               <span>最近更新</span>
-              <strong>{formatDateTime(selectedJob.updated_at)}</strong>
+              <strong>{renderDateTimeStack(selectedJob.updated_at)}</strong>
               <small>创建时间：{formatDateTime(selectedJob.created_at)}</small>
             </BorderGlow>
             <BorderGlow as="article" className="summary-card automation-route-card">

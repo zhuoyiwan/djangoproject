@@ -303,7 +303,7 @@ export function ServersPage() {
                 />
               </div>
               <div className="field">
-                <span>所属机房</span>
+                <span className="field-label-nowrap">所属机房</span>
                 <GlassSelect
                   disabled={idcState === "loading" || !idcOptions.length}
                   options={idcOptions}

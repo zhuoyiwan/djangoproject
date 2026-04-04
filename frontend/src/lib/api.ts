@@ -193,6 +193,12 @@ export async function createJob(baseUrl: string, token: string, payload: JobCrea
   }, token);
 }
 
+export async function deleteJob(baseUrl: string, token: string, jobId: number) {
+  return request<void>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/`, {
+    method: "DELETE",
+  }, token);
+}
+
 async function postJobAction(
   baseUrl: string,
   token: string,

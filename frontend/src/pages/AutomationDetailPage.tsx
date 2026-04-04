@@ -1,5 +1,5 @@
-import { Link, useParams } from "react-router-dom";
-import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { useResourceDetail } from "../hooks/useResourceDetail";
@@ -8,6 +8,7 @@ import {
   cancelJob,
   claimJob,
   completeJob,
+  deleteJob,
   failJob,
   getJob,
   markReadyJob,
@@ -20,9 +21,11 @@ import type { JobRecord } from "../types";
 
 export function AutomationDetailPage() {
   const { accessToken, baseUrl, profile } = useAuth();
+  const navigate = useNavigate();
   const { jobId } = useParams();
   const [comment, setComment] = useState("已完成当前任务复核。");
   const [agentKeyId, setAgentKeyId] = useState("");
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
   const numericJobId = jobId ? Number(jobId) : null;
   const {
     item: job,
@@ -76,6 +79,40 @@ export function AutomationDetailPage() {
     }
   }
 
+  useEffect(() => {
+    setDeleteConfirming(false);
+  }, [job?.id]);
+
+  async function handleDeleteJob() {
+    if (!accessToken || !job) {
+      return;
+    }
+    if (job.status === "claimed") {
+      return;
+    }
+    if (!deleteConfirming) {
+      setDeleteConfirming(true);
+      return;
+    }
+
+    setDetailState("loading");
+    setDetailSummary(`正在删除任务 ${job.name}...`);
+    try {
+      await deleteJob(baseUrl, accessToken, job.id);
+      navigate("/automation", {
+        replace: true,
+        state: {
+          flashMessage: `任务 ${job.name} 已删除，可继续处理其余自动化任务。`,
+          flashState: "success",
+        },
+      });
+    } catch (error) {
+      setDeleteConfirming(false);
+      setDetailState("error");
+      setDetailSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
   const canAct =
     job &&
     job.approval_status === "pending" &&
@@ -89,6 +126,7 @@ export function AutomationDetailPage() {
   const canComplete = job && job.status === "claimed";
   const canCancel = job && (job.status === "ready" || job.status === "claimed");
   const canRequeue = job && (job.status === "claimed" || job.status === "failed");
+  const canDelete = job && job.status !== "claimed";
   const approveTooltip = canAct
     ? "审批通过后，高风险任务可继续进入后续处理流程。"
     : job?.approval_status !== "pending"
@@ -121,6 +159,12 @@ export function AutomationDetailPage() {
   const requeueTooltip = canRequeue
     ? "将任务重新放回处理队列，等待再次执行。"
     : "只有已认领或失败任务才能重新调度。";
+  const deleteTooltip = canDelete
+    ? deleteConfirming
+      ? "再次点击将永久删除当前任务，并在完成后返回自动化列表。"
+      : "删除当前任务。首次点击进入确认状态，避免误删。"
+    : "已认领任务不能删除，请先按既有流程完成、登记失败、终止或重新调度。";
+  const cancelDeleteTooltip = "退出删除确认状态，保留当前任务。";
 
   return (
     <main className="workspace-grid">
@@ -246,45 +290,62 @@ export function AutomationDetailPage() {
               </label>
               <div className="actions detail-actions">
                 <span className="action-tooltip" data-tooltip={approveTooltip}>
-                  <button className="button-ghost" disabled={!canAct} onClick={() => void handleAction("approve")} type="button">
+                  <button className={canAct ? undefined : "button-ghost"} disabled={!canAct} onClick={() => void handleAction("approve")} type="button">
                     通过审批
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={rejectTooltip}>
-                  <button className="button-ghost" disabled={!canAct} onClick={() => void handleAction("reject")} type="button">
+                  <button className={canAct ? undefined : "button-ghost"} disabled={!canAct} onClick={() => void handleAction("reject")} type="button">
                     驳回申请
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={markReadyTooltip}>
-                  <button disabled={!canMarkReady} onClick={() => void handleAction("mark-ready")} type="button">
+                  <button className={canMarkReady ? undefined : "button-ghost"} disabled={!canMarkReady} onClick={() => void handleAction("mark-ready")} type="button">
                     转入待执行
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={claimTooltip}>
-                  <button className="button-ghost" disabled={!canClaim} onClick={() => void handleAction("claim")} type="button">
+                  <button className={canClaim ? undefined : "button-ghost"} disabled={!canClaim} onClick={() => void handleAction("claim")} type="button">
                     接手执行
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={completeTooltip}>
-                  <button className="button-ghost" disabled={!canComplete} onClick={() => void handleAction("complete")} type="button">
+                  <button className={canComplete ? undefined : "button-ghost"} disabled={!canComplete} onClick={() => void handleAction("complete")} type="button">
                     完成执行
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={failTooltip}>
-                  <button className="button-ghost" disabled={!canComplete} onClick={() => void handleAction("fail")} type="button">
+                  <button className={canComplete ? undefined : "button-ghost"} disabled={!canComplete} onClick={() => void handleAction("fail")} type="button">
                     登记失败
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={cancelTooltip}>
-                  <button className="button-ghost" disabled={!canCancel} onClick={() => void handleAction("cancel")} type="button">
+                  <button className={canCancel ? undefined : "button-ghost"} disabled={!canCancel} onClick={() => void handleAction("cancel")} type="button">
                     终止任务
                   </button>
                 </span>
                 <span className="action-tooltip" data-tooltip={requeueTooltip}>
-                  <button className="button-ghost" disabled={!canRequeue} onClick={() => void handleAction("requeue")} type="button">
+                  <button className={canRequeue ? undefined : "button-ghost"} disabled={!canRequeue} onClick={() => void handleAction("requeue")} type="button">
                     重新调度
                   </button>
                 </span>
+                <span className="action-tooltip" data-tooltip={deleteTooltip}>
+                  <button
+                    className={deleteConfirming ? "button-danger-soft" : canDelete ? undefined : "button-ghost"}
+                    disabled={!canDelete}
+                    onClick={() => void handleDeleteJob()}
+                    type="button"
+                  >
+                    {deleteConfirming ? "确认删除" : "删除任务"}
+                  </button>
+                </span>
+                {deleteConfirming ? (
+                  <span className="action-tooltip" data-tooltip={cancelDeleteTooltip}>
+                    <button onClick={() => setDeleteConfirming(false)} type="button">
+                      取消删除
+                    </button>
+                  </span>
+                ) : null}
               </div>
               <p className="status idle">
                 {job.status === "draft"

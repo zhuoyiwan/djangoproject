@@ -1,24 +1,4 @@
-export function formatDateTime(value: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-export function formatDateTimeZh(value: string | null) {
-  if (!value) {
-    return "暂无";
-  }
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-export function formatDateTimeZhParts(value: string | null) {
+function getZhDateTimeParts(value: string | null) {
   if (!value) {
     return { date: "暂无", time: "" };
   }
@@ -42,4 +22,18 @@ export function formatDateTimeZhParts(value: string | null) {
     date: datePart,
     time: timePart,
   };
+}
+
+export function formatDateTime(value: string | null) {
+  const { date, time } = getZhDateTimeParts(value);
+  return time ? `${date},${time}` : date;
+}
+
+export function formatDateTimeZh(value: string | null) {
+  const { date, time } = getZhDateTimeParts(value);
+  return time ? `${date} ${time}` : date;
+}
+
+export function formatDateTimeZhParts(value: string | null) {
+  return getZhDateTimeParts(value);
 }
