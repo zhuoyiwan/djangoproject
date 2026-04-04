@@ -47,24 +47,24 @@ export function OverviewPage() {
       <BorderGlow as="section" className="panel panel-span-8">
         <div className="panel-heading">
           <h2>工作台总览</h2>
-          <p>把登录状态、服务可用性和常用入口放在同一屏，进入系统后可以立刻开始日常操作。</p>
+          <p>集中呈现当前身份、平台服务状态与核心业务入口，便于进入系统后快速建立上下文并开展当日运维工作。</p>
         </div>
 
         <div className="summary-grid">
           <BorderGlow as="article" className="summary-card">
-            <span>当前身份</span>
+            <span>当前账号</span>
             <strong>{profile?.display_name || profile?.username || "未登录"}</strong>
-            <small>{profile?.email || "登录后可查看完整个人信息。"}</small>
+            <small>{profile?.email || "完成登录后，可查看当前账号信息及对应访问权限。"}</small>
           </BorderGlow>
           <BorderGlow as="article" className="summary-card">
-            <span>服务状态</span>
+            <span>平台状态</span>
             <strong>{serviceLabel}</strong>
             <small>{healthSummary}</small>
           </BorderGlow>
           <BorderGlow as="article" className="summary-card">
-            <span>今日入口</span>
+            <span>常用入口</span>
             <strong>资源、任务、记录</strong>
-            <small>从下方入口直接进入对应页面。</small>
+            <small>从常用入口快速进入核心页面，持续处理当日运维事项。</small>
           </BorderGlow>
         </div>
 
@@ -84,21 +84,21 @@ export function OverviewPage() {
       <BorderGlow as="section" className="panel panel-span-4">
         <div className="panel-heading">
           <h2>使用指引</h2>
-          <p>首页只保留最常用的使用路径，避免把联调和系统内部概念暴露给普通使用者。</p>
+          <p>建议按照资源核查、任务流转、记录追溯的顺序使用平台功能，以便在统一界面内完成日常操作闭环。</p>
         </div>
 
         <div className="stack-grid">
           <BorderGlow as="article" className="highlight-card compact-card">
-            <h3>先看资源</h3>
-            <p>服务器页适合快速浏览当前资产与机器状态。</p>
+            <h3>资源核查</h3>
+            <p>优先进入服务器页面，快速确认资产分布、主机状态与当前可用资源概况。</p>
           </BorderGlow>
           <BorderGlow as="article" className="highlight-card compact-card">
-            <h3>再提任务</h3>
-            <p>自动化页聚焦任务创建、进度查看和结果跟踪。</p>
+            <h3>任务流转</h3>
+            <p>在自动化页面发起任务、跟踪执行进度，并统一查看处理结果与反馈信息。</p>
           </BorderGlow>
           <BorderGlow as="article" className="highlight-card compact-card">
-            <h3>最后回看记录</h3>
-            <p>操作记录页可以帮助回溯近期系统内的重要变化。</p>
+            <h3>记录追溯</h3>
+            <p>通过记录页面回看关键操作留痕，支持对近期变更、处理过程与结果进行复核。</p>
           </BorderGlow>
         </div>
       </BorderGlow>

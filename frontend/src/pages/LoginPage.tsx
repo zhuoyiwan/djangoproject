@@ -8,6 +8,7 @@ export function LoginPage() {
     useAuth();
   const [username, setUsername] = useState("frontenddemo");
   const [password, setPassword] = useState("FrontendDemo123!");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [tokenDraft, setTokenDraft] = useState(accessToken);
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,13 +50,36 @@ export function LoginPage() {
           </label>
           <label className="field">
             <span>密码</span>
-            <input
-              autoComplete="current-password"
-              placeholder="请输入登录密码"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            <span className="password-field">
+              <input
+                autoComplete="current-password"
+                className="password-input"
+                placeholder="请输入登录密码"
+                type={passwordVisible ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                aria-label={passwordVisible ? "隐藏密码" : "显示密码"}
+                className="password-toggle-icon"
+                onClick={() => setPasswordVisible((current) => !current)}
+                type="button"
+              >
+                {passwordVisible ? (
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M3 3l18 18" />
+                    <path d="M10.58 10.58a2 2 0 0 0 2.84 2.84" />
+                    <path d="M9.88 5.09A10.94 10.94 0 0 1 12 4.91c5.09 0 8.94 3.22 10 7.09a11.83 11.83 0 0 1-4.25 5.94" />
+                    <path d="M6.61 6.61A11.79 11.79 0 0 0 2 12c.9 3.31 3.82 6.12 7.62 6.92" />
+                  </svg>
+                ) : (
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M2 12s3.64-7 10-7 10 7 10 7-3.64 7-10 7S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </span>
             <small className="field-hint">示例密码：FrontendDemo123!</small>
           </label>
           <button className="login-submit-button" type="submit">

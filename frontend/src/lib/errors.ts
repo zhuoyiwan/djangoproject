@@ -18,6 +18,10 @@ export function getUserFacingErrorMessage(error: unknown) {
     return "当前无法建立平台服务连接，请检查服务地址配置、网络连通性及后端服务状态。";
   }
 
+  if (/^internal server error\.?$/i.test(rawMessage.trim())) {
+    return "服务器内部错误";
+  }
+
   const statusMatch = rawMessage.match(/Request failed with\s+(\d{3})/i);
   if (statusMatch) {
     const status = Number(statusMatch[1]);

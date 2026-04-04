@@ -21,7 +21,7 @@ import type { JobRecord } from "../types";
 export function AutomationDetailPage() {
   const { accessToken, baseUrl, profile } = useAuth();
   const { jobId } = useParams();
-  const [comment, setComment] = useState("已在详情页完成复核。");
+  const [comment, setComment] = useState("已完成当前任务复核。");
   const [agentKeyId, setAgentKeyId] = useState("");
   const numericJobId = jobId ? Number(jobId) : null;
   const {
@@ -35,9 +35,9 @@ export function AutomationDetailPage() {
   } = useResourceDetail<JobRecord>({
     accessToken,
     resourceId: numericJobId,
-    initialSummary: "选择一条任务后查看审批与执行详情。",
+    initialSummary: "选择任务后查看审批流转与执行详情。",
     missingTokenSummary: "请先登录后再查看自动化任务详情。",
-    loadingSummary: (id) => `正在加载自动化任务 ${id} 的详情...`,
+    loadingSummary: (id) => `正在同步自动化任务 ${id} 的详细信息...`,
     successSummary: (response) => `已加载任务 ${response.name}，当前审批状态为 ${getApprovalLabel(response.approval_status)}。`,
     fetcher: (token, id) => getJob(baseUrl, token, id),
   });
@@ -49,7 +49,7 @@ export function AutomationDetailPage() {
       return;
     }
     setDetailState("loading");
-    setDetailSummary(`正在处理 ${job.name} 的 ${action} 操作...`);
+    setDetailSummary(`正在提交任务 ${job.name} 的 ${action} 操作...`);
     try {
       const response =
         action === "approve"
@@ -64,12 +64,12 @@ export function AutomationDetailPage() {
                   ? await completeJob(baseUrl, accessToken, job.id, comment)
                   : action === "fail"
                     ? await failJob(baseUrl, accessToken, job.id, comment)
-                    : action === "cancel"
-                      ? await cancelJob(baseUrl, accessToken, job.id, comment)
-                      : await requeueJob(baseUrl, accessToken, job.id, comment);
+                : action === "cancel"
+                  ? await cancelJob(baseUrl, accessToken, job.id, comment)
+                  : await requeueJob(baseUrl, accessToken, job.id, comment);
       setJob(response);
       setDetailState("success");
-      setDetailSummary(`任务 ${response.name} 已更新为 ${getStatusLabel(response.status)}。`);
+      setDetailSummary(`任务 ${response.name} 已更新，当前状态为 ${getStatusLabel(response.status)}。`);
     } catch (error) {
       setDetailState("error");
       setDetailSummary(getUserFacingErrorMessage(error));
@@ -89,13 +89,45 @@ export function AutomationDetailPage() {
   const canComplete = job && job.status === "claimed";
   const canCancel = job && (job.status === "ready" || job.status === "claimed");
   const canRequeue = job && (job.status === "claimed" || job.status === "failed");
+  const approveTooltip = canAct
+    ? "审批通过后，高风险任务可继续进入后续处理流程。"
+    : job?.approval_status !== "pending"
+      ? "当前任务不处于待审批状态，无法执行审批通过。"
+      : "申请人与审批人为同一账号时，不能直接执行审批通过。";
+  const rejectTooltip = canAct
+    ? "驳回当前申请，并保留审批意见供后续复核。"
+    : job?.approval_status !== "pending"
+      ? "当前任务不处于待审批状态，无法执行驳回申请。"
+      : "申请人与审批人为同一账号时，不能直接执行驳回申请。";
+  const markReadyTooltip = canMarkReady
+    ? "将任务流转到待执行状态，等待人工或执行器接手。"
+    : job?.status !== "draft"
+      ? "只有草稿状态任务才能转入待执行。"
+      : job?.risk_level === "high"
+        ? "高风险任务需先审批通过，才能转入待执行。"
+        : "当前任务尚未满足转入待执行的条件。";
+  const claimTooltip = canClaim
+    ? "由当前处理人接手任务；如有需要，可同时绑定执行器 ID。"
+    : "只有待执行状态任务才能接手执行。";
+  const completeTooltip = canComplete
+    ? "确认任务已处理完成，并记录最终执行结果。"
+    : "只有已认领任务才能标记为完成执行。";
+  const failTooltip = canComplete
+    ? "登记本次执行失败，用于保留状态并支持后续重试。"
+    : "只有已认领任务才能登记执行失败。";
+  const cancelTooltip = canCancel
+    ? "终止当前任务，停止后续执行与流转。"
+    : "只有待执行或已认领任务才能终止。";
+  const requeueTooltip = canRequeue
+    ? "将任务重新放回处理队列，等待再次执行。"
+    : "只有已认领或失败任务才能重新调度。";
 
   return (
     <main className="workspace-grid">
       <BorderGlow as="section" className="panel panel-span-12">
         <div className="panel-heading">
           <h2>自动化任务详情</h2>
-          <p>围绕审批、执行状态、执行结果和执行器信息，对单条任务进行完整审阅。</p>
+          <p>集中展示单条任务的审批流转、执行状态、处理结果与执行器信息，便于在同一页面内完成任务复核与状态跟进。</p>
         </div>
         <div className="actions">
           <Link className="button-link button-link-ghost" to="/automation">
@@ -178,12 +210,12 @@ export function AutomationDetailPage() {
 
             <BorderGlow as="article" className="highlight-card compact-card">
               <h3>执行结果</h3>
-              <p>{job.execution_summary || "暂未记录执行摘要。"}</p>
+              <p>{job.execution_summary || "当前任务暂未同步执行摘要。"}</p>
               <pre className="json-block">{JSON.stringify(job.execution_metadata, null, 2)}</pre>
             </BorderGlow>
           </div>
         ) : (
-          <p className="status idle">当前没有加载到任务。</p>
+          <p className="status idle">当前未加载到任务详情，请返回列表重新选择目标任务。</p>
         )}
       </BorderGlow>
 
@@ -194,55 +226,82 @@ export function AutomationDetailPage() {
               <h3>审批轨迹</h3>
               <p>批准人：{job.approved_by_username || "未记录"}</p>
               <p>拒绝人：{job.rejected_by_username || "未记录"}</p>
-              <p>审批备注：{job.approval_comment || "暂未记录。"}</p>
+              <p>审批备注：{job.approval_comment || "当前暂无审批备注。"}</p>
             </BorderGlow>
 
             <BorderGlow as="article" className="highlight-card compact-card">
               <h3>操作面板</h3>
               <label className="field">
                 <span>操作备注</span>
-                <textarea rows={4} value={comment} onChange={(event) => setComment(event.target.value)} />
+                <textarea
+                  className="detail-comment-input"
+                  rows={4}
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
+                />
               </label>
               <label className="field">
-                <span>执行器 ID（认领时可选）</span>
+                <span>执行器 ID（认领时选填）</span>
                 <input value={agentKeyId} onChange={(event) => setAgentKeyId(event.target.value)} />
               </label>
-              <div className="actions">
-                <button disabled={!canAct} onClick={() => void handleAction("approve")} type="button">
-                  批准
-                </button>
-                <button className="button-ghost" disabled={!canAct} onClick={() => void handleAction("reject")} type="button">
-                  拒绝
-                </button>
-                <button disabled={!canMarkReady} onClick={() => void handleAction("mark-ready")} type="button">
-                  标记就绪
-                </button>
-                <button className="button-ghost" disabled={!canClaim} onClick={() => void handleAction("claim")} type="button">
-                  认领执行
-                </button>
-                <button disabled={!canComplete} onClick={() => void handleAction("complete")} type="button">
-                  标记完成
-                </button>
-                <button className="button-ghost" disabled={!canComplete} onClick={() => void handleAction("fail")} type="button">
-                  标记失败
-                </button>
-                <button className="button-ghost" disabled={!canCancel} onClick={() => void handleAction("cancel")} type="button">
-                  取消任务
-                </button>
-                <button className="button-ghost" disabled={!canRequeue} onClick={() => void handleAction("requeue")} type="button">
-                  重新排队
-                </button>
+              <div className="actions detail-actions">
+                <span className="action-tooltip" data-tooltip={approveTooltip}>
+                  <button className="button-ghost" disabled={!canAct} onClick={() => void handleAction("approve")} type="button">
+                    通过审批
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={rejectTooltip}>
+                  <button className="button-ghost" disabled={!canAct} onClick={() => void handleAction("reject")} type="button">
+                    驳回申请
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={markReadyTooltip}>
+                  <button disabled={!canMarkReady} onClick={() => void handleAction("mark-ready")} type="button">
+                    转入待执行
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={claimTooltip}>
+                  <button className="button-ghost" disabled={!canClaim} onClick={() => void handleAction("claim")} type="button">
+                    接手执行
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={completeTooltip}>
+                  <button className="button-ghost" disabled={!canComplete} onClick={() => void handleAction("complete")} type="button">
+                    完成执行
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={failTooltip}>
+                  <button className="button-ghost" disabled={!canComplete} onClick={() => void handleAction("fail")} type="button">
+                    登记失败
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={cancelTooltip}>
+                  <button className="button-ghost" disabled={!canCancel} onClick={() => void handleAction("cancel")} type="button">
+                    终止任务
+                  </button>
+                </span>
+                <span className="action-tooltip" data-tooltip={requeueTooltip}>
+                  <button className="button-ghost" disabled={!canRequeue} onClick={() => void handleAction("requeue")} type="button">
+                    重新调度
+                  </button>
+                </span>
               </div>
               <p className="status idle">
                 {job.status === "draft"
-                  ? "草稿任务在条件满足后可标记为就绪；高风险任务需先批准。"
+                  ? (
+                    <>
+                      草稿任务在满足条件后可进入就绪状态；
+                      <br />
+                      高风险任务需先完成审批。
+                    </>
+                  )
                   : job.status === "ready"
-                    ? "就绪任务可由人工认领，也可在认领时绑定执行器 ID。"
+                    ? "就绪任务可由人工认领，也可在认领时同步绑定执行器 ID。"
                     : job.status === "claimed"
-                      ? "已认领任务可完成、失败、取消或重新排队。权限最终由后端校验。"
+                      ? "已认领任务可继续推进为完成、失败、取消或重新排队，具体权限以服务端校验结果为准。"
                       : job.status === "failed"
-                      ? "失败任务可以重新排队回到待执行状态。"
-                      : "审批和执行动作会根据当前状态动态生效。"}
+                      ? "失败任务可重新排队，重新进入后续执行流程。"
+                      : "审批与执行动作会根据当前任务状态动态开放。"}
               </p>
             </BorderGlow>
           </div>

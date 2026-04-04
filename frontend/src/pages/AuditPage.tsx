@@ -26,9 +26,9 @@ export function AuditPage() {
   } = usePaginatedResource<AuditLogRecord, AuditQuery>({
     accessToken,
     query,
-    initialSummary: "读取操作记录列表。",
-    missingTokenSummary: "请先登录后再查看操作记录。",
-    loadingSummary: "正在加载操作记录...",
+    initialSummary: "读取操作记录列表，查看近期关键操作留痕。",
+    missingTokenSummary: "请先登录后再访问操作记录。",
+    loadingSummary: "正在同步操作记录...",
     successSummary: (response) => `已加载 ${response.results.length} 条记录，共 ${response.count} 条。`,
     fetcher: (token, activeQuery) => getAuditLogs(baseUrl, token, activeQuery),
   });
@@ -39,10 +39,10 @@ export function AuditPage() {
   } = useResourceDetail<AuditLogRecord>({
     accessToken,
     resourceId: selectedLogId,
-    initialSummary: "从列表中选择一条记录后查看详情。",
+    initialSummary: "从列表中选择记录后查看详细留痕。",
     missingTokenSummary: "请先登录后再查看记录详情。",
-    loadingSummary: (id) => `正在加载记录 ${id}...`,
-    successSummary: (response) => `已加载记录 ${response.id}。`,
+    loadingSummary: (id) => `正在加载记录 ${id} 的详细信息...`,
+    successSummary: (response) => `已加载记录 ${response.id} 的详细信息。`,
     fetcher: (token, id) => getAuditLog(baseUrl, token, id),
   });
 
@@ -59,7 +59,7 @@ export function AuditPage() {
       <BorderGlow as="section" className="panel panel-span-8">
         <div className="panel-heading">
           <h2>操作记录</h2>
-          <p>用最直接的方式查看近期系统动作，便于普通使用者回看发生过什么。</p>
+          <p>统一查看近期关键操作留痕，支持按关键词快速检索，便于回溯平台内已发生的业务动作与处理过程。</p>
         </div>
 
         <div className="filter-grid">
@@ -86,7 +86,7 @@ export function AuditPage() {
         <p className={`status ${auditListState}`}>{auditListSummary}</p>
 
         <div className="table-shell">
-          <table>
+          <table className="audit-log-table">
             <thead>
               <tr>
                 <th>动作</th>
@@ -111,7 +111,7 @@ export function AuditPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4}>当前没有加载到操作记录。</td>
+                  <td colSpan={4}>当前暂无可展示的操作记录。</td>
                 </tr>
               )}
             </tbody>
@@ -122,7 +122,7 @@ export function AuditPage() {
       <BorderGlow as="section" className="panel panel-span-4">
         <div className="panel-heading">
           <h2>记录详情</h2>
-          <p>保留动作、对象和附加信息，帮助理解这条记录的上下文。</p>
+          <p>聚合展示当前记录的动作对象、执行主体与附加信息，帮助快速理解该条留痕的业务上下文。</p>
         </div>
         <p className={`status ${auditDetailState}`}>{auditDetailSummary}</p>
 
@@ -144,7 +144,7 @@ export function AuditPage() {
             </BorderGlow>
           </div>
         ) : (
-          <p className="status idle">请先从列表中选择一条操作记录。</p>
+          <p className="status idle">请先从左侧列表中选择目标记录，以查看详细留痕信息。</p>
         )}
       </BorderGlow>
     </main>

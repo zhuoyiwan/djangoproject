@@ -51,7 +51,7 @@ export function ServersPage() {
       <BorderGlow as="section" className="panel panel-span-8">
         <div className="panel-heading">
           <h2>服务器资产</h2>
-          <p>用更直接的方式浏览现有机器，普通使用者只需要搜索、筛选和查看关键信息即可。</p>
+          <p>统一查看服务器资产信息，支持按关键词、环境与生命周期快速筛选，便于在同一页面内完成基础核查与状态确认。</p>
         </div>
 
         <div className="filter-grid">
@@ -100,7 +100,7 @@ export function ServersPage() {
         <p className={`status ${serverState}`}>{serverSummary}</p>
 
         <div className="table-shell">
-          <table>
+          <table className="server-assets-table">
             <thead>
               <tr>
                 <th>主机名</th>
@@ -144,7 +144,7 @@ export function ServersPage() {
       <BorderGlow as="section" className="panel panel-span-4">
         <div className="panel-heading">
           <h2>选中服务器</h2>
-          <p>右侧只展示日常最常看的关键信息，避免被原始结构化字段干扰。</p>
+          <p>聚合展示当前服务器的核心属性与运行概况，帮助快速确认主机配置、网络信息与最近状态。</p>
         </div>
 
         {selectedServer ? (
@@ -186,11 +186,11 @@ export function ServersPage() {
 
             <BorderGlow as="article" className="highlight-card compact-card">
               <h3>磁盘摘要</h3>
-              <p>{selectedServer.disk_summary || "暂未提供磁盘摘要。"}</p>
+              <p>{selectedServer.disk_summary || "当前服务器暂未同步磁盘摘要信息。"}</p>
             </BorderGlow>
           </>
         ) : (
-          <p className="status idle">请先从列表中选择一台服务器。</p>
+          <p className="status idle">请先从左侧列表中选择目标服务器，以查看详细资产信息。</p>
         )}
       </BorderGlow>
     </main>

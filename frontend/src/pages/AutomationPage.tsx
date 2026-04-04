@@ -94,9 +94,9 @@ export function AutomationPage() {
   } = usePaginatedResource<JobRecord, JobQuery>({
     accessToken,
     query,
-    initialSummary: "读取自动化任务列表，查看审批与执行状态。",
-    missingTokenSummary: "请先登录后再查询自动化任务。",
-    loadingSummary: "正在加载自动化任务与审批状态...",
+    initialSummary: "读取自动化任务列表，查看当前审批与执行进度。",
+    missingTokenSummary: "请先登录后再访问自动化任务。",
+    loadingSummary: "正在同步自动化任务与审批状态...",
     successSummary: (response) => `已加载 ${response.results.length} 条任务，共 ${response.count} 条。`,
     fetcher: (token, activeQuery) => getJobs(baseUrl, token, activeQuery),
   });
@@ -110,7 +110,7 @@ export function AutomationPage() {
     try {
       payload = JSON.parse(form.payloadText) as Record<string, unknown>;
     } catch {
-      setFormError("任务载荷 JSON 解析失败，请先修正格式。");
+      setFormError("任务载荷 JSON 校验失败，请先修正内容格式后再提交。");
       return;
     }
 
@@ -164,7 +164,7 @@ export function AutomationPage() {
       <BorderGlow as="section" className="panel panel-span-8">
         <div className="panel-heading">
           <h2>自动化任务</h2>
-          <p>聚焦普通使用者最常做的事：查看任务、创建任务、跟进当前处理进度。</p>
+          <p>统一查看自动化任务的申请、审批与执行状态，支持按条件快速筛选，便于持续跟进任务处理进度。</p>
         </div>
 
         <div className="filter-grid automation-filter-grid">
@@ -237,7 +237,7 @@ export function AutomationPage() {
         <p className={`status ${jobState}`}>{jobSummary}</p>
 
         <div className="table-shell">
-          <table>
+          <table className="automation-task-table">
             <thead>
               <tr>
                 <th>任务名称</th>
@@ -274,7 +274,7 @@ export function AutomationPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6}>当前筛选条件下没有任务。</td>
+                  <td colSpan={6}>当前筛选条件下暂无可展示的自动化任务。</td>
                 </tr>
               )}
             </tbody>
@@ -285,7 +285,7 @@ export function AutomationPage() {
       <BorderGlow as="section" className="panel panel-span-4">
         <div className="panel-heading">
           <h2>创建任务</h2>
-          <p>高风险任务会进入审批流程。这里保留必要的任务内容输入，其余技术字段不再前置展示。</p>
+          <p>通过统一入口提交自动化任务。高风险操作将自动进入审批流程，其余必要信息可在当前表单中完成录入。</p>
         </div>
 
         <div className="stack-grid">
@@ -328,7 +328,7 @@ export function AutomationPage() {
       <BorderGlow as="section" className="panel panel-span-12">
         <div className="panel-heading">
           <h2>选中任务概览</h2>
-          <p>这里只保留任务本身与处理结果，审批和执行的底层细节统一收进详情页。</p>
+          <p>聚合展示当前任务的核心状态、申请信息与处理结果，详细执行轨迹可进一步进入任务详情页查看。</p>
         </div>
 
         {selectedJob ? (
@@ -362,7 +362,7 @@ export function AutomationPage() {
                   打开详情页
                 </Link>
               </strong>
-              <small>查看完整处理轨迹和任务信息。</small>
+              <small>查看完整处理过程、审批流转与任务上下文。</small>
             </BorderGlow>
             <BorderGlow as="article" className="highlight-card compact-card automation-soft-card">
               <h3>任务内容</h3>
@@ -370,11 +370,11 @@ export function AutomationPage() {
             </BorderGlow>
             <BorderGlow as="article" className="highlight-card compact-card automation-soft-card">
               <h3>当前说明</h3>
-              <p>{selectedJob.execution_summary || selectedJob.approval_comment || "任务已创建，等待下一步处理。"}</p>
+              <p>{selectedJob.execution_summary || selectedJob.approval_comment || "任务已创建，等待进入下一处理阶段。"}</p>
             </BorderGlow>
           </div>
         ) : (
-          <p className="status idle">请先从列表中选择一个自动化任务。</p>
+          <p className="status idle">请先从左侧列表中选择目标任务，以查看任务概览与处理信息。</p>
         )}
       </BorderGlow>
     </main>
