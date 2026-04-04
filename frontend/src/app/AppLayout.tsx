@@ -1,8 +1,12 @@
-import { NavLink, Outlet } from "react-router-dom";
+﻿import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "./auth";
 import { BorderGlow } from "../components/BorderGlow";
 import RotatingText from "../components/RotatingText";
 
+const logoStarPath =
+  "M 100 -56 L 113 -28 L 146 -14 L 113 0 L 100 28 L 87 0 L 54 -14 L 87 -28 Z";
+const logoInfinityPath =
+  "M 28 60 C 36 36, 68 28, 100 60 C 132 92, 164 84, 172 60 C 164 36, 132 28, 100 60 C 68 92, 36 84, 28 60";
 export function AppLayout() {
   const { accessToken, authSummary, profile, signOut } = useAuth();
   const displayName = profile?.display_name || profile?.username || "访客";
@@ -14,6 +18,49 @@ export function AppLayout() {
       <div aria-hidden="true" className="ambient-blur ambient-blur-three" />
       <header className="workspace-header">
         <div className="workspace-brand">
+          <div className="server-logo-frame" aria-hidden="true">
+            <div className="server-logo">
+              <svg className="server-logo-svg" viewBox="0 0 200 120" aria-hidden="true">
+                <defs>
+                  <linearGradient id="asset-loop-gradient" x1="24" y1="60" x2="110" y2="60" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#5bb3ff" stopOpacity="0.3" />
+                    <stop offset="45%" stopColor="#7dd3ff" stopOpacity="0.98" />
+                    <stop offset="100%" stopColor="#dff4ff" stopOpacity="0.9" />
+                  </linearGradient>
+                  <linearGradient id="ai-loop-gradient" x1="90" y1="60" x2="176" y2="60" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#ffd6f3" stopOpacity="0.9" />
+                    <stop offset="48%" stopColor="#ef7cc7" stopOpacity="0.98" />
+                    <stop offset="100%" stopColor="#9d7cff" stopOpacity="0.42" />
+                  </linearGradient>
+                  <linearGradient id="star-core-gradient" x1="54" y1="-14" x2="146" y2="-14" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#79c6ff" stopOpacity="0.92" />
+                    <stop offset="48%" stopColor="#f1dcff" stopOpacity="0.98" />
+                    <stop offset="100%" stopColor="#cf7df1" stopOpacity="0.92" />
+                  </linearGradient>
+                  <filter id="loop-soft-glow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4.2" />
+                  </filter>
+                </defs>
+
+                <path
+                  className="server-logo-star-glow"
+                  d={logoStarPath}
+                  fill="url(#star-core-gradient)"
+                />
+                <path
+                  className="server-logo-star"
+                  d={logoStarPath}
+                  fill="url(#star-core-gradient)"
+                />
+                <ellipse className="server-logo-aura" cx="100" cy="60" rx="70" ry="28" />
+                <path className="server-logo-base-path" d={logoInfinityPath} />
+                <path className="server-logo-glow-path server-logo-glow-path-blue" d={logoInfinityPath} />
+                <path className="server-logo-glow-path server-logo-glow-path-magenta" d={logoInfinityPath} />
+                <path className="server-logo-stream server-logo-stream-blue" d={logoInfinityPath} />
+                <path className="server-logo-stream server-logo-stream-magenta" d={logoInfinityPath} />
+              </svg>
+            </div>
+          </div>
           <p className="eyebrow">Django 智能运维平台</p>
           <h1 className="brand-title-inline" aria-label="智能运维">
             <span className="brand-title-static">智能运维</span>
@@ -86,3 +133,7 @@ export function AppLayout() {
 function navClassName(isActive: boolean) {
   return isActive ? "nav-link active" : "nav-link";
 }
+
+
+
+
