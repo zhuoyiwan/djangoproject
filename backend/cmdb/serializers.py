@@ -100,6 +100,75 @@ class ServerSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
+class ServerBulkImportItemSerializer(serializers.Serializer):
+    hostname = serializers.CharField(max_length=255)
+    internal_ip = serializers.IPAddressField(protocol="IPv4")
+    external_ip = serializers.IPAddressField(protocol="IPv4", required=False, allow_null=True)
+    os_version = serializers.CharField(max_length=255)
+    cpu_cores = serializers.IntegerField(min_value=1)
+    memory_gb = serializers.DecimalField(max_digits=8, decimal_places=2, min_value=Decimal("0"))
+    disk_summary = serializers.CharField(required=False, allow_blank=True)
+    lifecycle_status = serializers.ChoiceField(choices=Server._meta.get_field("lifecycle_status").choices)
+    environment = serializers.ChoiceField(choices=Server._meta.get_field("environment").choices)
+    idc = serializers.PrimaryKeyRelatedField(queryset=IDC.objects.all())
+    source = serializers.ChoiceField(choices=Server._meta.get_field("source").choices, required=False, default=DataSourceType.MANUAL)
+    last_seen_at = serializers.DateTimeField(required=False, allow_null=True)
+    metadata = serializers.JSONField(required=False)
+
+    def upsert(self):
+        defaults = {
+            "external_ip": self.validated_data.get("external_ip"),
+            "os_version": self.validated_data["os_version"],
+            "cpu_cores": self.validated_data["cpu_cores"],
+            "memory_gb": self.validated_data["memory_gb"],
+            "disk_summary": self.validated_data.get("disk_summary", ""),
+            "lifecycle_status": self.validated_data["lifecycle_status"],
+            "environment": self.validated_data["environment"],
+            "idc": self.validated_data["idc"],
+            "source": self.validated_data.get("source", DataSourceType.MANUAL),
+            "last_seen_at": self.validated_data.get("last_seen_at"),
+            "metadata": self.validated_data.get("metadata", {}),
+        }
+        return Server.objects.update_or_create(
+            hostname=self.validated_data["hostname"],
+            internal_ip=self.validated_data["internal_ip"],
+            defaults=defaults,
+        )
+
+
+class ServerBulkImportSerializer(serializers.Serializer):
+    items = ServerBulkImportItemSerializer(many=True)
+
+
+class ServerBulkLifecycleUpdateSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+    lifecycle_status = serializers.ChoiceField(choices=Server._meta.get_field("lifecycle_status").choices)
+
+
+class ServerBulkImportResultSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    hostname = serializers.CharField()
+    internal_ip = serializers.IPAddressField(protocol="IPv4")
+    result = serializers.ChoiceField(choices=("created", "updated"))
+
+
+class ServerBulkImportResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    total = serializers.IntegerField()
+    created = serializers.IntegerField()
+    updated = serializers.IntegerField()
+    items = ServerBulkImportResultSerializer(many=True)
+
+
+class ServerBulkLifecycleUpdateResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    total = serializers.IntegerField()
+    lifecycle_status = serializers.CharField()
+    updated = serializers.IntegerField()
+
+
 class AgentServerIngestSerializer(serializers.Serializer):
     hostname = serializers.CharField(max_length=255)
     internal_ip = serializers.IPAddressField(protocol="IPv4")

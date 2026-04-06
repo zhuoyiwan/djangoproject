@@ -205,6 +205,84 @@ class ServerApiTests(TestCase):
         response = self.client.post("/api/v1/cmdb/servers/", payload, format="json")
         self.assertEqual(response.status_code, 201)
 
+    def test_ops_admin_can_bulk_import_servers(self):
+        ops_group = Group.objects.create(name="ops_admin")
+        self.user.groups.add(ops_group)
+
+        response = self.client.post(
+            "/api/v1/cmdb/servers/bulk-import/",
+            {
+                "items": [
+                    {
+                        "hostname": "db-new-01",
+                        "internal_ip": "10.0.0.13",
+                        "os_version": "Ubuntu 22.04",
+                        "cpu_cores": 4,
+                        "memory_gb": "8.00",
+                        "lifecycle_status": "online",
+                        "environment": "dev",
+                        "idc": self.idc.id,
+                    },
+                    {
+                        "hostname": "db-new-02",
+                        "internal_ip": "10.0.0.14",
+                        "os_version": "Ubuntu 22.04",
+                        "cpu_cores": 8,
+                        "memory_gb": "16.00",
+                        "lifecycle_status": "maintenance",
+                        "environment": "test",
+                        "idc": self.idc.id,
+                    },
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["ok"])
+        self.assertEqual(response.data["total"], 2)
+        self.assertEqual(response.data["created"], 2)
+        self.assertEqual(Server.objects.count(), 2)
+        self.assertTrue(AuditLog.objects.filter(action="server.bulk_imported").exists())
+
+    def test_ops_admin_can_bulk_update_server_lifecycle(self):
+        ops_group = Group.objects.create(name="ops_admin")
+        self.user.groups.add(ops_group)
+        first = Server.objects.create(
+            hostname="db-batch-01",
+            internal_ip="10.0.0.31",
+            os_version="Ubuntu 22.04",
+            cpu_cores=4,
+            memory_gb=Decimal("8.00"),
+            lifecycle_status="online",
+            environment="dev",
+            idc=self.idc,
+        )
+        second = Server.objects.create(
+            hostname="db-batch-02",
+            internal_ip="10.0.0.32",
+            os_version="Ubuntu 22.04",
+            cpu_cores=4,
+            memory_gb=Decimal("8.00"),
+            lifecycle_status="online",
+            environment="dev",
+            idc=self.idc,
+        )
+
+        response = self.client.post(
+            "/api/v1/cmdb/servers/bulk-lifecycle/",
+            {"ids": [first.id, second.id], "lifecycle_status": "maintenance"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["updated"], 2)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.lifecycle_status, "maintenance")
+        self.assertEqual(second.lifecycle_status, "maintenance")
+        self.assertTrue(AuditLog.objects.filter(action="server.bulk_lifecycle_updated").exists())
+
     def test_tool_query_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/cmdb/servers/tool-query/")
         self.assertEqual(response.status_code, 400)

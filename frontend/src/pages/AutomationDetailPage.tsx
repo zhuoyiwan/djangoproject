@@ -12,6 +12,8 @@ import {
   deleteJob,
   failJob,
   getJob,
+  getJobComments,
+  getJobTimeline,
   markReadyJob,
   rejectJob,
   requeueJob,
@@ -19,7 +21,7 @@ import {
 } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
-import type { JobCreateInput, JobRecord, RequestState } from "../types";
+import type { JobCommentEntry, JobCreateInput, JobRecord, JobTimelineEntry, RequestState } from "../types";
 
 const riskOptions = [
   { value: "low", label: "低风险" },
@@ -40,6 +42,12 @@ export function AutomationDetailPage() {
   const [editPayloadText, setEditPayloadText] = useState("{\n  \n}");
   const [editState, setEditState] = useState<RequestState>("idle");
   const [editSummary, setEditSummary] = useState("在详情页内直接修订任务基础信息，保存后会自动刷新审批与执行状态。");
+  const [timelineState, setTimelineState] = useState<RequestState>("idle");
+  const [timelineSummary, setTimelineSummary] = useState("正在整理任务流转轨迹");
+  const [timelineItems, setTimelineItems] = useState<JobTimelineEntry[]>([]);
+  const [commentState, setCommentState] = useState<RequestState>("idle");
+  const [commentSummary, setCommentSummary] = useState("正在整理操作备注与审批留痕");
+  const [commentItems, setCommentItems] = useState<JobCommentEntry[]>([]);
   const numericJobId = jobId ? Number(jobId) : null;
   const {
     item: job,
@@ -107,6 +115,58 @@ export function AutomationDetailPage() {
     setEditState("idle");
     setEditSummary("在详情页内直接修订任务基础信息，保存后会自动刷新审批与执行状态。");
   }, [job?.id]);
+
+  useEffect(() => {
+    if (!accessToken || !numericJobId) {
+      setTimelineItems([]);
+      setCommentItems([]);
+      setTimelineState("idle");
+      setCommentState("idle");
+      return;
+    }
+
+    let active = true;
+    const currentJobId = numericJobId;
+    async function loadActivityStreams() {
+      setTimelineState("loading");
+      setTimelineSummary("正在同步任务时间线");
+      setCommentState("loading");
+      setCommentSummary("正在同步操作备注");
+      try {
+        const [timelineResponse, commentsResponse] = await Promise.all([
+          getJobTimeline(baseUrl, accessToken, currentJobId),
+          getJobComments(baseUrl, accessToken, currentJobId),
+        ]);
+        if (!active) {
+          return;
+        }
+        setTimelineItems(timelineResponse.items);
+        setCommentItems(commentsResponse.items);
+        setTimelineState("success");
+        setTimelineSummary(
+          timelineResponse.total ? `已同步 ${timelineResponse.total} 条任务流转记录` : "当前任务尚未形成可展示的流转时间线",
+        );
+        setCommentState("success");
+        setCommentSummary(
+          commentsResponse.total ? `已同步 ${commentsResponse.total} 条备注与留痕` : "当前任务暂无可展示的备注与审批留痕",
+        );
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setTimelineState("error");
+        setCommentState("error");
+        const message = getUserFacingErrorMessage(error);
+        setTimelineSummary(message);
+        setCommentSummary(message);
+      }
+    }
+
+    void loadActivityStreams();
+    return () => {
+      active = false;
+    };
+  }, [accessToken, baseUrl, numericJobId, job?.updated_at]);
 
   async function handleDeleteJob() {
     if (!accessToken || !job) {
@@ -249,7 +309,7 @@ export function AutomationDetailPage() {
     : !capabilities.canWriteAutomation
       ? "当前账号未开通任务写入权限，不能编辑任务。"
       : "已认领任务不能编辑，请先完成、登记失败、终止或重新调度。";
-  const timelineItems = job
+  const fallbackTimelineItems = job
     ? [
         { key: "created", label: "任务创建", actor: job.approval_requested_by_username || "系统", time: job.created_at, detail: "任务已创建并进入平台流程。" },
         { key: "request", label: "发起申请", actor: job.approval_requested_by_username || "未记录", time: job.approval_requested_at, detail: "已提交审批申请。" },
@@ -356,9 +416,26 @@ export function AutomationDetailPage() {
 
             <BorderGlow as="article" className="highlight-card compact-card">
               <h3>任务时间线</h3>
+              <p className={`status ${timelineState}`}>{timelineSummary}</p>
               {timelineItems.length ? (
                 <div className="timeline-list">
                   {timelineItems.map((item) => (
+                    <div className="timeline-item" key={item.audit_id}>
+                      <span className="timeline-point" aria-hidden="true" />
+                      <div className="timeline-body">
+                        <div className="timeline-header">
+                          <strong>{item.label}</strong>
+                          <span>{formatDateTime(item.created_at)}</span>
+                        </div>
+                        <p>{item.actor_name}</p>
+                        <small>{item.summary || "已完成该节点流转"}</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : fallbackTimelineItems.length ? (
+                <div className="timeline-list">
+                  {fallbackTimelineItems.map((item) => (
                     <div className="timeline-item" key={item.key}>
                       <span className="timeline-point" aria-hidden="true" />
                       <div className="timeline-body">
@@ -386,10 +463,27 @@ export function AutomationDetailPage() {
         {job ? (
           <div className="stack-grid">
             <BorderGlow as="article" className="highlight-card compact-card">
-              <h3>审批轨迹</h3>
-              <p>批准人：{job.approved_by_username || "未记录"}</p>
-              <p>拒绝人：{job.rejected_by_username || "未记录"}</p>
-              <p>审批备注：{job.approval_comment || "当前暂无审批备注。"}</p>
+              <h3>操作备注</h3>
+              <p className={`status ${commentState}`}>{commentSummary}</p>
+              {commentItems.length ? (
+                <div className="timeline-list">
+                  {commentItems.map((item) => (
+                    <div className="timeline-item" key={item.audit_id}>
+                      <span className="timeline-point" aria-hidden="true" />
+                      <div className="timeline-body">
+                        <div className="timeline-header">
+                          <strong>{item.label}</strong>
+                          <span>{formatDateTime(item.created_at)}</span>
+                        </div>
+                        <p>{item.actor_name}</p>
+                        <small>{item.message}</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>当前任务暂无可展示的备注信息。</p>
+              )}
             </BorderGlow>
 
             <BorderGlow as="article" className="highlight-card compact-card">

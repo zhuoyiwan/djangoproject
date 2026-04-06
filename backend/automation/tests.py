@@ -64,6 +64,132 @@ class JobHandoffAdapterTests(TestCase):
 
 
 @override_settings(
+    ALLOWED_HOSTS=["testserver", "127.0.0.1", "localhost"],
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "automation-timeline-comment-tests",
+        }
+    },
+)
+class JobTimelineAndCommentApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="timeline-user", password="password123")
+        self.client.force_authenticate(self.user)
+
+    def test_job_timeline_requires_authentication(self):
+        job = Job.objects.create(name="timeline-auth-job")
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(f"/api/v1/automation/jobs/{job.id}/timeline/")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_job_timeline_and_comments_return_audit_stream(self):
+        job = Job.objects.create(name="timeline-job", status=JobExecutionStatus.CLAIMED)
+        AuditLog.objects.create(
+            actor=self.user,
+            action="automation.job.created",
+            target=f"job:{job.id}:{job.name}",
+            detail={"request_id": "req-1"},
+        )
+        approve_log = AuditLog.objects.create(
+            actor=self.user,
+            action="automation.job.approved",
+            target=f"job:{job.id}:{job.name}",
+            detail={"request_id": "req-2", "approval_comment": "approved in window"},
+        )
+        agent_log = AuditLog.objects.create(
+            actor=None,
+            action="automation.job.agent_reported_failed",
+            target=f"job:{job.id}:{job.name}",
+            detail={"request_id": "req-3", "agent_key_id": "runner-blue", "summary": "script failed"},
+        )
+
+        timeline = self.client.get(f"/api/v1/automation/jobs/{job.id}/timeline/")
+        self.assertEqual(timeline.status_code, 200)
+        self.assertTrue(timeline.data["ok"])
+        self.assertEqual(timeline.data["job_id"], job.id)
+        self.assertEqual(timeline.data["total"], 3)
+        self.assertEqual(timeline.data["items"][1]["label"], "审批通过")
+        self.assertEqual(timeline.data["items"][1]["summary"], "approved in window")
+        self.assertEqual(timeline.data["items"][2]["actor_type"], "agent")
+        self.assertEqual(timeline.data["items"][2]["actor_name"], "runner-blue")
+        self.assertEqual(timeline.data["items"][2]["action"], "automation.job.agent_reported_failed")
+
+        comments = self.client.get(f"/api/v1/automation/jobs/{job.id}/comments/")
+        self.assertEqual(comments.status_code, 200)
+        self.assertTrue(comments.data["ok"])
+        self.assertEqual(comments.data["job_id"], job.id)
+        self.assertEqual(comments.data["total"], 2)
+        self.assertEqual(comments.data["items"][0]["audit_id"], approve_log.id)
+        self.assertEqual(comments.data["items"][0]["message"], "approved in window")
+        self.assertEqual(comments.data["items"][1]["audit_id"], agent_log.id)
+        self.assertEqual(comments.data["items"][1]["message"], "script failed")
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "automation-bulk-action-tests",
+        }
+    }
+)
+class JobBulkActionApiTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="bulk-ops", password="password123")
+        self.ops_group = Group.objects.create(name=ROLE_OPS_ADMIN)
+        self.user.groups.add(self.ops_group)
+        self.client.force_authenticate(self.user)
+
+    def test_bulk_cancel_updates_supported_jobs_and_skips_invalid_ones(self):
+        ready_job = Job.objects.create(name="ready-job", status=JobExecutionStatus.READY)
+        failed_job = Job.objects.create(name="failed-job", status=JobExecutionStatus.FAILED)
+
+        response = self.client.post(
+            "/api/v1/automation/jobs/bulk-cancel/",
+            {"ids": [ready_job.id, failed_job.id], "comment": "stop batch"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["action"], "cancel")
+        self.assertEqual(response.data["succeeded"], 1)
+        self.assertEqual(response.data["failed"], 1)
+        ready_job.refresh_from_db()
+        failed_job.refresh_from_db()
+        self.assertEqual(ready_job.status, JobExecutionStatus.CANCELED)
+        self.assertEqual(failed_job.status, JobExecutionStatus.FAILED)
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.canceled", target=f"job:{ready_job.id}:{ready_job.name}").exists())
+
+    def test_bulk_requeue_updates_failed_jobs(self):
+        failed_job = Job.objects.create(name="failed-job", status=JobExecutionStatus.FAILED)
+        claimed_job = Job.objects.create(name="claimed-job", status=JobExecutionStatus.CLAIMED, claimed_by=self.user)
+
+        response = self.client.post(
+            "/api/v1/automation/jobs/bulk-requeue/",
+            {"ids": [failed_job.id, claimed_job.id], "comment": "retry batch"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["action"], "requeue")
+        self.assertEqual(response.data["succeeded"], 2)
+        self.assertEqual(response.data["failed"], 0)
+        failed_job.refresh_from_db()
+        claimed_job.refresh_from_db()
+        self.assertEqual(failed_job.status, JobExecutionStatus.READY)
+        self.assertEqual(claimed_job.status, JobExecutionStatus.READY)
+        self.assertEqual(failed_job.ready_by_id, self.user.id)
+        self.assertEqual(claimed_job.ready_by_id, self.user.id)
+        self.assertTrue(AuditLog.objects.filter(action="automation.job.requeued", target=f"job:{failed_job.id}:{failed_job.name}").exists())
+
+
+@override_settings(
     AUTOMATION_AGENT_CLAIM_ENABLED=True,
     AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID="automation-agent-default",
     AUTOMATION_AGENT_CLAIM_HMAC_SECRET="automation-agent-secret-for-tests",

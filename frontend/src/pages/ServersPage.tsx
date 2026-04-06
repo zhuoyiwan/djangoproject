@@ -7,6 +7,8 @@ import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import { PaginationControls } from "../components/PaginationControls";
 import {
+  bulkImportServers,
+  bulkUpdateServerLifecycle,
   createServer,
   deleteServer,
   getIDCs,
@@ -20,6 +22,7 @@ import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTimeZh, formatDateTimeZhParts } from "../lib/format";
 import type {
   RequestState,
+  ServerBulkImportItem,
   ServerCreateInput,
   ServerQuery,
   ServerRecord,
@@ -423,38 +426,19 @@ export function ServersPage() {
 
     setBulkState("loading");
     setBulkSummary(`正在更新 ${selectedServerIds.length} 台服务器的生命周期...`);
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const serverId of selectedServerIds) {
-      try {
-        const detail = await getServer(baseUrl, accessToken, serverId);
-        await updateServer(baseUrl, accessToken, serverId, {
-          hostname: detail.hostname,
-          internal_ip: detail.internal_ip,
-          external_ip: detail.external_ip,
-          os_version: detail.os_version,
-          cpu_cores: detail.cpu_cores,
-          memory_gb: detail.memory_gb,
-          disk_summary: detail.disk_summary,
-          lifecycle_status: bulkLifecycleStatus,
-          environment: detail.environment,
-          idc: detail.idc,
-        });
-        successCount += 1;
-      } catch {
-        failCount += 1;
+    try {
+      const response = await bulkUpdateServerLifecycle(baseUrl, accessToken, selectedServerIds, bulkLifecycleStatus);
+      await refreshServers();
+      if (selectedServerId) {
+        await refreshServerDetail(selectedServerId);
       }
+      setBulkState("success");
+      setBulkSummary(`批量更新完成：已更新 ${response.updated} 台服务器。`);
+      setSelectedServerIds([]);
+    } catch (error) {
+      setBulkState("error");
+      setBulkSummary(getUserFacingErrorMessage(error));
     }
-
-    await refreshServers();
-    if (selectedServerId) {
-      await refreshServerDetail(selectedServerId);
-    }
-    setBulkState(failCount ? "error" : "success");
-    setBulkSummary(`批量更新完成：成功 ${successCount} 台，失败 ${failCount} 台。`);
-    setSelectedServerIds([]);
   }
 
   async function handleBulkImportServers() {
@@ -482,9 +466,8 @@ export function ServersPage() {
 
     setBulkImportState("loading");
     setBulkImportSummary(`正在导入 ${lines.length} 台服务器...`);
-
-    let successCount = 0;
-    let failCount = 0;
+    const parsedItems: ServerBulkImportItem[] = [];
+    let invalidCount = 0;
 
     for (const line of lines) {
       const [hostname, internal_ip, external_ip = "", cpu = "4", memory = "8.00", disk_summary = ""] = line
@@ -492,35 +475,44 @@ export function ServersPage() {
         .map((item) => item.trim());
 
       if (!hostname || !internal_ip) {
-        failCount += 1;
+        invalidCount += 1;
         continue;
       }
 
-      try {
-        await createServer(baseUrl, accessToken, {
-          hostname,
-          internal_ip,
-          external_ip: external_ip || null,
-          os_version: bulkImportForm.os_version,
-          cpu_cores: Number(cpu) || 4,
-          memory_gb: memory || "8.00",
-          disk_summary,
-          lifecycle_status: bulkImportForm.lifecycle_status,
-          environment: bulkImportForm.environment,
-          idc: bulkImportForm.idc,
-        });
-        successCount += 1;
-      } catch {
-        failCount += 1;
-      }
+      parsedItems.push({
+        hostname,
+        internal_ip,
+        external_ip: external_ip || null,
+        os_version: bulkImportForm.os_version,
+        cpu_cores: Number(cpu) || 4,
+        memory_gb: memory || "8.00",
+        disk_summary,
+        lifecycle_status: bulkImportForm.lifecycle_status,
+        environment: bulkImportForm.environment,
+        idc: bulkImportForm.idc,
+      });
     }
 
-    const response = await refreshServers();
-    setSelectedServerId(response?.results[0]?.id ?? null);
-    setBulkImportState(failCount ? "error" : "success");
-    setBulkImportSummary(`批量导入完成：成功 ${successCount} 台，失败 ${failCount} 台。`);
-    if (!failCount) {
-      setBulkImportForm(initialBulkImportForm);
+    if (!parsedItems.length) {
+      setBulkImportState("error");
+      setBulkImportSummary("未识别到可导入的有效服务器条目。");
+      return;
+    }
+
+    try {
+      const result = await bulkImportServers(baseUrl, accessToken, parsedItems);
+      const response = await refreshServers();
+      setSelectedServerId(result.items[0]?.id ?? response?.results[0]?.id ?? null);
+      setBulkImportState(invalidCount ? "error" : "success");
+      setBulkImportSummary(
+        `批量导入完成：新增 ${result.created} 台，更新 ${result.updated} 台${invalidCount ? `，忽略 ${invalidCount} 行无效内容` : ""}。`,
+      );
+      if (!invalidCount) {
+        setBulkImportForm(initialBulkImportForm);
+      }
+    } catch (error) {
+      setBulkImportState("error");
+      setBulkImportSummary(getUserFacingErrorMessage(error));
     }
   }
 

@@ -139,3 +139,93 @@ class OverviewSummaryApiTests(TestCase):
         self.assertEqual(payload["summary"]["audit"]["total"], 3)
         self.assertEqual(payload["summary"]["audit"]["last_24h"], 2)
         self.assertEqual(payload["summary"]["audit"]["security_events_last_24h"], 1)
+
+
+class AgentRunnerOverviewApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="runner-admin", password="password123")
+        self.client.force_authenticate(self.user)
+
+    def test_agent_runner_overview_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get("/api/v1/agents/runners/")
+        self.assertEqual(response.status_code, 401)
+
+    @override_settings(
+        AGENT_INGEST_ENABLED=True,
+        AGENT_INGEST_HMAC_KEY_ID="agent-default",
+        AGENT_INGEST_HMAC_SECRET="agent-secret",
+        AUTOMATION_AGENT_CLAIM_ENABLED=True,
+        AUTOMATION_AGENT_CLAIM_HMAC_KEYS={
+            "runner-blue": "claim-blue-secret",
+            "runner-red": "claim-red-secret",
+        },
+        AUTOMATION_AGENT_REPORT_ENABLED=True,
+        AUTOMATION_AGENT_REPORT_HMAC_KEYS={
+            "runner-blue": "report-blue-secret",
+            "runner-green": "report-green-secret",
+        },
+    )
+    def test_agent_runner_overview_returns_configured_keys_and_recent_activity(self):
+        ingest_log = AuditLog.objects.create(
+            action="server.agent_ingested",
+            target="ops-web-01@10.0.0.10",
+            detail={"agent_key_id": "agent-default", "result": "updated"},
+        )
+        claim_log = AuditLog.objects.create(
+            action="automation.job.agent_claimed",
+            target="job:1:deploy-prod",
+            detail={"agent_key_id": "runner-blue", "status": JobExecutionStatus.CLAIMED},
+        )
+        report_log = AuditLog.objects.create(
+            action="automation.job.agent_reported_failed",
+            target="job:2:rotate-log",
+            detail={"agent_key_id": "runner-green", "status": JobExecutionStatus.FAILED},
+        )
+
+        Job.objects.create(
+            name="blue-running-job",
+            status=JobExecutionStatus.CLAIMED,
+            risk_level=JobRiskLevel.MEDIUM,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            assigned_agent_key_id="runner-blue",
+        )
+        Job.objects.create(
+            name="green-reported-job",
+            status=JobExecutionStatus.FAILED,
+            risk_level=JobRiskLevel.LOW,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+            last_reported_by_agent_key="runner-green",
+        )
+
+        response = self.client.get("/api/v1/agents/runners/")
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["summary"]["total"], 5)
+        self.assertEqual(payload["summary"]["available"], 5)
+        self.assertEqual(payload["summary"]["unavailable"], 0)
+
+        items = {(item["channel"], item["key_id"]): item for item in payload["items"]}
+
+        ingest_item = items[("server_ingest", "agent-default")]
+        self.assertTrue(ingest_item["available"])
+        self.assertEqual(ingest_item["last_status"], "ingested_updated")
+        self.assertEqual(ingest_item["last_seen_at"], ingest_log.created_at.isoformat().replace("+00:00", "Z"))
+
+        claim_item = items[("automation_claim", "runner-blue")]
+        self.assertEqual(claim_item["active_jobs"], 1)
+        self.assertEqual(claim_item["last_status"], "claimed")
+        self.assertEqual(claim_item["last_seen_at"], claim_log.created_at.isoformat().replace("+00:00", "Z"))
+
+        report_item = items[("automation_report", "runner-green")]
+        self.assertEqual(report_item["active_jobs"], 1)
+        self.assertEqual(report_item["last_status"], "reported_failed")
+        self.assertEqual(report_item["last_seen_at"], report_log.created_at.isoformat().replace("+00:00", "Z"))
+
+        idle_item = items[("automation_report", "runner-blue")]
+        self.assertEqual(idle_item["active_jobs"], 0)
+        self.assertIsNone(idle_item["last_seen_at"])
+        self.assertEqual(idle_item["last_status"], "")

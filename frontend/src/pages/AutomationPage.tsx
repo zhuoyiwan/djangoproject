@@ -6,7 +6,7 @@ import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { PaginationControls } from "../components/PaginationControls";
 import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
-import { cancelJob, createJob, getJobHandoff, getJobToolQuery, getJobs, requeueJob } from "../lib/api";
+import { bulkCancelJobs, bulkRequeueJobs, createJob, getJobHandoff, getJobToolQuery, getJobs } from "../lib/api";
 import { downloadCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime, formatDateTimeZhParts } from "../lib/format";
@@ -412,41 +412,24 @@ export function AutomationPage() {
 
     setBatchState("loading");
     setBatchSummary(`正在执行 ${selectedJobIds.length} 条任务的批量处理...`);
-
-    const selectedJobs = (jobPage?.results || []).filter((job) => selectedJobIds.includes(job.id));
-    let successCount = 0;
-    let skippedCount = 0;
-    let failCount = 0;
-
-    for (const job of selectedJobs) {
-      const allowed =
+    try {
+      const result =
         action === "cancel"
-          ? job.status === "ready" || job.status === "claimed"
-          : job.status === "claimed" || job.status === "failed";
-      if (!allowed) {
-        skippedCount += 1;
-        continue;
-      }
+          ? await bulkCancelJobs(baseUrl, accessToken, selectedJobIds, batchComment.trim() || "由工作台发起批量终止")
+          : await bulkRequeueJobs(baseUrl, accessToken, selectedJobIds, batchComment.trim() || "由工作台发起批量重调度");
 
-      try {
-        if (action === "cancel") {
-          await cancelJob(baseUrl, accessToken, job.id, batchComment.trim() || "由工作台发起批量终止。");
-        } else {
-          await requeueJob(baseUrl, accessToken, job.id, batchComment.trim() || "由工作台发起批量重调度。");
-        }
-        successCount += 1;
-      } catch {
-        failCount += 1;
+      const skippedCount = result.items.filter((item) => item.result === "skipped").length;
+      const refreshed = await refreshJobs();
+      if (refreshed) {
+        setSelectedJobId(refreshed.results[0]?.id ?? null);
       }
+      setSelectedJobIds([]);
+      setBatchState(result.failed ? "error" : "success");
+      setBatchSummary(`批量处理完成：成功 ${result.succeeded} 条，跳过 ${skippedCount} 条，失败 ${result.failed} 条。`);
+    } catch (error) {
+      setBatchState("error");
+      setBatchSummary(getUserFacingErrorMessage(error));
     }
-
-    const refreshed = await refreshJobs();
-    if (refreshed) {
-      setSelectedJobId(refreshed.results[0]?.id ?? null);
-    }
-    setSelectedJobIds([]);
-    setBatchState(failCount ? "error" : "success");
-    setBatchSummary(`批量处理完成：成功 ${successCount} 条，跳过 ${skippedCount} 条，失败 ${failCount} 条。`);
   }
 
   function handleExportJobs() {

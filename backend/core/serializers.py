@@ -60,3 +60,27 @@ class OverviewSummarySerializer(serializers.Serializer):
     status = serializers.CharField()
     request_id = serializers.CharField()
     summary = OverviewSummaryPayloadSerializer()
+
+
+class AgentRunnerItemSerializer(serializers.Serializer):
+    key_id = serializers.CharField()
+    channel = serializers.CharField()
+    feature_enabled = serializers.BooleanField()
+    configured = serializers.BooleanField()
+    available = serializers.BooleanField()
+    active_jobs = serializers.IntegerField()
+    last_seen_at = serializers.DateTimeField(allow_null=True)
+    last_status = serializers.CharField(allow_blank=True)
+
+
+class AgentRunnerSummarySerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    available = serializers.IntegerField()
+    unavailable = serializers.IntegerField()
+
+
+class AgentRunnerOverviewSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    request_id = serializers.CharField()
+    summary = AgentRunnerSummarySerializer()
+    items = AgentRunnerItemSerializer(many=True)

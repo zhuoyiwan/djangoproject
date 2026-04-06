@@ -22,10 +22,14 @@ from .models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from .serializers import (
     JobAgentClaimSerializer,
     JobAgentReportSerializer,
+    JobBulkActionResponseSerializer,
+    JobBulkActionSerializer,
+    JobCommentResponseSerializer,
     JobApprovalActionSerializer,
     JobClaimActionSerializer,
     JobCommentActionSerializer,
     JobSerializer,
+    JobTimelineResponseSerializer,
     JobToolQueryResponseSerializer,
     JobToolQuerySerializer,
     JobToolResultSerializer,
@@ -36,6 +40,23 @@ JOB_STATUS_VALUES = [choice for choice, _ in Job._meta.get_field("status").choic
 JOB_RISK_LEVEL_VALUES = [choice for choice, _ in Job._meta.get_field("risk_level").choices]
 JOB_APPROVAL_STATUS_VALUES = [choice for choice, _ in Job._meta.get_field("approval_status").choices]
 JOB_HANDOFF_STATUS_VALUES = [JobExecutionStatus.READY, JobExecutionStatus.CLAIMED]
+JOB_TIMELINE_LABELS = {
+    "automation.job.created": "任务创建",
+    "automation.job.updated": "任务更新",
+    "automation.job.deleted": "任务删除",
+    "automation.job.approval_requested": "发起审批",
+    "automation.job.approved": "审批通过",
+    "automation.job.rejected": "审批驳回",
+    "automation.job.marked_ready": "转入待执行",
+    "automation.job.claimed": "人工认领",
+    "automation.job.completed": "执行完成",
+    "automation.job.failed": "执行失败",
+    "automation.job.canceled": "终止任务",
+    "automation.job.requeued": "重新调度",
+    "automation.job.agent_claimed": "执行器认领",
+    "automation.job.agent_reported_completed": "执行器回传完成",
+    "automation.job.agent_reported_failed": "执行器回传失败",
+}
 
 
 class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
@@ -43,6 +64,10 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     throttle_scope_map = {
         "tool_query": "tool_query",
         "handoff": "handoff",
+        "timeline": "api_read",
+        "comments": "api_read",
+        "bulk_cancel": "execution_write",
+        "bulk_requeue": "execution_write",
         "approve": "approval_write",
         "reject": "approval_write",
         "mark_ready": "execution_write",
@@ -78,7 +103,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in {"approve", "reject"}:
             return [permissions.IsAuthenticated(), IsApproverOrPlatformAdmin()]
-        if self.action in {"mark_ready", "claim", "complete", "fail", "cancel", "requeue"}:
+        if self.action in {"mark_ready", "claim", "complete", "fail", "cancel", "requeue", "bulk_cancel", "bulk_requeue"}:
             return [permissions.IsAuthenticated(), IsOpsOrPlatformAdmin()]
         return [permission() for permission in self.permission_classes]
 
@@ -95,6 +120,86 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             target=self._job_target(job),
             detail={"request_id": self._request_id(), **detail},
         )
+
+    def _job_audit_logs(self, job):
+        return AuditLog.objects.select_related("actor").filter(target=self._job_target(job), action__startswith="automation.job.").order_by("created_at", "id")
+
+    def _audit_actor_payload(self, audit):
+        if audit.actor_id:
+            return "user", audit.actor.username
+        agent_key_id = audit.detail.get("agent_key_id", "")
+        if agent_key_id:
+            return "agent", agent_key_id
+        return "system", "system"
+
+    def _audit_summary(self, audit):
+        for field in ("comment", "approval_comment", "summary"):
+            value = audit.detail.get(field, "")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+
+    def _apply_bulk_execution_transition(self, request, job, action_name: str, comment: str):
+        now = timezone.now()
+        claimant_id = job.claimed_by_id
+
+        if action_name == "cancel":
+            if job.status not in {JobExecutionStatus.READY, JobExecutionStatus.CLAIMED}:
+                raise ValidationError({"status": ["Only ready or claimed jobs can be canceled."]})
+            if job.status == JobExecutionStatus.CLAIMED and claimant_id is not None and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+                raise PermissionDenied("Only the claimant or a platform admin can cancel a claimed job.")
+            job.status = JobExecutionStatus.CANCELED
+            audit_action = "automation.job.canceled"
+            extra_detail = {}
+        else:
+            if job.status not in {JobExecutionStatus.CLAIMED, JobExecutionStatus.FAILED}:
+                raise ValidationError({"status": ["Only claimed or failed jobs can be requeued."]})
+            if job.status == JobExecutionStatus.CLAIMED and claimant_id is not None and claimant_id != request.user.id and not request.user.groups.filter(name=ROLE_PLATFORM_ADMIN).exists():
+                raise PermissionDenied("Only the claimant or a platform admin can requeue a claimed job.")
+            job.status = JobExecutionStatus.READY
+            job.ready_by = request.user
+            job.ready_at = now
+            audit_action = "automation.job.requeued"
+            extra_detail = {"ready_by": job.ready_by_id}
+
+        if action_name == "cancel":
+            job.ready_by = None
+            job.ready_at = None
+        job.claimed_by = None
+        job.claimed_at = None
+        job.execution_summary = ""
+        job.execution_metadata = {}
+        job.assigned_agent_key_id = ""
+        job.last_reported_by_agent_key = ""
+        job.completed_at = None
+        job.failed_at = None
+        job.save(
+            update_fields=[
+                "status",
+                "ready_by",
+                "ready_at",
+                "claimed_by",
+                "claimed_at",
+                "execution_summary",
+                "execution_metadata",
+                "assigned_agent_key_id",
+                "last_reported_by_agent_key",
+                "completed_at",
+                "failed_at",
+                "updated_at",
+            ]
+        )
+        self._audit(
+            audit_action,
+            job,
+            risk_level=job.risk_level,
+            approval_status=job.approval_status,
+            status=job.status,
+            claimed_by=claimant_id,
+            comment=comment,
+            **extra_detail,
+        )
+        return job
 
     def _apply_risk_state(self, serializer):
         job = serializer.instance
@@ -191,6 +296,132 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             status=instance.status,
         )
         instance.delete()
+
+    @extend_schema(responses={200: JobTimelineResponseSerializer})
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, pk=None):
+        job = self.get_object()
+        items = []
+        for audit in self._job_audit_logs(job):
+            actor_type, actor_name = self._audit_actor_payload(audit)
+            items.append(
+                {
+                    "audit_id": audit.id,
+                    "action": audit.action,
+                    "label": JOB_TIMELINE_LABELS.get(audit.action, audit.action),
+                    "actor_type": actor_type,
+                    "actor_name": actor_name,
+                    "created_at": audit.created_at,
+                    "summary": self._audit_summary(audit),
+                    "detail": audit.detail,
+                }
+            )
+        return Response(
+            {
+                "ok": True,
+                "request_id": self._request_id(),
+                "job_id": job.id,
+                "total": len(items),
+                "items": items,
+            }
+        )
+
+    @extend_schema(responses={200: JobCommentResponseSerializer})
+    @action(detail=True, methods=["get"])
+    def comments(self, request, pk=None):
+        job = self.get_object()
+        items = []
+        for audit in self._job_audit_logs(job):
+            message = self._audit_summary(audit)
+            if not message:
+                continue
+            actor_type, actor_name = self._audit_actor_payload(audit)
+            items.append(
+                {
+                    "audit_id": audit.id,
+                    "action": audit.action,
+                    "label": JOB_TIMELINE_LABELS.get(audit.action, audit.action),
+                    "actor_type": actor_type,
+                    "actor_name": actor_name,
+                    "created_at": audit.created_at,
+                    "message": message,
+                }
+            )
+        return Response(
+            {
+                "ok": True,
+                "request_id": self._request_id(),
+                "job_id": job.id,
+                "total": len(items),
+                "items": items,
+            }
+        )
+
+    @extend_schema(
+        request=JobBulkActionSerializer,
+        responses={200: JobBulkActionResponseSerializer},
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-cancel")
+    def bulk_cancel(self, request):
+        return self._bulk_transition_execution(request, "cancel")
+
+    @extend_schema(
+        request=JobBulkActionSerializer,
+        responses={200: JobBulkActionResponseSerializer},
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-requeue")
+    def bulk_requeue(self, request):
+        return self._bulk_transition_execution(request, "requeue")
+
+    def _bulk_transition_execution(self, request, action_name: str):
+        serializer = JobBulkActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.validated_data.get("comment", "")
+
+        items = []
+        succeeded = 0
+        failed = 0
+        for job in self.get_queryset().filter(id__in=serializer.validated_data["ids"]).order_by("id"):
+            try:
+                updated_job = self._apply_bulk_execution_transition(request, job, action_name, comment)
+                items.append(
+                    {
+                        "id": updated_job.id,
+                        "status": updated_job.status,
+                        "result": "updated",
+                    }
+                )
+                succeeded += 1
+            except (ValidationError, PermissionDenied) as exc:
+                detail = exc.detail
+                if isinstance(detail, dict):
+                    error = "; ".join(
+                        f"{key}: {', '.join(str(item) for item in value)}" if isinstance(value, list) else f"{key}: {value}"
+                        for key, value in detail.items()
+                    )
+                else:
+                    error = str(detail)
+                items.append(
+                    {
+                        "id": job.id,
+                        "status": job.status,
+                        "result": "skipped",
+                        "error": error,
+                    }
+                )
+                failed += 1
+
+        return Response(
+            {
+                "ok": True,
+                "request_id": self._request_id(),
+                "action": action_name,
+                "total": len(serializer.validated_data["ids"]),
+                "succeeded": succeeded,
+                "failed": failed,
+                "items": items,
+            }
+        )
 
     def _transition_approval(self, request, pk, approved):
         job = self.get_object()

@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { getUserFacingErrorMessage } from "../lib/errors";
-import { getHealth, getOverviewSummary } from "../lib/api";
-import type { OverviewSummaryResponse, RequestState } from "../types";
+import { getAgentRunnerOverview, getHealth, getOverviewSummary } from "../lib/api";
+import type { AgentRunnerOverviewResponse, OverviewSummaryResponse, RequestState } from "../types";
 
 export function OverviewPage() {
   const { accessToken, baseUrl, capabilities, profile } = useAuth();
@@ -12,6 +12,7 @@ export function OverviewPage() {
   const [healthSummary, setHealthSummary] = useState("正在同步工作区服务状态...");
   const [overviewSummary, setOverviewSummary] = useState<OverviewSummaryResponse["summary"] | null>(null);
   const [overviewHint, setOverviewHint] = useState("正在汇总资产、任务与审计摘要...");
+  const [agentRunnerSummary, setAgentRunnerSummary] = useState<AgentRunnerOverviewResponse["summary"] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -21,9 +22,10 @@ export function OverviewPage() {
       setHealthSummary("正在同步工作区服务状态...");
       setOverviewHint("正在汇总资产、任务与审计摘要...");
       try {
-        const [healthResponse, summaryResponse] = await Promise.all([
+        const [healthResponse, summaryResponse, runnerResponse] = await Promise.all([
           getHealth(baseUrl),
           accessToken ? getOverviewSummary(baseUrl, accessToken) : Promise.resolve(null),
+          accessToken ? getAgentRunnerOverview(baseUrl, accessToken) : Promise.resolve(null),
         ]);
         if (!active) {
           return;
@@ -44,6 +46,12 @@ export function OverviewPage() {
           setOverviewSummary(null);
           setOverviewHint("登录后可加载当前工作区的聚合统计信息。");
         }
+
+        if (runnerResponse) {
+          setAgentRunnerSummary(runnerResponse.summary);
+        } else {
+          setAgentRunnerSummary(null);
+        }
       } catch (error) {
         if (!active) {
           return;
@@ -51,6 +59,7 @@ export function OverviewPage() {
         setHealthState("error");
         setHealthSummary(getUserFacingErrorMessage(error));
         setOverviewHint(getUserFacingErrorMessage(error));
+        setAgentRunnerSummary(null);
       }
     }
 
@@ -87,7 +96,10 @@ export function OverviewPage() {
             <strong>
               {overviewSummary ? `${overviewSummary.servers.total} 台资产 / ${overviewSummary.automation.total} 个任务` : "等待汇总"}
             </strong>
-            <small>{overviewHint}</small>
+            <small>
+              {overviewHint}
+              {agentRunnerSummary ? ` 当前执行器通道 ${agentRunnerSummary.available}/${agentRunnerSummary.total} 可用。` : ""}
+            </small>
           </BorderGlow>
         </div>
 

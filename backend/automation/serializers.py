@@ -172,3 +172,62 @@ class JobToolQueryResponseSerializer(serializers.Serializer):
     items = JobToolResultSerializer(many=True)
 
 
+class JobTimelineEntrySerializer(serializers.Serializer):
+    audit_id = serializers.IntegerField()
+    action = serializers.CharField()
+    label = serializers.CharField()
+    actor_type = serializers.CharField()
+    actor_name = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    summary = serializers.CharField(allow_blank=True)
+    detail = serializers.JSONField()
+
+
+class JobTimelineResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    job_id = serializers.IntegerField()
+    total = serializers.IntegerField()
+    items = JobTimelineEntrySerializer(many=True)
+
+
+class JobCommentEntrySerializer(serializers.Serializer):
+    audit_id = serializers.IntegerField()
+    action = serializers.CharField()
+    label = serializers.CharField()
+    actor_type = serializers.CharField()
+    actor_name = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    message = serializers.CharField()
+
+
+class JobCommentResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    job_id = serializers.IntegerField()
+    total = serializers.IntegerField()
+    items = JobCommentEntrySerializer(many=True)
+
+
+class JobBulkActionSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+    comment = serializers.CharField(required=False, allow_blank=True)
+
+
+class JobBulkActionResultSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    result = serializers.CharField()
+    error = serializers.CharField(required=False, allow_blank=True)
+
+
+class JobBulkActionResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    request_id = serializers.CharField()
+    action = serializers.CharField()
+    total = serializers.IntegerField()
+    succeeded = serializers.IntegerField()
+    failed = serializers.IntegerField()
+    items = JobBulkActionResultSerializer(many=True)
+
+

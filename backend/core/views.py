@@ -14,7 +14,7 @@ from audit.models import AuditLog
 from automation.models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from cmdb.models import Server, ServerLifecycleStatus
 
-from .serializers import HealthcheckSerializer, OverviewSummarySerializer
+from .serializers import AgentRunnerOverviewSerializer, HealthcheckSerializer, OverviewSummarySerializer
 
 
 class HealthcheckView(generics.GenericAPIView):
@@ -32,6 +32,15 @@ class OverviewSummaryView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         payload = build_overview_summary_payload(getattr(request, "request_id", ""))
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class AgentRunnerOverviewView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AgentRunnerOverviewSerializer
+
+    def get(self, request, *args, **kwargs):
+        payload = build_agent_runner_overview_payload(getattr(request, "request_id", ""))
         return Response(payload, status=status.HTTP_200_OK)
 
 
@@ -133,3 +142,160 @@ def build_overview_summary_payload(request_id: str):
         },
     }
     return payload
+
+
+def build_agent_runner_overview_payload(request_id: str):
+    items = []
+    items.extend(_build_agent_channel_items())
+    items.extend(_build_claim_runner_items())
+    items.extend(_build_report_runner_items())
+
+    summary = {
+        "total": len(items),
+        "available": sum(1 for item in items if item["available"]),
+        "unavailable": sum(1 for item in items if not item["available"]),
+    }
+
+    return {
+        "status": "ok",
+        "request_id": request_id,
+        "summary": summary,
+        "items": items,
+    }
+
+
+def _build_agent_channel_items():
+    key_id = getattr(settings, "AGENT_INGEST_HMAC_KEY_ID", "").strip()
+    secret = getattr(settings, "AGENT_INGEST_HMAC_SECRET", "").strip()
+    if not key_id:
+        return []
+
+    latest_log = (
+        AuditLog.objects.filter(action="server.agent_ingested", detail__agent_key_id=key_id)
+        .order_by("-created_at", "-id")
+        .first()
+    )
+
+    return [
+        {
+            "key_id": key_id,
+            "channel": "server_ingest",
+            "feature_enabled": settings.AGENT_INGEST_ENABLED,
+            "configured": bool(secret),
+            "available": settings.AGENT_INGEST_ENABLED and bool(secret),
+            "active_jobs": 0,
+            "last_seen_at": latest_log.created_at if latest_log else None,
+            "last_status": _build_server_ingest_status(latest_log),
+        }
+    ]
+
+
+def _build_claim_runner_items():
+    return _build_runner_items(
+        channel="automation_claim",
+        feature_enabled=settings.AUTOMATION_AGENT_CLAIM_ENABLED,
+        configured_keys=_resolve_agent_key_configs(
+            getattr(settings, "AUTOMATION_AGENT_CLAIM_HMAC_KEYS", {}),
+            getattr(settings, "AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID", ""),
+            getattr(settings, "AUTOMATION_AGENT_CLAIM_HMAC_SECRET", ""),
+        ),
+        audit_actions=["automation.job.agent_claimed"],
+        active_jobs_by_key=_active_claim_counts(),
+    )
+
+
+def _build_report_runner_items():
+    return _build_runner_items(
+        channel="automation_report",
+        feature_enabled=settings.AUTOMATION_AGENT_REPORT_ENABLED,
+        configured_keys=_resolve_agent_key_configs(
+            getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEYS", {}),
+            getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_KEY_ID", ""),
+            getattr(settings, "AUTOMATION_AGENT_REPORT_HMAC_SECRET", ""),
+        ),
+        audit_actions=["automation.job.agent_reported_completed", "automation.job.agent_reported_failed"],
+        active_jobs_by_key=_active_report_counts(),
+    )
+
+
+def _build_runner_items(channel: str, feature_enabled: bool, configured_keys: dict[str, bool], audit_actions: list[str], active_jobs_by_key: dict[str, int]):
+    items = []
+    for key_id, is_configured in configured_keys.items():
+        latest_log = (
+            AuditLog.objects.filter(action__in=audit_actions, detail__agent_key_id=key_id)
+            .order_by("-created_at", "-id")
+            .first()
+        )
+        items.append(
+            {
+                "key_id": key_id,
+                "channel": channel,
+                "feature_enabled": feature_enabled,
+                "configured": is_configured,
+                "available": feature_enabled and is_configured,
+                "active_jobs": active_jobs_by_key.get(key_id, 0),
+                "last_seen_at": latest_log.created_at if latest_log else None,
+                "last_status": _build_runner_status(latest_log),
+            }
+        )
+    return items
+
+
+def _resolve_agent_key_configs(configured_map: dict[str, str] | None, fallback_key_id: str, fallback_secret: str):
+    normalized = {
+        key_id.strip(): bool(secret.strip())
+        for key_id, secret in (configured_map or {}).items()
+        if key_id.strip()
+    }
+    if normalized:
+        return normalized
+    fallback_key_id = fallback_key_id.strip()
+    if fallback_key_id:
+        normalized[fallback_key_id] = bool(fallback_secret.strip())
+    return normalized
+
+
+def _active_claim_counts():
+    rows = (
+        Job.objects.filter(status=JobExecutionStatus.CLAIMED)
+        .exclude(assigned_agent_key_id="")
+        .values("assigned_agent_key_id")
+    )
+    counts = {}
+    for row in rows:
+        key_id = row["assigned_agent_key_id"]
+        counts[key_id] = counts.get(key_id, 0) + 1
+    return counts
+
+
+def _active_report_counts():
+    rows = (
+        Job.objects.exclude(last_reported_by_agent_key="")
+        .values("last_reported_by_agent_key")
+    )
+    counts = {}
+    for row in rows:
+        key_id = row["last_reported_by_agent_key"]
+        counts[key_id] = counts.get(key_id, 0) + 1
+    return counts
+
+
+def _build_server_ingest_status(latest_log: AuditLog | None):
+    if latest_log is None:
+        return ""
+    result = latest_log.detail.get("result", "")
+    if result:
+        return f"ingested_{result}"
+    return "ingested"
+
+
+def _build_runner_status(latest_log: AuditLog | None):
+    if latest_log is None:
+        return ""
+    if latest_log.action.endswith("agent_claimed"):
+        return "claimed"
+    if latest_log.action.endswith("agent_reported_completed"):
+        return "reported_completed"
+    if latest_log.action.endswith("agent_reported_failed"):
+        return "reported_failed"
+    return latest_log.action.rsplit(".", 1)[-1]

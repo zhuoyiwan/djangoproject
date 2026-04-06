@@ -137,6 +137,28 @@ export type OverviewSummaryResponse = {
   };
 };
 
+export type AgentRunnerItem = {
+  key_id: string;
+  channel: "server_ingest" | "automation_claim" | "automation_report";
+  feature_enabled: boolean;
+  configured: boolean;
+  available: boolean;
+  active_jobs: number;
+  last_seen_at: string | null;
+  last_status: string;
+};
+
+export type AgentRunnerOverviewResponse = {
+  status: "ok";
+  request_id: string;
+  summary: {
+    total: number;
+    available: number;
+    unavailable: number;
+  };
+  items: AgentRunnerItem[];
+};
+
 export type JobExecutionStatus =
   | "draft"
   | "awaiting_approval"
@@ -190,6 +212,44 @@ export type ServerCreateInput = {
 };
 
 export type ServerUpdateInput = ServerCreateInput;
+
+export type ServerBulkImportItem = {
+  hostname: string;
+  internal_ip: string;
+  external_ip?: string | null;
+  os_version: string;
+  cpu_cores: number;
+  memory_gb: string;
+  disk_summary?: string;
+  lifecycle_status: ServerRecord["lifecycle_status"];
+  environment: ServerRecord["environment"];
+  idc: number;
+  source?: ServerRecord["source"];
+  last_seen_at?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type ServerBulkImportResponse = {
+  ok: boolean;
+  request_id: string;
+  total: number;
+  created: number;
+  updated: number;
+  items: Array<{
+    id: number;
+    hostname: string;
+    internal_ip: string;
+    result: "created" | "updated";
+  }>;
+};
+
+export type ServerBulkLifecycleResponse = {
+  ok: boolean;
+  request_id: string;
+  total: number;
+  lifecycle_status: ServerRecord["lifecycle_status"];
+  updated: number;
+};
 
 export type ServerToolQuery = {
   q?: string;
@@ -375,6 +435,58 @@ export type JobCreateInput = {
   status: JobExecutionStatus;
   risk_level: "low" | "medium" | "high";
   payload: Record<string, unknown>;
+};
+
+export type JobTimelineEntry = {
+  audit_id: number;
+  action: string;
+  label: string;
+  actor_type: "user" | "agent" | "system";
+  actor_name: string;
+  created_at: string;
+  summary: string;
+  detail: Record<string, unknown>;
+};
+
+export type JobTimelineResponse = {
+  ok: boolean;
+  request_id: string;
+  job_id: number;
+  total: number;
+  items: JobTimelineEntry[];
+};
+
+export type JobCommentEntry = {
+  audit_id: number;
+  action: string;
+  label: string;
+  actor_type: "user" | "agent" | "system";
+  actor_name: string;
+  created_at: string;
+  message: string;
+};
+
+export type JobCommentResponse = {
+  ok: boolean;
+  request_id: string;
+  job_id: number;
+  total: number;
+  items: JobCommentEntry[];
+};
+
+export type JobBulkActionResponse = {
+  ok: boolean;
+  request_id: string;
+  action: "cancel" | "requeue";
+  total: number;
+  succeeded: number;
+  failed: number;
+  items: Array<{
+    id: number;
+    status: JobExecutionStatus;
+    result: "updated" | "skipped";
+    error?: string;
+  }>;
 };
 
 export type AuditLogRecord = {

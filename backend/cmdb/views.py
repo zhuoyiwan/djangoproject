@@ -18,6 +18,10 @@ from .serializers import (
     IDCToolQuerySerializer,
     IDCToolResultSerializer,
     ServerSerializer,
+    ServerBulkImportResponseSerializer,
+    ServerBulkImportSerializer,
+    ServerBulkLifecycleUpdateResponseSerializer,
+    ServerBulkLifecycleUpdateSerializer,
     ServerToolQueryResponseSerializer,
     ServerToolQuerySerializer,
     ServerToolResultSerializer,
@@ -162,6 +166,147 @@ class ServerViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             },
         )
         instance.delete()
+
+    @extend_schema(
+        request=ServerBulkImportSerializer,
+        responses={
+            200: ServerBulkImportResponseSerializer,
+            400: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Validation error"),
+            401: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Authentication required"),
+            403: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Forbidden"),
+        },
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-import")
+    def bulk_import(self, request):
+        serializer = ServerBulkImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        items = []
+        created_count = 0
+        updated_count = 0
+        for item_data in serializer.validated_data["items"]:
+            defaults = {
+                "external_ip": item_data.get("external_ip"),
+                "os_version": item_data["os_version"],
+                "cpu_cores": item_data["cpu_cores"],
+                "memory_gb": item_data["memory_gb"],
+                "disk_summary": item_data.get("disk_summary", ""),
+                "lifecycle_status": item_data["lifecycle_status"],
+                "environment": item_data["environment"],
+                "idc": item_data["idc"],
+                "source": item_data.get("source"),
+                "last_seen_at": item_data.get("last_seen_at"),
+                "metadata": item_data.get("metadata", {}),
+            }
+            server, created = Server.objects.update_or_create(
+                hostname=item_data["hostname"],
+                internal_ip=item_data["internal_ip"],
+                defaults=defaults,
+            )
+            items.append(
+                {
+                    "id": server.id,
+                    "hostname": server.hostname,
+                    "internal_ip": server.internal_ip,
+                    "result": "created" if created else "updated",
+                }
+            )
+            if created:
+                created_count += 1
+                action = "server.created"
+            else:
+                updated_count += 1
+                action = "server.updated"
+            AuditLog.objects.create(
+                actor=request.user,
+                action=action,
+                target=f"{server.hostname}@{server.internal_ip}",
+                detail={
+                    "request_id": getattr(request, "request_id", ""),
+                    "hostname": server.hostname,
+                    "internal_ip": str(server.internal_ip),
+                    "environment": server.environment,
+                    "lifecycle_status": server.lifecycle_status,
+                    "source": "bulk_import",
+                },
+            )
+
+        AuditLog.objects.create(
+            actor=request.user,
+            action="server.bulk_imported",
+            target=f"count:{len(items)}",
+            detail={
+                "request_id": getattr(request, "request_id", ""),
+                "total": len(items),
+                "created": created_count,
+                "updated": updated_count,
+            },
+        )
+        return Response(
+            {
+                "ok": True,
+                "request_id": getattr(request, "request_id", ""),
+                "total": len(items),
+                "created": created_count,
+                "updated": updated_count,
+                "items": items,
+            }
+        )
+
+    @extend_schema(
+        request=ServerBulkLifecycleUpdateSerializer,
+        responses={
+            200: ServerBulkLifecycleUpdateResponseSerializer,
+            400: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Validation error"),
+            401: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Authentication required"),
+            403: OpenApiResponse(response=OpenApiTypes.OBJECT, description="Forbidden"),
+        },
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-lifecycle")
+    def bulk_lifecycle(self, request):
+        serializer = ServerBulkLifecycleUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        servers = list(self.get_queryset().filter(id__in=serializer.validated_data["ids"]))
+        updated_count = 0
+        for server in servers:
+            server.lifecycle_status = serializer.validated_data["lifecycle_status"]
+            server.save(update_fields=["lifecycle_status", "updated_at"])
+            updated_count += 1
+            AuditLog.objects.create(
+                actor=request.user,
+                action="server.updated",
+                target=f"{server.hostname}@{server.internal_ip}",
+                detail={
+                    "request_id": getattr(request, "request_id", ""),
+                    "hostname": server.hostname,
+                    "internal_ip": str(server.internal_ip),
+                    "environment": server.environment,
+                    "lifecycle_status": server.lifecycle_status,
+                    "source": "bulk_lifecycle",
+                },
+            )
+
+        AuditLog.objects.create(
+            actor=request.user,
+            action="server.bulk_lifecycle_updated",
+            target=f"count:{updated_count}",
+            detail={
+                "request_id": getattr(request, "request_id", ""),
+                "ids": serializer.validated_data["ids"],
+                "lifecycle_status": serializer.validated_data["lifecycle_status"],
+                "updated": updated_count,
+            },
+        )
+        return Response(
+            {
+                "ok": True,
+                "request_id": getattr(request, "request_id", ""),
+                "total": len(serializer.validated_data["ids"]),
+                "lifecycle_status": serializer.validated_data["lifecycle_status"],
+                "updated": updated_count,
+            }
+        )
 
     @extend_schema(
         request=AgentServerIngestSerializer,

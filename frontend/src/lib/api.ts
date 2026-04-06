@@ -3,6 +3,7 @@ import type {
   AuditQuery,
   AuditToolQuery,
   AuditToolQueryResponse,
+  AgentRunnerOverviewResponse,
   HealthResponse,
   IDCListQuery,
   IDCMutationInput,
@@ -14,14 +15,20 @@ import type {
   AuthTokens,
   RegisterInput,
   JobCreateInput,
+  JobBulkActionResponse,
+  JobCommentResponse,
   JobHandoffQuery,
   JobHandoffResponse,
   JobQuery,
   JobRecord,
+  JobTimelineResponse,
   JobToolQuery,
   JobToolQueryResponse,
   PaginatedResponse,
   ServerCreateInput,
+  ServerBulkImportItem,
+  ServerBulkImportResponse,
+  ServerBulkLifecycleResponse,
   ServerQuery,
   ServerRecord,
   ServerToolQuery,
@@ -132,6 +139,10 @@ export async function getHealth(baseUrl: string) {
 
 export async function getOverviewSummary(baseUrl: string, token: string) {
   return request<OverviewSummaryResponse>(baseUrl, `${API_PREFIX}/overview/summary/`, {}, token);
+}
+
+export async function getAgentRunnerOverview(baseUrl: string, token: string) {
+  return request<AgentRunnerOverviewResponse>(baseUrl, `${API_PREFIX}/agents/runners/`, {}, token);
 }
 
 export async function getIDCToolQuery(baseUrl: string, token: string, query: IDCToolQuery) {
@@ -311,6 +322,35 @@ export async function updateServer(
   );
 }
 
+export async function bulkImportServers(baseUrl: string, token: string, items: ServerBulkImportItem[]) {
+  return request<ServerBulkImportResponse>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/bulk-import/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    },
+    token,
+  );
+}
+
+export async function bulkUpdateServerLifecycle(
+  baseUrl: string,
+  token: string,
+  ids: number[],
+  lifecycle_status: ServerRecord["lifecycle_status"],
+) {
+  return request<ServerBulkLifecycleResponse>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/bulk-lifecycle/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ ids, lifecycle_status }),
+    },
+    token,
+  );
+}
+
 export async function deleteServer(baseUrl: string, token: string, serverId: number) {
   return request<void>(
     baseUrl,
@@ -342,6 +382,14 @@ export async function getJobs(baseUrl: string, token: string, query: JobQuery) {
 
 export async function getJob(baseUrl: string, token: string, jobId: number) {
   return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/`, {}, token);
+}
+
+export async function getJobTimeline(baseUrl: string, token: string, jobId: number) {
+  return request<JobTimelineResponse>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/timeline/`, {}, token);
+}
+
+export async function getJobComments(baseUrl: string, token: string, jobId: number) {
+  return request<JobCommentResponse>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/comments/`, {}, token);
 }
 
 export async function getJobToolQuery(baseUrl: string, token: string, query: JobToolQuery) {
@@ -434,6 +482,30 @@ export async function cancelJob(baseUrl: string, token: string, jobId: number, c
 
 export async function requeueJob(baseUrl: string, token: string, jobId: number, comment: string) {
   return postJobAction(baseUrl, token, jobId, "requeue", { comment });
+}
+
+export async function bulkCancelJobs(baseUrl: string, token: string, ids: number[], comment: string) {
+  return request<JobBulkActionResponse>(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/bulk-cancel/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ ids, comment }),
+    },
+    token,
+  );
+}
+
+export async function bulkRequeueJobs(baseUrl: string, token: string, ids: number[], comment: string) {
+  return request<JobBulkActionResponse>(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/bulk-requeue/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ ids, comment }),
+    },
+    token,
+  );
 }
 
 export async function getAuditLogs(baseUrl: string, token: string, query: AuditQuery) {
