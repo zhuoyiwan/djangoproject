@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { AnimatedCharactersLoginArt } from "../components/AnimatedCharactersLoginArt";
+import { confirmPasswordReset, requestPasswordReset } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 
 export function LoginPage() {
@@ -32,6 +33,16 @@ export function LoginPage() {
   const [registerPasswordVisible, setRegisterPasswordVisible] = useState(false);
   const [registerSummary, setRegisterSummary] = useState("");
   const [registerState, setRegisterState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [passwordAssistOpen, setPasswordAssistOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<"request" | "confirm">("request");
+  const [resetAccount, setResetAccount] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
+  const [resetPasswordVisible, setResetPasswordVisible] = useState(false);
+  const [resetConfirmPasswordVisible, setResetConfirmPasswordVisible] = useState(false);
+  const [resetSummary, setResetSummary] = useState("");
+  const [resetState, setResetState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [focusPulse, setFocusPulse] = useState(0);
   const [fieldFocused, setFieldFocused] = useState(false);
 
@@ -69,6 +80,18 @@ export function LoginPage() {
     setRegisterSummary("");
   }
 
+  function resetPasswordAssistForm() {
+    setResetStep("request");
+    setResetAccount("");
+    setResetToken("");
+    setResetPassword("");
+    setResetPasswordConfirm("");
+    setResetPasswordVisible(false);
+    setResetConfirmPasswordVisible(false);
+    setResetState("idle");
+    setResetSummary("");
+  }
+
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -96,6 +119,54 @@ export function LoginPage() {
     } catch (error) {
       setRegisterState("error");
       setRegisterSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handlePasswordResetRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResetState("loading");
+    setResetSummary("正在提交重置申请");
+
+    try {
+      const response = await requestPasswordReset(baseUrl, { account: resetAccount.trim() });
+      setResetState("success");
+      setResetStep("confirm");
+      if (response.reset_token) {
+        setResetToken(response.reset_token);
+        setResetSummary("已生成重置令牌，请继续设置新密码");
+      } else {
+        setResetSummary("重置指引已发送，请录入令牌后继续");
+      }
+    } catch (error) {
+      setResetState("error");
+      setResetSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handlePasswordResetConfirm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (resetPassword !== resetPasswordConfirm) {
+      setResetState("error");
+      setResetSummary("两次输入的新密码不一致，请重新确认");
+      return;
+    }
+
+    setResetState("loading");
+    setResetSummary("正在重置登录密码");
+
+    try {
+      await confirmPasswordReset(baseUrl, {
+        token: resetToken.trim(),
+        new_password: resetPassword,
+      });
+      setResetState("success");
+      setResetSummary("密码已更新，请返回登录页使用新密码登录");
+      setResetPassword("");
+      setResetPasswordConfirm("");
+    } catch (error) {
+      setResetState("error");
+      setResetSummary(getUserFacingErrorMessage(error));
     }
   }
 
@@ -172,13 +243,23 @@ export function LoginPage() {
                     <button
                       aria-label={passwordVisible ? "隐藏密码" : "显示密码"}
                       className="password-toggle-icon"
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setPasswordVisible((current) => !current)}
                       type="button"
                     >
                       {passwordVisible ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
                     </button>
                   </span>
-                  <small className="field-hint">演示密码：FrontendDemo123!</small>
+                  <div className="login-password-meta">
+                    <small className="field-hint">演示密码：FrontendDemo123!</small>
+                    <button
+                      className="button-link login-text-action"
+                      type="button"
+                      onClick={() => setPasswordAssistOpen(true)}
+                    >
+                      忘记密码
+                    </button>
+                  </div>
                 </label>
 
                 <div className="actions login-modern-actions">
@@ -330,6 +411,7 @@ export function LoginPage() {
                   <button
                     aria-label={registerPasswordVisible ? "隐藏密码" : "显示密码"}
                     className="password-toggle-icon"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => setRegisterPasswordVisible((current) => !current)}
                     type="button"
                   >
@@ -365,6 +447,127 @@ export function LoginPage() {
             </form>
 
             {registerState !== "idle" ? <p className={`status ${registerState}`}>{registerSummary}</p> : null}
+          </BorderGlow>
+        </div>
+      ) : null}
+
+      {passwordAssistOpen ? (
+        <div
+          className="auth-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            setPasswordAssistOpen(false);
+            resetPasswordAssistForm();
+          }}
+        >
+          <BorderGlow
+            as="section"
+            className="panel auth-modal-card login-password-assist-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-heading login-register-heading">
+              <h2>{resetStep === "request" ? "重置密码" : "设置新密码"}</h2>
+              <p>
+                {resetStep === "request"
+                  ? "提交账号标识后继续完成密码重置"
+                  : "录入重置令牌并设置新的平台登录密码"}
+              </p>
+            </div>
+
+            {resetStep === "request" ? (
+              <form className="stack-grid login-register-form" onSubmit={handlePasswordResetRequest}>
+                <label className="field">
+                  <span>账号或邮箱</span>
+                  <input
+                    placeholder="请输入平台账号或邮箱"
+                    value={resetAccount}
+                    onChange={(event) => setResetAccount(event.target.value)}
+                  />
+                </label>
+
+                <div className="actions login-register-actions">
+                  <button type="submit">发送重置指引</button>
+                  <button
+                    className="button-ghost"
+                    type="button"
+                    onClick={() => {
+                      setPasswordAssistOpen(false);
+                      resetPasswordAssistForm();
+                    }}
+                  >
+                    取消
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form className="stack-grid login-register-form" onSubmit={handlePasswordResetConfirm}>
+                <label className="field">
+                  <span>重置令牌</span>
+                  <textarea
+                    className="login-token-field"
+                    placeholder="请输入重置令牌"
+                    rows={4}
+                    value={resetToken}
+                    onChange={(event) => setResetToken(event.target.value)}
+                  />
+                </label>
+
+                <label className="field">
+                  <span>新密码</span>
+                  <span className="password-field">
+                    <input
+                      autoComplete="new-password"
+                      className="password-input"
+                      placeholder="请输入新的登录密码"
+                      type={resetPasswordVisible ? "text" : "password"}
+                      value={resetPassword}
+                      onChange={(event) => setResetPassword(event.target.value)}
+                    />
+                    <button
+                      aria-label={resetPasswordVisible ? "隐藏密码" : "显示密码"}
+                      className="password-toggle-icon"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setResetPasswordVisible((current) => !current)}
+                      type="button"
+                    >
+                      {resetPasswordVisible ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                    </button>
+                  </span>
+                </label>
+
+                <label className="field">
+                  <span>确认新密码</span>
+                  <span className="password-field">
+                    <input
+                      autoComplete="new-password"
+                      className="password-input"
+                      placeholder="请再次输入新的登录密码"
+                      type={resetConfirmPasswordVisible ? "text" : "password"}
+                      value={resetPasswordConfirm}
+                      onChange={(event) => setResetPasswordConfirm(event.target.value)}
+                    />
+                    <button
+                      aria-label={resetConfirmPasswordVisible ? "隐藏密码" : "显示密码"}
+                      className="password-toggle-icon"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setResetConfirmPasswordVisible((current) => !current)}
+                      type="button"
+                    >
+                      {resetConfirmPasswordVisible ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                    </button>
+                  </span>
+                </label>
+
+                <div className="actions login-register-actions">
+                  <button type="submit">更新密码</button>
+                  <button className="button-ghost" type="button" onClick={() => setResetStep("request")}>
+                    返回上一步
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {resetState !== "idle" ? <p className={`status ${resetState}`}>{resetSummary}</p> : null}
           </BorderGlow>
         </div>
       ) : null}

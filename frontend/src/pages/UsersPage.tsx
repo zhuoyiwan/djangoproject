@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect } from "../components/GlassSelect";
@@ -47,6 +48,8 @@ export function UsersPage() {
   const [editState, setEditState] = useState<RequestState>("idle");
   const [editSummary, setEditSummary] = useState("选择账号后可维护显示名称、联系方式与启用状态。");
   const [passwordDraft, setPasswordDraft] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [passwordFieldActive, setPasswordFieldActive] = useState(false);
   const [passwordState, setPasswordState] = useState<RequestState>("idle");
   const [passwordSummary, setPasswordSummary] = useState("如需重置账号密码，可在此输入新的平台登录密码。");
   const userAccessToken = capabilities.canManageUsers ? accessToken : "";
@@ -122,6 +125,8 @@ export function UsersPage() {
       setEditForm(emptyEditForm);
       setSelectedRoles([]);
       setPasswordDraft("");
+      setPasswordVisible(false);
+      setPasswordFieldActive(false);
       return;
     }
 
@@ -138,8 +143,10 @@ export function UsersPage() {
     setRoleState("idle");
     setRoleSummary("角色配置已同步，可继续调整权限分配。");
     setPasswordState("idle");
-    setPasswordSummary("可在此重置账号登录密码。");
+    setPasswordSummary("用于更新目标账号的登录凭据");
     setPasswordDraft("");
+    setPasswordVisible(false);
+    setPasswordFieldActive(false);
   }, [selectedUser]);
 
   const roleOptions = useMemo(
@@ -166,6 +173,15 @@ export function UsersPage() {
     setSelectedRoles((current) =>
       current.includes(roleName) ? current.filter((item) => item !== roleName) : [...current, roleName],
     );
+  }
+
+  function handlePasswordFieldBlur() {
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (!(activeElement instanceof HTMLElement) || !activeElement.closest("[data-user-reset-password-field='true']")) {
+        setPasswordFieldActive(false);
+      }
+    });
   }
 
   async function syncUserAfterMutation(userId: number) {
@@ -230,6 +246,8 @@ export function UsersPage() {
     try {
       await resetUserPassword(baseUrl, userAccessToken, selectedUser.id, { password: passwordDraft });
       setPasswordDraft("");
+      setPasswordVisible(false);
+      setPasswordFieldActive(false);
       setPasswordState("success");
       setPasswordSummary(`账号 ${selectedUser.username} 的登录密码已重置。`);
     } catch (error) {
@@ -413,13 +431,27 @@ export function UsersPage() {
               <div className="stack-grid">
                 <label className="field">
                   <span>新密码</span>
-                  <input
-                    autoComplete="new-password"
-                    placeholder="请输入新的平台登录密码"
-                    type="password"
-                    value={passwordDraft}
-                    onChange={(event) => setPasswordDraft(event.target.value)}
-                  />
+                  <span className="password-field" data-user-reset-password-field="true">
+                    <input
+                      autoComplete="new-password"
+                      className="password-input"
+                      placeholder="请输入新的平台登录密码"
+                      type={passwordVisible ? "text" : "password"}
+                      value={passwordDraft}
+                      onBlur={handlePasswordFieldBlur}
+                      onChange={(event) => setPasswordDraft(event.target.value)}
+                      onFocus={() => setPasswordFieldActive(true)}
+                    />
+                    <button
+                      aria-label={passwordVisible ? "隐藏密码" : "显示密码"}
+                      className={`password-toggle-icon${passwordFieldActive ? " is-visible" : ""}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setPasswordVisible((current) => !current)}
+                      type="button"
+                    >
+                      {passwordVisible ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                    </button>
+                  </span>
                 </label>
                 <div className="actions">
                   <button onClick={() => void handleResetPassword()} type="button">

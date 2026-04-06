@@ -36,6 +36,30 @@ export type AuthRefreshTokens = {
   refresh?: string;
 };
 
+export type AuthActionResponse = {
+  ok: boolean;
+  request_id: string;
+  message: string;
+};
+
+export type ChangePasswordInput = {
+  current_password: string;
+  new_password: string;
+};
+
+export type PasswordResetRequestInput = {
+  account: string;
+};
+
+export type PasswordResetRequestResponse = AuthActionResponse & {
+  reset_token?: string;
+};
+
+export type PasswordResetConfirmInput = {
+  token: string;
+  new_password: string;
+};
+
 export type RegisterInput = {
   username: string;
   email?: string;
@@ -157,6 +181,28 @@ export type AgentRunnerOverviewResponse = {
     unavailable: number;
   };
   items: AgentRunnerItem[];
+};
+
+export type ContractHighlight = {
+  title: string;
+  body: string;
+};
+
+export type ContractEndpointGroup = {
+  label: string;
+  items: string[];
+};
+
+export type ContractWorkbenchResponse = {
+  status: "ok";
+  request_id: string;
+  docs: {
+    schema_path: string;
+    swagger_path: string;
+    redoc_path: string;
+  };
+  highlights: ContractHighlight[];
+  endpoint_groups: ContractEndpointGroup[];
 };
 
 export type JobExecutionStatus =

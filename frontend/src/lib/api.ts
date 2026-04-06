@@ -4,6 +4,7 @@ import type {
   AuditToolQuery,
   AuditToolQueryResponse,
   AgentRunnerOverviewResponse,
+  ContractWorkbenchResponse,
   HealthResponse,
   IDCListQuery,
   IDCMutationInput,
@@ -11,9 +12,14 @@ import type {
   IDCToolQuery,
   IDCToolQueryResponse,
   ApiErrorShape,
+  AuthActionResponse,
   AuthRefreshTokens,
   AuthTokens,
+  ChangePasswordInput,
   RegisterInput,
+  PasswordResetConfirmInput,
+  PasswordResetRequestInput,
+  PasswordResetRequestResponse,
   JobCreateInput,
   JobBulkActionResponse,
   JobCommentResponse,
@@ -145,6 +151,10 @@ export async function getAgentRunnerOverview(baseUrl: string, token: string) {
   return request<AgentRunnerOverviewResponse>(baseUrl, `${API_PREFIX}/agents/runners/`, {}, token);
 }
 
+export async function getContractWorkbench(baseUrl: string, token: string) {
+  return request<ContractWorkbenchResponse>(baseUrl, `${API_PREFIX}/contract/workbench/`, {}, token);
+}
+
 export async function getIDCToolQuery(baseUrl: string, token: string, query: IDCToolQuery) {
   return request<IDCToolQueryResponse>(
     baseUrl,
@@ -181,6 +191,44 @@ export async function refreshAccessToken(baseUrl: string, refresh: string) {
   return request<AuthRefreshTokens>(baseUrl, `${API_PREFIX}/auth/refresh/`, {
     method: "POST",
     body: JSON.stringify({ refresh }),
+  });
+}
+
+export async function logout(baseUrl: string, token: string, refresh: string) {
+  return request<AuthActionResponse>(
+    baseUrl,
+    `${API_PREFIX}/auth/logout/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ refresh }),
+    },
+    token,
+  );
+}
+
+export async function changePassword(baseUrl: string, token: string, payload: ChangePasswordInput) {
+  return request<UserProfile>(
+    baseUrl,
+    `${API_PREFIX}/auth/change-password/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function requestPasswordReset(baseUrl: string, payload: PasswordResetRequestInput) {
+  return request<PasswordResetRequestResponse>(baseUrl, `${API_PREFIX}/auth/password-reset/request/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmPasswordReset(baseUrl: string, payload: PasswordResetConfirmInput) {
+  return request<AuthActionResponse>(baseUrl, `${API_PREFIX}/auth/password-reset/confirm/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

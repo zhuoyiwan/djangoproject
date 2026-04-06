@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth";
 import { BorderGlow } from "../components/BorderGlow";
 import RotatingText from "../components/RotatingText";
 import ShapeBlur from "../components/ShapeBlur";
 import { scrollToHashSection } from "../hooks/useHashSectionScroll";
+import { changePassword } from "../lib/api";
+import { getUserFacingErrorMessage } from "../lib/errors";
 
 const logoStarPath =
   "M 100 -56 L 113 -28 L 146 -14 L 113 0 L 100 28 L 87 0 L 54 -14 L 87 -28 Z";
@@ -24,12 +26,18 @@ type NavMenuItem = {
 };
 
 export function AppLayout() {
-  const { accessToken, authSummary, capabilities, profile, signOut } = useAuth();
+  const { accessToken, authSummary, baseUrl, capabilities, profile, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const displayName = profile?.display_name || profile?.username || "访客";
   const showNav = !(location.pathname === "/login" && !accessToken);
   const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
+  const [securityModalOpen, setSecurityModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [securitySummary, setSecuritySummary] = useState("");
+  const [securityState, setSecurityState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const hoverTimerRef = useRef<number | null>(null);
 
   const navItems = useMemo<NavMenuItem[]>(() => {
@@ -146,6 +154,43 @@ export function AppLayout() {
 
   useEffect(() => () => clearHoverTimer(), []);
 
+  function resetSecurityForm() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setSecuritySummary("");
+    setSecurityState("idle");
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!accessToken) {
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecurityState("error");
+      setSecuritySummary("两次输入的新密码不一致，请重新确认");
+      return;
+    }
+
+    setSecurityState("loading");
+    setSecuritySummary("正在更新当前账号密码");
+    try {
+      await changePassword(baseUrl, accessToken, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setSecurityState("success");
+      setSecuritySummary("当前账号密码已更新");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setSecurityState("error");
+      setSecuritySummary(getUserFacingErrorMessage(error));
+    }
+  }
+
   return (
     <div className="app-shell">
       <div aria-hidden="true" className="ambient-blur ambient-blur-one" />
@@ -239,6 +284,17 @@ export function AppLayout() {
             <small>
               {profile?.email || (accessToken ? "身份已验证，可继续访问平台资源与任务。" : "登录后可访问平台完整能力与业务视图。")}
             </small>
+            {accessToken ? (
+              <div className="hero-card-actions">
+                <button
+                  className="button-ghost hero-card-button"
+                  onClick={() => setSecurityModalOpen(true)}
+                  type="button"
+                >
+                  修改密码
+                </button>
+              </div>
+            ) : null}
           </BorderGlow>
           <BorderGlow className="hero-card">
             <span>工作区状态</span>
@@ -282,7 +338,7 @@ export function AppLayout() {
           )}
           <div className="nav-spacer" />
           {accessToken ? (
-            <button className="button-ghost" onClick={signOut} type="button">
+            <button className="button-ghost" onClick={() => void signOut()} type="button">
               退出登录
             </button>
           ) : null}
@@ -290,6 +346,79 @@ export function AppLayout() {
       ) : null}
 
       <Outlet />
+
+      {securityModalOpen ? (
+        <div
+          className="auth-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            setSecurityModalOpen(false);
+            resetSecurityForm();
+          }}
+        >
+          <BorderGlow
+            as="section"
+            className="panel auth-modal-card account-security-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-heading login-register-heading">
+              <h2>修改密码</h2>
+              <p>更新当前账号的登录密码</p>
+            </div>
+
+            <form className="stack-grid login-register-form" onSubmit={handleChangePassword}>
+              <label className="field">
+                <span>当前密码</span>
+                <input
+                  autoComplete="current-password"
+                  placeholder="请输入当前登录密码"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span>新密码</span>
+                <input
+                  autoComplete="new-password"
+                  placeholder="请输入新的登录密码"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span>确认新密码</span>
+                <input
+                  autoComplete="new-password"
+                  placeholder="请再次输入新的登录密码"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                />
+              </label>
+
+              <div className="actions login-register-actions">
+                <button type="submit">保存新密码</button>
+                <button
+                  className="button-ghost"
+                  type="button"
+                  onClick={() => {
+                    setSecurityModalOpen(false);
+                    resetSecurityForm();
+                  }}
+                >
+                  取消
+                </button>
+              </div>
+            </form>
+
+            {securityState !== "idle" ? <p className={`status ${securityState}`}>{securitySummary}</p> : null}
+          </BorderGlow>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1171,6 +1171,34 @@ a {
   width: 100%;
 }
 
+.login-password-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.login-text-action {
+  min-height: auto;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0.1rem 0.1rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.login-text-action:hover {
+  color: #3c78d2;
+  background: transparent;
+  box-shadow: none;
+}
+
 .login-primary-action,
 .login-secondary-action {
   min-height: 44px;
@@ -1228,6 +1256,16 @@ a {
 .login-register-modal {
   width: min(480px, calc(100vw - 32px));
   aspect-ratio: 3 / 4;
+}
+
+.login-password-assist-modal,
+.account-security-modal {
+  width: min(500px, calc(100vw - 32px));
+}
+
+.login-token-field {
+  min-height: 112px;
+  resize: none;
 }
 
 .login-register-form .actions {
@@ -1612,6 +1650,21 @@ a {
   line-height: 1.6;
 }
 
+.hero-card-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.hero-card-button {
+  min-height: 38px;
+  width: auto;
+  padding: 0.58rem 1rem;
+  border-radius: 16px;
+  font-size: 0.84rem;
+}
+
 .hero-card::after,
 .panel::after,
 .summary-card::after,
@@ -1853,6 +1906,12 @@ a {
 .password-field:focus-within .password-toggle-icon {
   opacity: 1;
 }
+
+.password-toggle-icon.is-visible {
+  opacity: 1;
+  color: rgba(92, 112, 140, 0.7);
+}
+
 
 .password-toggle-icon:hover {
   transform: translateY(-50%);

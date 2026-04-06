@@ -9,6 +9,7 @@ import { getUserFacingErrorMessage } from "../lib/errors";
 import {
   getCurrentUser,
   login,
+  logout,
   register,
   probeAuditReadAccess,
   probeAutomationApproveAccess,
@@ -41,7 +42,7 @@ type AuthContextValue = {
   registerWithPassword: (payload: RegisterInput) => Promise<void>;
   setTokenManually: (token: string) => void;
   refreshProfile: (tokenOverride?: string, silent?: boolean) => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -260,14 +261,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function signOut() {
-    setAccessToken("");
-    setRefreshToken("");
-    setProfile(null);
-    setAuthState("idle");
-    setAuthSummary("当前身份已安全退出。");
-    setCapabilities(emptyCapabilities);
-    setCapabilityState("idle");
+  async function signOut() {
+    const activeAccessToken = accessToken;
+    const activeRefreshToken = refreshToken;
+
+    setAuthState("loading");
+    setAuthSummary("正在安全退出当前工作区...");
+
+    try {
+      if (activeAccessToken && activeRefreshToken) {
+        await logout(baseUrl, activeAccessToken, activeRefreshToken);
+      }
+      setAuthSummary("当前身份已安全退出。");
+    } catch {
+      setAuthSummary("当前身份已退出，本地会话已清除。");
+    } finally {
+      setAccessToken("");
+      setRefreshToken("");
+      setProfile(null);
+      setAuthState("idle");
+      setCapabilities(emptyCapabilities);
+      setCapabilityState("idle");
+    }
   }
 
   async function renewAccessToken() {
