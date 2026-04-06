@@ -5,9 +5,11 @@ import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { PaginationControls } from "../components/PaginationControls";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
+import { useResourceDetail } from "../hooks/useResourceDetail";
 import {
   createIDC,
   deleteIDC,
+  getIDC,
   getIDCs,
   getIDCToolQuery,
   updateIDC,
@@ -96,7 +98,22 @@ export function IDCsPage() {
     fetcher: (token, activeQuery) => getIDCs(baseUrl, token, activeQuery),
   });
 
-  const selectedIdc = idcPage?.results.find((item) => item.id === selectedIdcId) || idcPage?.results[0] || null;
+  const activeIdcId = selectedIdcId ?? idcPage?.results[0]?.id ?? null;
+  const {
+    item: selectedIdcDetail,
+    state: idcDetailState,
+    summary: idcDetailSummary,
+    refresh: refreshIDCDetail,
+  } = useResourceDetail<IDCRecord>({
+    accessToken,
+    resourceId: activeIdcId,
+    initialSummary: "选择机房后可查看主数据详情。",
+    missingTokenSummary: "请先登录后再查看机房详情。",
+    loadingSummary: (id) => `正在同步机房 ${id} 的主数据详情...`,
+    successSummary: (item) => `已加载机房 ${item.code} 的主数据详情。`,
+    fetcher: (token, id) => getIDC(baseUrl, token, id),
+  });
+  const selectedIdc = selectedIdcDetail || idcPage?.results.find((item) => item.id === selectedIdcId) || idcPage?.results[0] || null;
   const currentPage = Number(query.page || "1");
   const pageSize = Number(query.page_size || "20");
 
@@ -182,6 +199,7 @@ export function IDCsPage() {
     try {
       await updateIDC(baseUrl, accessToken, selectedIdc.id, editForm);
       await refreshIDCs();
+      await refreshIDCDetail(selectedIdc.id);
       setEditState("success");
       setEditSummary(`机房 ${editForm.code} 的主数据已更新。`);
       setEditOpen(false);
@@ -429,6 +447,8 @@ export function IDCsPage() {
           <p>展示当前机房的核心主数据与说明信息，便于快速确认资产归属背景与运行状态。</p>
         </div>
 
+        <p className={`status ${idcDetailState}`}>{idcDetailSummary}</p>
+
         {selectedIdc ? (
           <>
             <dl className="profile-card detail-card">
@@ -465,6 +485,9 @@ export function IDCsPage() {
 
             {capabilities.canWriteServers ? (
               <div className="actions">
+                <button onClick={() => void refreshIDCDetail(selectedIdc.id)} type="button">
+                  刷新详情
+                </button>
                 <button className="button-ghost" onClick={() => setEditOpen((current) => !current)} type="button">
                   {editOpen ? "收起编辑" : "编辑机房"}
                 </button>
