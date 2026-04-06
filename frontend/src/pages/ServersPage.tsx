@@ -3,14 +3,32 @@ import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
-import { createServer, getIDCs, getServers } from "../lib/api";
+import { useResourceDetail } from "../hooks/useResourceDetail";
+import { PaginationControls } from "../components/PaginationControls";
+import {
+  createServer,
+  deleteServer,
+  getIDCs,
+  getServer,
+  getServers,
+  getServerToolQuery,
+  updateServer,
+} from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTimeZh, formatDateTimeZhParts } from "../lib/format";
-import type { RequestState, ServerCreateInput, ServerQuery, ServerRecord } from "../types";
+import type {
+  RequestState,
+  ServerCreateInput,
+  ServerQuery,
+  ServerRecord,
+  ServerToolQuery,
+  ServerToolQueryResponse,
+  ServerUpdateInput,
+} from "../types";
 
 const initialQuery: ServerQuery = {
   search: "",
-  ordering: "-updated_at",
+  ordering: "-created_at",
   page: "1",
   page_size: "20",
   environment: "",
@@ -49,15 +67,41 @@ const lifecycleOptions: GlassSelectOption[] = [
 ];
 
 const createLifecycleOptions: GlassSelectOption[] = lifecycleOptions.filter((option) => option.value);
+const orderingOptions: GlassSelectOption[] = [
+  { value: "-created_at", label: "最新创建" },
+  { value: "hostname", label: "主机名 A-Z" },
+  { value: "-cpu_cores", label: "CPU 从高到低" },
+  { value: "-memory_gb", label: "内存从高到低" },
+  { value: "environment", label: "环境分组" },
+  { value: "lifecycle_status", label: "生命周期分组" },
+];
+const initialToolQuery: ServerToolQuery = {
+  q: "",
+  hostname: "",
+  internal_ip: "",
+  environment: "",
+  lifecycle_status: "",
+  idc_code: "",
+  limit: "6",
+};
 
 export function ServersPage() {
-  const { accessToken, baseUrl } = useAuth();
+  const { accessToken, baseUrl, capabilities } = useAuth();
   const [query, setQuery] = useState<ServerQuery>(initialQuery);
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<ServerCreateInput>(initialCreateForm);
   const [createState, setCreateState] = useState<RequestState>("idle");
-  const [createSummary, setCreateSummary] = useState("在统一入口登记服务器资产信息，提交完成后系统会刷新清单并自动定位至新记录。");
+  const [createSummary, setCreateSummary] = useState("在此补录服务器基础档案，提交后系统会刷新资产清单并自动定位到新记录。");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<ServerUpdateInput>(initialCreateForm);
+  const [editState, setEditState] = useState<RequestState>("idle");
+  const [editSummary, setEditSummary] = useState("进入编辑模式后，可维护当前服务器的基础资产信息。");
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [toolQuery, setToolQuery] = useState<ServerToolQuery>(initialToolQuery);
+  const [toolState, setToolState] = useState<RequestState>("idle");
+  const [toolSummary, setToolSummary] = useState("支持按主机名、IP、环境、生命周期与机房编码组合检索，适用于排障核查、归属确认与环境盘点。");
+  const [toolResponse, setToolResponse] = useState<ServerToolQueryResponse | null>(null);
   const [idcOptions, setIdcOptions] = useState<GlassSelectOption[]>([]);
   const [idcState, setIdcState] = useState<RequestState>("idle");
   const [idcSummary, setIdcSummary] = useState("正在同步机房列表。");
@@ -97,6 +141,20 @@ export function ServersPage() {
 
   function updateCreateForm<K extends keyof ServerCreateInput>(key: K, value: ServerCreateInput[K]) {
     setCreateForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateEditForm<K extends keyof ServerUpdateInput>(key: K, value: ServerUpdateInput[K]) {
+    setEditForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateToolQuery<K extends keyof ServerToolQuery>(key: K, value: ServerToolQuery[K]) {
+    setToolQuery((current) => ({
       ...current,
       [key]: value,
     }));
@@ -165,8 +223,45 @@ export function ServersPage() {
     }
   }
 
-  const selectedServer =
-    serverPage?.results.find((server) => server.id === selectedServerId) || serverPage?.results[0] || null;
+  const activeServerId = selectedServerId ?? serverPage?.results[0]?.id ?? null;
+  const {
+    item: selectedServer,
+    state: serverDetailState,
+    summary: serverDetailSummary,
+    refresh: refreshServerDetail,
+  } = useResourceDetail<ServerRecord>({
+    accessToken,
+    resourceId: activeServerId,
+    initialSummary: "选择服务器后可查看完整资产详情。",
+    missingTokenSummary: "请先登录后再查看服务器详情。",
+    loadingSummary: (id) => `正在同步服务器 ${id} 的完整资产信息...`,
+    successSummary: (item) => `已加载 ${item.hostname} 的完整资产信息。`,
+    fetcher: (token, id) => getServer(baseUrl, token, id),
+  });
+
+  useEffect(() => {
+    if (!selectedServer) {
+      setEditOpen(false);
+      setDeleteConfirming(false);
+      return;
+    }
+
+    setEditForm({
+      hostname: selectedServer.hostname,
+      internal_ip: selectedServer.internal_ip,
+      external_ip: selectedServer.external_ip || "",
+      os_version: selectedServer.os_version,
+      cpu_cores: selectedServer.cpu_cores,
+      memory_gb: selectedServer.memory_gb,
+      disk_summary: selectedServer.disk_summary,
+      lifecycle_status: selectedServer.lifecycle_status,
+      environment: selectedServer.environment,
+      idc: selectedServer.idc,
+    });
+    setEditState("idle");
+    setEditSummary("进入编辑模式后，可维护当前服务器的基础资产信息。");
+    setDeleteConfirming(false);
+  }, [selectedServer?.id]);
 
   function renderDateTime(value: string | null) {
     const { date, time } = formatDateTimeZhParts(value);
@@ -178,12 +273,95 @@ export function ServersPage() {
     );
   }
 
+  async function handleSaveServer() {
+    if (!accessToken || !selectedServer) {
+      return;
+    }
+    if (!editForm.idc) {
+      setEditState("error");
+      setEditSummary("请先选择所属机房后再保存服务器信息。");
+      return;
+    }
+
+    setEditState("loading");
+    setEditSummary("正在保存服务器信息，并同步最新资产详情...");
+    try {
+      await updateServer(baseUrl, accessToken, selectedServer.id, {
+        ...editForm,
+        external_ip: editForm.external_ip?.trim() ? editForm.external_ip.trim() : null,
+        disk_summary: editForm.disk_summary?.trim() || "",
+      });
+      await refreshServers();
+      await refreshServerDetail(selectedServer.id);
+      setEditState("success");
+      setEditSummary(`服务器 ${editForm.hostname} 的资产信息已更新。`);
+      setEditOpen(false);
+    } catch (error) {
+      setEditState("error");
+      setEditSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handleDeleteServer() {
+    if (!accessToken || !selectedServer) {
+      return;
+    }
+    if (!deleteConfirming) {
+      setDeleteConfirming(true);
+      return;
+    }
+
+    setEditState("loading");
+    setEditSummary(`正在删除服务器 ${selectedServer.hostname}...`);
+    try {
+      await deleteServer(baseUrl, accessToken, selectedServer.id);
+      const response = await refreshServers();
+      const fallbackId = response?.results[0]?.id ?? null;
+      setSelectedServerId(fallbackId);
+      setDeleteConfirming(false);
+      setEditOpen(false);
+      setEditState("success");
+      setEditSummary(`服务器 ${selectedServer.hostname} 已从资产清单中移除。`);
+    } catch (error) {
+      setEditState("error");
+      setEditSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handleToolQuery() {
+    if (!accessToken) {
+      setToolState("error");
+      setToolSummary("请先登录后再执行高级资产查询。");
+      return;
+    }
+
+    const activeQuery = Object.fromEntries(
+      Object.entries(toolQuery).filter(([, value]) => Boolean(value)),
+    ) as ServerToolQuery;
+
+    setToolState("loading");
+    setToolSummary("正在执行高级资产查询...");
+    try {
+      const response = await getServerToolQuery(baseUrl, accessToken, activeQuery);
+      setToolResponse(response);
+      setToolState("success");
+      setToolSummary(`已返回 ${response.summary.returned} 台服务器，共命中 ${response.summary.count} 台。`);
+    } catch (error) {
+      setToolResponse(null);
+      setToolState("error");
+      setToolSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  const currentPage = Number(query.page || "1");
+  const pageSize = Number(query.page_size || "20");
+
   return (
     <main className="workspace-grid">
       <BorderGlow as="section" className="panel panel-span-8">
         <div className="panel-heading">
           <h2>服务器资产</h2>
-          <p>统一查看服务器资产信息，支持按关键词、环境与生命周期快速筛选，便于在同一页面内完成基础核查与状态确认。</p>
+          <p>集中查看服务器台账，支持按关键词、环境与生命周期筛选，便于快速完成资产核对与状态确认。</p>
         </div>
 
         <div className="filter-grid">
@@ -207,6 +385,14 @@ export function ServersPage() {
               onChange={(value) => updateQuery("lifecycle_status", value)}
             />
           </div>
+          <div className="field">
+            <span>排序方式</span>
+            <GlassSelect
+              options={orderingOptions}
+              value={query.ordering || "-created_at"}
+              onChange={(value) => updateQuery("ordering", value)}
+            />
+          </div>
         </div>
 
         <div className="actions">
@@ -221,16 +407,22 @@ export function ServersPage() {
           >
             刷新列表
           </button>
-          <button className="button-ghost" onClick={() => setCreateOpen((current) => !current)} type="button">
-            {createOpen ? "收起新增" : "新增服务器"}
-          </button>
+          {capabilities.canWriteServers ? (
+            <button className="button-ghost" onClick={() => setCreateOpen((current) => !current)} type="button">
+              {createOpen ? "收起新增" : "新增服务器"}
+            </button>
+          ) : null}
         </div>
 
-        {createOpen ? (
+        {!capabilities.canWriteServers ? (
+          <p className="status idle">当前账号已开通服务器查看能力，但未配置资产写入权限。如需登记、编辑或删除服务器，请联系平台管理员开通运维写入权限。</p>
+        ) : null}
+
+        {capabilities.canWriteServers && createOpen ? (
           <div className="advanced-settings server-create-panel">
             <div className="panel-heading server-create-heading">
               <h2>新增服务器</h2>
-              <p>请补充服务器的基础档案信息，包括主机标识、网络地址、资源规格、部署环境与机房归属，以便纳入统一资产台账。</p>
+              <p>填写服务器基础档案，包括主机标识、网络地址、资源规格、部署环境与所属机房，提交后即可纳入资产台账。</p>
             </div>
 
             <div className="form-grid server-create-grid">
@@ -335,7 +527,7 @@ export function ServersPage() {
                 onClick={() => {
                   setCreateForm(initialCreateForm);
                   setCreateState("idle");
-                  setCreateSummary("在统一入口登记服务器资产信息，提交完成后系统会刷新清单并自动定位至新记录。");
+                  setCreateSummary("在此补录服务器基础档案，提交后系统会刷新资产清单并自动定位到新记录。");
                 }}
                 type="button"
               >
@@ -389,13 +581,23 @@ export function ServersPage() {
             </tbody>
           </table>
         </div>
+
+        <PaginationControls
+          currentPage={currentPage}
+          onPageChange={(page) => updateQuery("page", String(page))}
+          onPageSizeChange={(size) => updateQuery("page_size", String(size))}
+          page={serverPage}
+          pageSize={pageSize}
+        />
       </BorderGlow>
 
       <BorderGlow as="section" className="panel panel-span-4 panel-fit-content">
         <div className="panel-heading">
           <h2>选中服务器</h2>
-          <p>聚合展示当前服务器的核心属性与运行概况，帮助快速确认主机配置、网络信息与最近状态。</p>
+          <p>展示当前服务器的关键配置、网络信息与最近状态，便于快速核对资产信息与运行概况。</p>
         </div>
+
+        <p className={`status ${serverDetailState}`}>{serverDetailSummary}</p>
 
         {selectedServer ? (
           <>
@@ -432,16 +634,276 @@ export function ServersPage() {
                 <dt>更新时间</dt>
                 <dd>{formatDateTimeZh(selectedServer.updated_at)}</dd>
               </div>
+              <div>
+                <dt>创建时间</dt>
+                <dd>{formatDateTimeZh(selectedServer.created_at)}</dd>
+              </div>
+              <div>
+                <dt>环境</dt>
+                <dd>{selectedServer.environment}</dd>
+              </div>
+              <div>
+                <dt>生命周期</dt>
+                <dd>{selectedServer.lifecycle_status}</dd>
+              </div>
+              <div>
+                <dt>数据来源</dt>
+                <dd>{selectedServer.source}</dd>
+              </div>
             </dl>
 
-            <BorderGlow as="article" className="highlight-card compact-card">
+            <BorderGlow as="article" className="highlight-card compact-card stacked-detail-card">
               <h3>磁盘摘要</h3>
               <p>{selectedServer.disk_summary || "当前服务器暂未同步磁盘摘要信息。"}</p>
             </BorderGlow>
+
+            <BorderGlow as="article" className="highlight-card compact-card stacked-detail-card">
+              <h3>扩展信息</h3>
+              <pre className="json-block">{JSON.stringify(selectedServer.metadata, null, 2)}</pre>
+            </BorderGlow>
+
+            <div className="actions">
+              <button onClick={() => void refreshServerDetail(selectedServer.id)} type="button">
+                刷新详情
+              </button>
+              {capabilities.canWriteServers ? (
+                <button className="button-ghost" onClick={() => setEditOpen((current) => !current)} type="button">
+                  {editOpen ? "收起编辑" : "编辑服务器"}
+                </button>
+              ) : null}
+              {capabilities.canWriteServers ? (
+                <button
+                  className={deleteConfirming ? "button-danger-soft" : undefined}
+                  onClick={() => void handleDeleteServer()}
+                  type="button"
+                >
+                  {deleteConfirming ? "确认删除" : "删除服务器"}
+                </button>
+              ) : null}
+            </div>
+
+            {editOpen ? (
+              <div className="advanced-settings">
+                <div className="panel-heading">
+                  <h2>编辑服务器</h2>
+                  <p>维护当前服务器的主机标识、资源规格、网络信息与部署归属，保存后会自动刷新资产清单与详情。</p>
+                </div>
+
+                <div className="form-grid server-create-grid">
+                  <label className="field">
+                    <span>主机名</span>
+                    <input value={editForm.hostname} onChange={(event) => updateEditForm("hostname", event.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>内网 IP</span>
+                    <input
+                      value={editForm.internal_ip}
+                      onChange={(event) => updateEditForm("internal_ip", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>外网 IP</span>
+                    <input
+                      value={editForm.external_ip || ""}
+                      onChange={(event) => updateEditForm("external_ip", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>系统版本</span>
+                    <input value={editForm.os_version} onChange={(event) => updateEditForm("os_version", event.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span>CPU 核数</span>
+                    <input
+                      min="1"
+                      type="number"
+                      value={editForm.cpu_cores}
+                      onChange={(event) => updateEditForm("cpu_cores", Number(event.target.value) || 1)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>内存容量</span>
+                    <input
+                      value={editForm.memory_gb}
+                      onChange={(event) => updateEditForm("memory_gb", event.target.value)}
+                    />
+                    <small className="field-hint">单位为GB</small>
+                  </label>
+                  <div className="field">
+                    <span>环境</span>
+                    <GlassSelect
+                      options={createEnvironmentOptions}
+                      value={editForm.environment}
+                      onChange={(value) => updateEditForm("environment", value as ServerUpdateInput["environment"])}
+                    />
+                  </div>
+                  <div className="field">
+                    <span>生命周期</span>
+                    <GlassSelect
+                      options={createLifecycleOptions}
+                      value={editForm.lifecycle_status}
+                      onChange={(value) =>
+                        updateEditForm("lifecycle_status", value as ServerUpdateInput["lifecycle_status"])
+                      }
+                    />
+                  </div>
+                  <div className="field">
+                    <span className="field-label-nowrap">所属机房</span>
+                    <GlassSelect
+                      disabled={idcState === "loading" || !idcOptions.length}
+                      options={idcOptions}
+                      placeholder={idcState === "loading" ? "正在加载机房列表" : "请选择机房"}
+                      value={editForm.idc ? String(editForm.idc) : ""}
+                      onChange={(value) => updateEditForm("idc", value ? Number(value) : null)}
+                    />
+                    <small className={`field-hint${idcState === "error" ? " field-hint-error" : ""}`}>{idcSummary}</small>
+                  </div>
+                </div>
+
+                <label className="field stacked-field">
+                  <span>磁盘摘要</span>
+                  <textarea
+                    className="server-create-textarea"
+                    rows={4}
+                    value={editForm.disk_summary || ""}
+                    onChange={(event) => updateEditForm("disk_summary", event.target.value)}
+                  />
+                </label>
+
+                <div className="actions">
+                  <button onClick={() => void handleSaveServer()} type="button">
+                    保存修改
+                  </button>
+                  <button
+                    className="button-ghost"
+                    onClick={() => {
+                      setEditOpen(false);
+                      setDeleteConfirming(false);
+                    }}
+                    type="button"
+                  >
+                    取消编辑
+                  </button>
+                </div>
+
+                <p className={`status ${editState}`}>{editSummary}</p>
+              </div>
+            ) : null}
           </>
         ) : (
           <p className="status idle">请先从左侧列表中选择目标服务器，以查看详细资产信息。</p>
         )}
+      </BorderGlow>
+
+      <BorderGlow as="section" className="panel panel-span-12">
+        <div className="panel-heading">
+          <h2>高级资产查询</h2>
+          <p>面向问题排查、归属核验与环境盘点场景，可通过主机名、IP、环境、生命周期与机房编码快速缩小检索范围。</p>
+        </div>
+
+        <div className="filter-grid">
+          <label className="field">
+            <span>综合关键词</span>
+            <input value={toolQuery.q || ""} onChange={(event) => updateToolQuery("q", event.target.value)} />
+          </label>
+          <label className="field">
+            <span>主机名</span>
+            <input value={toolQuery.hostname || ""} onChange={(event) => updateToolQuery("hostname", event.target.value)} />
+          </label>
+          <label className="field">
+            <span>内网 IP</span>
+            <input
+              value={toolQuery.internal_ip || ""}
+              onChange={(event) => updateToolQuery("internal_ip", event.target.value)}
+            />
+          </label>
+          <div className="field">
+            <span>环境</span>
+            <GlassSelect
+              options={environmentOptions}
+              value={toolQuery.environment || ""}
+              onChange={(value) => updateToolQuery("environment", value as ServerToolQuery["environment"])}
+            />
+          </div>
+          <div className="field">
+            <span>生命周期</span>
+            <GlassSelect
+              options={lifecycleOptions}
+              value={toolQuery.lifecycle_status || ""}
+              onChange={(value) => updateToolQuery("lifecycle_status", value as ServerToolQuery["lifecycle_status"])}
+            />
+          </div>
+          <label className="field">
+            <span>机房编码</span>
+            <input value={toolQuery.idc_code || ""} onChange={(event) => updateToolQuery("idc_code", event.target.value)} />
+          </label>
+        </div>
+
+        <div className="actions">
+          <button onClick={() => void handleToolQuery()} type="button">
+            执行查询
+          </button>
+          <button
+            className="button-ghost"
+            onClick={() => {
+              setToolQuery(initialToolQuery);
+              setToolResponse(null);
+              setToolState("idle");
+              setToolSummary("支持按主机名、IP、环境、生命周期与机房编码组合检索，适用于排障核查、归属确认与环境盘点。");
+            }}
+            type="button"
+          >
+            重置条件
+          </button>
+        </div>
+
+        <p className={`status ${toolState}`}>{toolSummary}</p>
+
+        {toolResponse ? (
+          <>
+            <div className="tool-summary-strip">
+              <span className="filter-chip">返回 {toolResponse.summary.returned} 台</span>
+              <span className="filter-chip">命中 {toolResponse.summary.count} 台</span>
+              {toolResponse.summary.truncated ? <span className="filter-chip">结果已截断</span> : null}
+            </div>
+            <div className="query-result-grid query-result-grid-compact">
+              {toolResponse.items.map((item) => (
+                <BorderGlow as="article" className="tool-result-card tool-result-card-compact" key={item.id}>
+                  <div className="tool-result-header">
+                    <div>
+                      <h3>{item.hostname}</h3>
+                      <div className="tool-result-meta">
+                        <span className="pill neutral">{item.environment}</span>
+                        <span className="pill neutral">{item.lifecycle_status}</span>
+                      </div>
+                    </div>
+                    <button className="button-ghost query-action-button" onClick={() => setSelectedServerId(item.id)} type="button">
+                      查看详情
+                    </button>
+                  </div>
+                  <dl className="tool-result-list">
+                    <div>
+                      <dt>内网 IP</dt>
+                      <dd>{item.internal_ip}</dd>
+                    </div>
+                    <div>
+                      <dt>机房</dt>
+                      <dd>{item.idc_code} · {item.idc_name}</dd>
+                    </div>
+                    <div>
+                      <dt>系统</dt>
+                      <dd>{item.os_version}</dd>
+                    </div>
+                    <div>
+                      <dt>最近心跳</dt>
+                      <dd>{formatDateTimeZh(item.last_seen_at)}</dd>
+                    </div>
+                  </dl>
+                </BorderGlow>
+              ))}
+            </div>
+          </>
+        ) : null}
       </BorderGlow>
     </main>
   );

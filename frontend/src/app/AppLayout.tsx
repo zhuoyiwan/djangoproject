@@ -1,4 +1,4 @@
-﻿import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import { BorderGlow } from "../components/BorderGlow";
 import RotatingText from "../components/RotatingText";
@@ -8,9 +8,12 @@ const logoStarPath =
   "M 100 -56 L 113 -28 L 146 -14 L 113 0 L 100 28 L 87 0 L 54 -14 L 87 -28 Z";
 const logoInfinityPath =
   "M 32 60 C 40 39, 72 29, 100 60 C 128 91, 160 81, 168 60 C 160 39, 128 29, 100 60 C 72 91, 40 81, 32 60";
+
 export function AppLayout() {
-  const { accessToken, authSummary, profile, signOut } = useAuth();
+  const { accessToken, authSummary, capabilities, profile, signOut } = useAuth();
+  const location = useLocation();
   const displayName = profile?.display_name || profile?.username || "访客";
+  const showNav = !(location.pathname === "/login" && !accessToken);
 
   return (
     <div className="app-shell">
@@ -63,16 +66,8 @@ export function AppLayout() {
                   </filter>
                 </defs>
 
-                <path
-                  className="server-logo-star-glow"
-                  d={logoStarPath}
-                  fill="url(#star-core-gradient)"
-                />
-                <path
-                  className="server-logo-star"
-                  d={logoStarPath}
-                  fill="url(#star-core-gradient)"
-                />
+                <path className="server-logo-star-glow" d={logoStarPath} fill="url(#star-core-gradient)" />
+                <path className="server-logo-star" d={logoStarPath} fill="url(#star-core-gradient)" />
                 <ellipse className="server-logo-aura" cx="100" cy="60" rx="70" ry="28" />
                 <path className="server-logo-base-path" d={logoInfinityPath} />
                 <path className="server-logo-glow-path server-logo-glow-path-blue" d={logoInfinityPath} />
@@ -110,7 +105,9 @@ export function AppLayout() {
           <BorderGlow className="hero-card">
             <span>当前用户</span>
             <strong>{displayName}</strong>
-            <small>{profile?.email || (accessToken ? "身份已验证，可继续访问平台资源与任务。" : "登录后可访问平台完整能力与业务视图。")}</small>
+            <small>
+              {profile?.email || (accessToken ? "身份已验证，可继续访问平台资源与任务。" : "登录后可访问平台完整能力与业务视图。")}
+            </small>
           </BorderGlow>
           <BorderGlow className="hero-card">
             <span>工作区状态</span>
@@ -120,31 +117,51 @@ export function AppLayout() {
         </div>
       </header>
 
-      <nav className="workspace-nav">
-        <NavLink to="/overview" className={({ isActive }) => navClassName(isActive)}>
-          总览
-        </NavLink>
-        <NavLink to="/servers" className={({ isActive }) => navClassName(isActive)}>
-          服务器
-        </NavLink>
-        <NavLink to="/automation" className={({ isActive }) => navClassName(isActive)}>
-          自动化
-        </NavLink>
-        <NavLink to="/audit" className={({ isActive }) => navClassName(isActive)}>
-          记录
-        </NavLink>
-        {!accessToken ? (
-          <NavLink to="/login" className={({ isActive }) => navClassName(isActive)}>
-            登录
-          </NavLink>
-        ) : null}
-        <div className="nav-spacer" />
-        {accessToken ? (
-          <button className="button-ghost" onClick={signOut} type="button">
-            退出登录
-          </button>
-        ) : null}
-      </nav>
+      {showNav ? (
+        <nav className="workspace-nav">
+          {accessToken ? (
+            <>
+              <NavLink to="/overview" className={({ isActive }) => navClassName(isActive)}>
+                总览
+              </NavLink>
+              <NavLink to="/servers" className={({ isActive }) => navClassName(isActive)}>
+                服务器
+              </NavLink>
+              <NavLink to="/idcs" className={({ isActive }) => navClassName(isActive)}>
+                机房
+              </NavLink>
+              {capabilities.canManageUsers ? (
+                <NavLink to="/users" className={({ isActive }) => navClassName(isActive)}>
+                  用户
+                </NavLink>
+              ) : null}
+              {capabilities.canManageUsers ? (
+                <NavLink to="/contract" className={({ isActive }) => navClassName(isActive)}>
+                  契约
+                </NavLink>
+              ) : null}
+              <NavLink to="/automation" className={({ isActive }) => navClassName(isActive)}>
+                自动化
+              </NavLink>
+              {capabilities.canReadAudit ? (
+                <NavLink to="/audit" className={({ isActive }) => navClassName(isActive)}>
+                  记录
+                </NavLink>
+              ) : null}
+            </>
+          ) : (
+            <NavLink to="/login" className={({ isActive }) => navClassName(isActive)}>
+              登录
+            </NavLink>
+          )}
+          <div className="nav-spacer" />
+          {accessToken ? (
+            <button className="button-ghost" onClick={signOut} type="button">
+              退出登录
+            </button>
+          ) : null}
+        </nav>
+      ) : null}
 
       <Outlet />
     </div>
@@ -154,28 +171,3 @@ export function AppLayout() {
 function navClassName(isActive: boolean) {
   return isActive ? "nav-link active" : "nav-link";
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -24,13 +24,17 @@ export function usePaginatedResource<TItem, TQuery>({
   const [page, setPage] = useState<PaginatedResponse<TItem> | null>(null);
   const [state, setState] = useState<RequestState>("idle");
   const [summary, setSummary] = useState(initialSummary);
+  const queryKey = JSON.stringify(query);
 
   useEffect(() => {
-    if (!accessToken || page) {
+    if (!accessToken) {
+      setPage(null);
+      setState("idle");
+      setSummary(initialSummary);
       return;
     }
-    void refresh();
-  }, [accessToken]);
+    void refresh(query);
+  }, [accessToken, queryKey]);
 
   async function refresh(queryOverride?: TQuery) {
     if (!accessToken) {

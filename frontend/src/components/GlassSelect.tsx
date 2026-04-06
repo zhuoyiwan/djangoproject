@@ -20,7 +20,7 @@ export function GlassSelect({ value, options, onChange, placeholder, disabled = 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const listboxId = useId();
-  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
 
   const selectedOption = useMemo(
     () => options.find((option) => option.value === value) ?? null,
@@ -33,10 +33,16 @@ export function GlassSelect({ value, options, onChange, placeholder, disabled = 
       if (!rect) {
         return;
       }
+      const viewportHeight = window.innerHeight;
+      const gap = 10;
+      const spaceBelow = viewportHeight - rect.bottom - 20;
+      const maxHeight = Math.max(140, Math.min(320, spaceBelow - gap));
+
       setPanelStyle({
-        top: rect.bottom + 10,
+        top: rect.bottom + gap,
         left: rect.left,
         width: rect.width,
+        maxHeight,
       });
     }
 
@@ -98,6 +104,7 @@ export function GlassSelect({ value, options, onChange, placeholder, disabled = 
                 top: `${panelStyle.top}px`,
                 left: `${panelStyle.left}px`,
                 width: `${panelStyle.width}px`,
+                maxHeight: `${panelStyle.maxHeight}px`,
               }}
             >
               {options.map((option) => {

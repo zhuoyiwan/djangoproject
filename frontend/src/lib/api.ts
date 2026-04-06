@@ -4,10 +4,12 @@ import type {
   AuditToolQuery,
   AuditToolQueryResponse,
   IDCListQuery,
+  IDCMutationInput,
   IDCRecord,
   IDCToolQuery,
   IDCToolQueryResponse,
   ApiErrorShape,
+  AuthRefreshTokens,
   AuthTokens,
   JobCreateInput,
   JobHandoffQuery,
@@ -22,7 +24,9 @@ import type {
   ServerRecord,
   ServerToolQuery,
   ServerToolQueryResponse,
+  ServerUpdateInput,
   UserProfile,
+  UserListQuery,
 } from "../types";
 
 const API_PREFIX = "/api/v1";
@@ -92,6 +96,29 @@ async function request<T>(
   return (await response.json()) as T;
 }
 
+async function requestStatus(
+  baseUrl: string,
+  path: string,
+  init: RequestInit = {},
+  token?: string,
+) {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (!headers.has("Content-Type") && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(joinUrl(baseUrl, path), {
+    ...init,
+    headers,
+  });
+
+  return response.status;
+}
+
 export async function getHealth(baseUrl: string) {
   return request<Record<string, unknown>>(baseUrl, "/api/v1/health/");
 }
@@ -121,8 +148,28 @@ export async function login(baseUrl: string, username: string, password: string)
   });
 }
 
+export async function refreshAccessToken(baseUrl: string, refresh: string) {
+  return request<AuthRefreshTokens>(baseUrl, `${API_PREFIX}/auth/refresh/`, {
+    method: "POST",
+    body: JSON.stringify({ refresh }),
+  });
+}
+
 export async function getCurrentUser(baseUrl: string, token: string) {
   return request<UserProfile>(baseUrl, `${API_PREFIX}/auth/me/`, {}, token);
+}
+
+export async function getUsers(baseUrl: string, token: string, query: UserListQuery) {
+  return request<PaginatedResponse<UserProfile>>(
+    baseUrl,
+    `${API_PREFIX}/users/${buildListQuery(query)}`,
+    {},
+    token,
+  );
+}
+
+export async function getUser(baseUrl: string, token: string, userId: number) {
+  return request<UserProfile>(baseUrl, `${API_PREFIX}/users/${userId}/`, {}, token);
 }
 
 export async function getServers(baseUrl: string, token: string, query: ServerQuery) {
@@ -141,6 +188,77 @@ export async function createServer(baseUrl: string, token: string, payload: Serv
     {
       method: "POST",
       body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function createIDC(baseUrl: string, token: string, payload: IDCMutationInput) {
+  return request<IDCRecord>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/idcs/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function getIDC(baseUrl: string, token: string, idcId: number) {
+  return request<IDCRecord>(baseUrl, `${API_PREFIX}/cmdb/idcs/${idcId}/`, {}, token);
+}
+
+export async function updateIDC(baseUrl: string, token: string, idcId: number, payload: IDCMutationInput) {
+  return request<IDCRecord>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/idcs/${idcId}/`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function deleteIDC(baseUrl: string, token: string, idcId: number) {
+  return request<void>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/idcs/${idcId}/`,
+    {
+      method: "DELETE",
+    },
+    token,
+  );
+}
+
+export async function getServer(baseUrl: string, token: string, serverId: number) {
+  return request<ServerRecord>(baseUrl, `${API_PREFIX}/cmdb/servers/${serverId}/`, {}, token);
+}
+
+export async function updateServer(
+  baseUrl: string,
+  token: string,
+  serverId: number,
+  payload: ServerUpdateInput,
+) {
+  return request<ServerRecord>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/${serverId}/`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function deleteServer(baseUrl: string, token: string, serverId: number) {
+  return request<void>(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/${serverId}/`,
+    {
+      method: "DELETE",
     },
     token,
   );
@@ -189,6 +307,13 @@ export async function getJobHandoff(baseUrl: string, token: string, query: JobHa
 export async function createJob(baseUrl: string, token: string, payload: JobCreateInput) {
   return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/`, {
     method: "POST",
+    body: JSON.stringify(payload),
+  }, token);
+}
+
+export async function updateJob(baseUrl: string, token: string, jobId: number, payload: JobCreateInput) {
+  return request<JobRecord>(baseUrl, `${API_PREFIX}/automation/jobs/${jobId}/`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   }, token);
 }
@@ -273,4 +398,76 @@ export async function getAuditToolQuery(baseUrl: string, token: string, query: A
 
 export async function getAuditLog(baseUrl: string, token: string, logId: number) {
   return request<AuditLogRecord>(baseUrl, `${API_PREFIX}/audit/logs/${logId}/`, {}, token);
+}
+
+export async function probeAuditReadAccess(baseUrl: string, token: string) {
+  const status = await requestStatus(
+    baseUrl,
+    `${API_PREFIX}/audit/logs/?page_size=1`,
+    {},
+    token,
+  );
+  return status === 200;
+}
+
+export async function probeUserAdminAccess(baseUrl: string, token: string) {
+  const status = await requestStatus(
+    baseUrl,
+    `${API_PREFIX}/users/?page_size=1`,
+    {},
+    token,
+  );
+  return status === 200;
+}
+
+export async function probeServerWriteAccess(baseUrl: string, token: string) {
+  const status = await requestStatus(
+    baseUrl,
+    `${API_PREFIX}/cmdb/servers/`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+    token,
+  );
+  return status === 400;
+}
+
+export async function probeAutomationWriteAccess(baseUrl: string, token: string) {
+  const status = await requestStatus(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+    token,
+  );
+  return status === 400;
+}
+
+export async function probeAutomationApproveAccess(baseUrl: string, token: string) {
+  const status = await requestStatus(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/0/approve/`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+    token,
+  );
+  return status === 404;
+}
+
+export async function probeAutomationExecuteAccess(baseUrl: string, token: string) {
+  const status = await requestStatus(
+    baseUrl,
+    `${API_PREFIX}/automation/jobs/0/mark-ready/`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+    token,
+  );
+  return status === 404;
 }

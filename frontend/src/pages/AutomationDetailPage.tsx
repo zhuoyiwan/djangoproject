@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
+import { GlassSelect } from "../components/GlassSelect";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import {
   approveJob,
@@ -14,18 +15,31 @@ import {
   markReadyJob,
   rejectJob,
   requeueJob,
+  updateJob,
 } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
-import type { JobRecord } from "../types";
+import type { JobCreateInput, JobRecord, RequestState } from "../types";
+
+const riskOptions = [
+  { value: "low", label: "低风险" },
+  { value: "medium", label: "中风险" },
+  { value: "high", label: "高风险" },
+];
 
 export function AutomationDetailPage() {
-  const { accessToken, baseUrl, profile } = useAuth();
+  const { accessToken, baseUrl, capabilities, profile } = useAuth();
   const navigate = useNavigate();
   const { jobId } = useParams();
   const [comment, setComment] = useState("已完成当前任务复核。");
   const [agentKeyId, setAgentKeyId] = useState("");
   const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editRiskLevel, setEditRiskLevel] = useState<JobCreateInput["risk_level"]>("high");
+  const [editPayloadText, setEditPayloadText] = useState("{\n  \n}");
+  const [editState, setEditState] = useState<RequestState>("idle");
+  const [editSummary, setEditSummary] = useState("在详情页内直接修订任务基础信息，保存后会自动刷新审批与执行状态。");
   const numericJobId = jobId ? Number(jobId) : null;
   const {
     item: job,
@@ -83,6 +97,17 @@ export function AutomationDetailPage() {
     setDeleteConfirming(false);
   }, [job?.id]);
 
+  useEffect(() => {
+    if (!job) {
+      return;
+    }
+    setEditName(job.name);
+    setEditRiskLevel(job.risk_level);
+    setEditPayloadText(JSON.stringify(job.payload, null, 2));
+    setEditState("idle");
+    setEditSummary("在详情页内直接修订任务基础信息，保存后会自动刷新审批与执行状态。");
+  }, [job?.id]);
+
   async function handleDeleteJob() {
     if (!accessToken || !job) {
       return;
@@ -113,32 +138,74 @@ export function AutomationDetailPage() {
     }
   }
 
+  async function handleUpdateJob() {
+    if (!accessToken || !job) {
+      return;
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(editPayloadText) as Record<string, unknown>;
+    } catch {
+      setEditState("error");
+      setEditSummary("任务载荷 JSON 校验失败，请先修正内容格式后再保存。");
+      return;
+    }
+
+    setEditState("loading");
+    setEditSummary(`正在保存任务 ${job.name} 的基础信息...`);
+    try {
+      const response = await updateJob(baseUrl, accessToken, job.id, {
+        name: editName,
+        status: job.status,
+        risk_level: editRiskLevel,
+        payload,
+      });
+      setJob(response);
+      setEditState("success");
+      setEditSummary(`任务 ${response.name} 的基础信息已更新。`);
+      setEditOpen(false);
+    } catch (error) {
+      setEditState("error");
+      setEditSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
   const canAct =
+    capabilities.canApproveAutomation &&
     job &&
     job.approval_status === "pending" &&
     job.approval_requested_by !== profile?.id;
   const canMarkReady =
+    capabilities.canExecuteAutomation &&
     job &&
     job.status === "draft" &&
     ((job.risk_level === "high" && job.approval_status === "approved") ||
       (job.risk_level !== "high" && job.approval_status === "not_required"));
-  const canClaim = job && job.status === "ready";
-  const canComplete = job && job.status === "claimed";
-  const canCancel = job && (job.status === "ready" || job.status === "claimed");
-  const canRequeue = job && (job.status === "claimed" || job.status === "failed");
-  const canDelete = job && job.status !== "claimed";
+  const canClaim = capabilities.canExecuteAutomation && job && job.status === "ready";
+  const canComplete = capabilities.canExecuteAutomation && job && job.status === "claimed";
+  const canCancel = capabilities.canExecuteAutomation && job && (job.status === "ready" || job.status === "claimed");
+  const canRequeue = capabilities.canExecuteAutomation && job && (job.status === "claimed" || job.status === "failed");
+  const canDelete = capabilities.canWriteAutomation && job && job.status !== "claimed";
+  const canEdit = capabilities.canWriteAutomation && job && job.status !== "claimed";
   const approveTooltip = canAct
     ? "审批通过后，高风险任务可继续进入后续处理流程。"
+    : !capabilities.canApproveAutomation
+      ? "当前账号未开通审批权限，不能执行审批通过。"
     : job?.approval_status !== "pending"
       ? "当前任务不处于待审批状态，无法执行审批通过。"
       : "申请人与审批人为同一账号时，不能直接执行审批通过。";
   const rejectTooltip = canAct
     ? "驳回当前申请，并保留审批意见供后续复核。"
+    : !capabilities.canApproveAutomation
+      ? "当前账号未开通审批权限，不能执行驳回申请。"
     : job?.approval_status !== "pending"
       ? "当前任务不处于待审批状态，无法执行驳回申请。"
       : "申请人与审批人为同一账号时，不能直接执行驳回申请。";
   const markReadyTooltip = canMarkReady
     ? "将任务流转到待执行状态，等待人工或执行器接手。"
+    : !capabilities.canExecuteAutomation
+      ? "当前账号未开通执行权限，不能转入待执行。"
     : job?.status !== "draft"
       ? "只有草稿状态任务才能转入待执行。"
       : job?.risk_level === "high"
@@ -146,25 +213,42 @@ export function AutomationDetailPage() {
         : "当前任务尚未满足转入待执行的条件。";
   const claimTooltip = canClaim
     ? "由当前处理人接手任务；如有需要，可同时绑定执行器 ID。"
-    : "只有待执行状态任务才能接手执行。";
+    : !capabilities.canExecuteAutomation
+      ? "当前账号未开通执行权限，不能接手任务。"
+      : "只有待执行状态任务才能接手执行。";
   const completeTooltip = canComplete
     ? "确认任务已处理完成，并记录最终执行结果。"
-    : "只有已认领任务才能标记为完成执行。";
+    : !capabilities.canExecuteAutomation
+      ? "当前账号未开通执行权限，不能完成任务。"
+      : "只有已认领任务才能标记为完成执行。";
   const failTooltip = canComplete
     ? "登记本次执行失败，用于保留状态并支持后续重试。"
-    : "只有已认领任务才能登记执行失败。";
+    : !capabilities.canExecuteAutomation
+      ? "当前账号未开通执行权限，不能登记失败。"
+      : "只有已认领任务才能登记执行失败。";
   const cancelTooltip = canCancel
     ? "终止当前任务，停止后续执行与流转。"
-    : "只有待执行或已认领任务才能终止。";
+    : !capabilities.canExecuteAutomation
+      ? "当前账号未开通执行权限，不能终止任务。"
+      : "只有待执行或已认领任务才能终止。";
   const requeueTooltip = canRequeue
     ? "将任务重新放回处理队列，等待再次执行。"
-    : "只有已认领或失败任务才能重新调度。";
+    : !capabilities.canExecuteAutomation
+      ? "当前账号未开通执行权限，不能重新调度任务。"
+      : "只有已认领或失败任务才能重新调度。";
   const deleteTooltip = canDelete
     ? deleteConfirming
       ? "再次点击将永久删除当前任务，并在完成后返回自动化列表。"
       : "删除当前任务。首次点击进入确认状态，避免误删。"
+    : !capabilities.canWriteAutomation
+      ? "当前账号未开通任务写入权限，不能删除任务。"
     : "已认领任务不能删除，请先按既有流程完成、登记失败、终止或重新调度。";
   const cancelDeleteTooltip = "退出删除确认状态，保留当前任务。";
+  const editTooltip = canEdit
+    ? "维护任务名称、风险等级与任务载荷，保存后系统会自动重新计算审批流转。"
+    : !capabilities.canWriteAutomation
+      ? "当前账号未开通任务写入权限，不能编辑任务。"
+      : "已认领任务不能编辑，请先完成、登记失败、终止或重新调度。";
 
   return (
     <main className="workspace-grid">
@@ -271,6 +355,58 @@ export function AutomationDetailPage() {
               <p>批准人：{job.approved_by_username || "未记录"}</p>
               <p>拒绝人：{job.rejected_by_username || "未记录"}</p>
               <p>审批备注：{job.approval_comment || "当前暂无审批备注。"}</p>
+            </BorderGlow>
+
+            <BorderGlow as="article" className="highlight-card compact-card">
+              <h3>任务编辑</h3>
+              <p>仅在任务未被认领时开放基础信息维护。风险等级变更后，系统会按后端规则重新判断审批状态与执行起点。</p>
+              <div className="actions">
+                <span className="action-tooltip" data-tooltip={editTooltip}>
+                  <button
+                    className={canEdit ? undefined : "button-ghost"}
+                    disabled={!canEdit}
+                    onClick={() => setEditOpen((current) => !current)}
+                    type="button"
+                  >
+                    {editOpen ? "收起编辑" : "编辑任务"}
+                  </button>
+                </span>
+              </div>
+
+              {editOpen ? (
+                <div className="stack-grid">
+                  <label className="field">
+                    <span>任务名称</span>
+                    <input value={editName} onChange={(event) => setEditName(event.target.value)} />
+                  </label>
+                  <div className="field">
+                    <span>风险等级</span>
+                    <GlassSelect
+                      options={riskOptions}
+                      value={editRiskLevel}
+                      onChange={(value) => setEditRiskLevel(value as JobCreateInput["risk_level"])}
+                    />
+                  </div>
+                  <label className="field">
+                    <span>任务载荷 JSON</span>
+                    <textarea
+                      className="code-input"
+                      rows={8}
+                      value={editPayloadText}
+                      onChange={(event) => setEditPayloadText(event.target.value)}
+                    />
+                  </label>
+                  <div className="actions">
+                    <button onClick={() => void handleUpdateJob()} type="button">
+                      保存任务
+                    </button>
+                    <button className="button-ghost" onClick={() => setEditOpen(false)} type="button">
+                      取消编辑
+                    </button>
+                  </div>
+                  <p className={`status ${editState}`}>{editSummary}</p>
+                </div>
+              ) : null}
             </BorderGlow>
 
             <BorderGlow as="article" className="highlight-card compact-card">

@@ -7,7 +7,7 @@ import { getHealth } from "../lib/api";
 import type { RequestState } from "../types";
 
 export function OverviewPage() {
-  const { baseUrl, profile } = useAuth();
+  const { baseUrl, capabilities, profile } = useAuth();
   const [healthState, setHealthState] = useState<RequestState>("loading");
   const [healthSummary, setHealthSummary] = useState("正在同步工作区服务状态...");
 
@@ -75,9 +75,11 @@ export function OverviewPage() {
           <Link className="button-link" to="/automation">
             查看任务
           </Link>
-          <Link className="button-link" to="/audit">
-            查看记录
-          </Link>
+          {capabilities.canReadAudit ? (
+            <Link className="button-link" to="/audit">
+              查看记录
+            </Link>
+          ) : null}
         </div>
       </BorderGlow>
 

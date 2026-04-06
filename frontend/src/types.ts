@@ -10,6 +10,15 @@ export type ApiErrorShape = {
 
 export type RequestState = "idle" | "loading" | "success" | "error";
 
+export type FrontendCapabilities = {
+  canReadAudit: boolean;
+  canManageUsers: boolean;
+  canWriteServers: boolean;
+  canWriteAutomation: boolean;
+  canApproveAutomation: boolean;
+  canExecuteAutomation: boolean;
+};
+
 export type PaginatedResponse<T> = {
   count: number;
   next: string | null;
@@ -22,6 +31,11 @@ export type AuthTokens = {
   refresh: string;
 };
 
+export type AuthRefreshTokens = {
+  access: string;
+  refresh?: string;
+};
+
 export type UserProfile = {
   id: number;
   username: string;
@@ -29,6 +43,11 @@ export type UserProfile = {
   first_name: string;
   last_name: string;
   display_name: string;
+};
+
+export type UserListQuery = {
+  page?: string;
+  page_size?: string;
 };
 
 export type JobExecutionStatus =
@@ -83,6 +102,8 @@ export type ServerCreateInput = {
   idc: number | null;
 };
 
+export type ServerUpdateInput = ServerCreateInput;
+
 export type ServerToolQuery = {
   q?: string;
   hostname?: string;
@@ -131,6 +152,14 @@ export type IDCToolQueryItem = {
 
 export type IDCToolQueryResponse = ToolQueryEnvelope<IDCToolQueryItem, IDCToolQuery>;
 export type IDCRecord = IDCToolQueryItem;
+
+export type IDCMutationInput = {
+  code: string;
+  name: string;
+  location: string;
+  status: IDCRecord["status"];
+  description: string;
+};
 
 export type IDCListQuery = {
   ordering?: string;

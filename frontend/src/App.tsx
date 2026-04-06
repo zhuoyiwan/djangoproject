@@ -7,7 +7,10 @@ import { AutomationPage } from "./pages/AutomationPage";
 import { AuditPage } from "./pages/AuditPage";
 import { AutomationDetailPage } from "./pages/AutomationDetailPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { IDCsPage } from "./pages/IDCsPage";
 import { ServersPage } from "./pages/ServersPage";
+import { UsersPage } from "./pages/UsersPage";
+import { ContractPage } from "./pages/ContractPage";
 
 function HomeRedirect() {
   const { accessToken } = useAuth();
@@ -23,6 +26,9 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route element={<RequireAuth />}>
             <Route path="/overview" element={<OverviewPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/contract" element={<ContractPage />} />
+            <Route path="/idcs" element={<IDCsPage />} />
             <Route path="/servers" element={<ServersPage />} />
             <Route path="/automation" element={<AutomationPage />} />
             <Route path="/automation/:jobId" element={<AutomationDetailPage />} />
