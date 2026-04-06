@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.http import JsonResponse
 from django.utils import timezone
+from django.urls import URLPattern, URLResolver, reverse
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -311,108 +312,194 @@ def _build_runner_status(latest_log: AuditLog | None):
 
 
 def build_contract_workbench_payload(request_id: str):
+    docs = {
+        "schema_path": reverse("schema"),
+        "swagger_path": reverse("swagger-ui"),
+        "redoc_path": reverse("redoc"),
+    }
+    endpoint_groups, sensitive_items = _build_contract_endpoint_groups()
+    auth_count = next((len(group["items"]) for group in endpoint_groups if group["label"] == "认证"), 0)
+    user_count = next((len(group["items"]) for group in endpoint_groups if group["label"] == "用户"), 0)
+    cmdb_count = next((len(group["items"]) for group in endpoint_groups if group["label"] == "CMDB"), 0)
+    audit_count = next((len(group["items"]) for group in endpoint_groups if group["label"] == "审计"), 0)
+    automation_count = next((len(group["items"]) for group in endpoint_groups if group["label"] == "自动化"), 0)
+    collaboration_count = next((len(group["items"]) for group in endpoint_groups if group["label"] == "平台协作"), 0)
+
     return {
         "status": "ok",
         "request_id": request_id,
-        "docs": {
-            "schema_path": "/api/schema/",
-            "swagger_path": "/api/docs/",
-            "redoc_path": "/api/redoc/",
-        },
+        "docs": docs,
         "highlights": [
             {
-                "title": "认证契约",
-                "body": "统一使用 JWT Bearer 登录、刷新与当前用户信息均通过 /api/v1/auth/ 下的标准接口提供",
+                "title": "文档入口",
+                "body": f"Schema、Swagger 与 Redoc 已按当前项目路由注册，入口分别为 {docs['schema_path']}、{docs['swagger_path']}、{docs['redoc_path']}",
             },
             {
-                "title": "分页返回形状",
-                "body": "标准列表接口保持 count、next、previous、results 结构 便于前端统一消费分页数据",
+                "title": "认证与用户",
+                "body": f"已发现 {auth_count} 条认证接口与 {user_count} 条用户管理接口，均来自当前运行中的真实路由",
             },
             {
-                "title": "统一错误包",
-                "body": "异常响应统一返回 ok=false、error.code、error.message 与 request_id 便于排障与界面提示",
+                "title": "CMDB 与审计",
+                "body": f"当前 CMDB 路由 {cmdb_count} 条，审计路由 {audit_count} 条，支持列表、详情、工具查询与导出能力",
             },
             {
-                "title": "只读查询面",
-                "body": "IDC、服务器、审计与自动化任务均提供标准化查询接口 且至少需要一个过滤条件",
+                "title": "自动化能力",
+                "body": f"当前自动化路由 {automation_count} 条，已包含 handoff、timeline、comments、审批动作与执行动作",
             },
             {
-                "title": "执行交接与回报",
-                "body": "自动化任务提供 handoff、timeline、comments 与执行器回报视图 便于联调执行侧能力",
+                "title": "平台协作",
+                "body": f"当前平台协作路由 {collaboration_count} 条，覆盖健康检查、总览摘要、执行器通道与契约工作台",
             },
             {
-                "title": "角色边界",
-                "body": "platform_admin 全域管理 ops_admin 负责 CMDB 与执行 approver 审批 auditor 审计 viewer 保持只读",
+                "title": "权限敏感路由",
+                "body": f"已从真实视图权限中识别出 {len(sensitive_items)} 条角色敏感路由，可直接用于联调边界核对",
             },
         ],
-        "endpoint_groups": [
-            {
-                "label": "认证",
-                "items": [
-                    "POST /api/v1/auth/register/",
-                    "POST /api/v1/auth/login/",
-                    "POST /api/v1/auth/refresh/",
-                    "GET /api/v1/auth/me/",
-                ],
-            },
-            {
-                "label": "CMDB",
-                "items": [
-                    "GET /api/v1/cmdb/idcs/",
-                    "GET /api/v1/cmdb/idcs/tool-query/",
-                    "GET /api/v1/cmdb/servers/",
-                    "GET /api/v1/cmdb/servers/tool-query/",
-                    "POST /api/v1/cmdb/servers/agent-ingest/",
-                    "POST /api/v1/cmdb/servers/bulk-import/",
-                    "POST /api/v1/cmdb/servers/bulk-lifecycle/",
-                ],
-            },
-            {
-                "label": "审计",
-                "items": [
-                    "GET /api/v1/audit/logs/  (auditor | platform_admin)",
-                    "GET /api/v1/audit/logs/{id}/",
-                    "GET /api/v1/audit/logs/tool-query/",
-                ],
-            },
-            {
-                "label": "自动化",
-                "items": [
-                    "GET /api/v1/automation/jobs/",
-                    "GET /api/v1/automation/jobs/tool-query/",
-                    "GET /api/v1/automation/jobs/handoff/",
-                    "GET /api/v1/automation/jobs/{id}/timeline/",
-                    "GET /api/v1/automation/jobs/{id}/comments/",
-                    "POST /api/v1/automation/jobs/bulk-cancel/",
-                    "POST /api/v1/automation/jobs/bulk-requeue/",
-                    "POST /api/v1/automation/jobs/{id}/approve/",
-                    "POST /api/v1/automation/jobs/{id}/reject/",
-                    "POST /api/v1/automation/jobs/{id}/mark-ready/",
-                    "POST /api/v1/automation/jobs/{id}/claim/",
-                    "POST /api/v1/automation/jobs/{id}/complete/",
-                    "POST /api/v1/automation/jobs/{id}/fail/",
-                    "POST /api/v1/automation/jobs/{id}/cancel/",
-                    "POST /api/v1/automation/jobs/{id}/requeue/",
-                ],
-            },
-            {
-                "label": "平台协作",
-                "items": [
-                    "GET /api/v1/overview/summary/",
-                    "GET /api/v1/agents/runners/",
-                    "GET /api/v1/contract/workbench/",
-                ],
-            },
-            {
-                "label": "权限敏感路由",
-                "items": [
-                    "GET /api/v1/users/  (platform_admin)",
-                    "CMDB POST/PUT/PATCH/DELETE  (ops_admin | platform_admin)",
-                    "Audit GET  (auditor | platform_admin)",
-                    "Automation DELETE  (ops_admin | platform_admin)",
-                    "Automation approve/reject  (approver | platform_admin)",
-                    "Automation mark-ready/claim/complete/fail/cancel/requeue  (ops_admin | platform_admin)",
-                ],
-            },
-        ],
+        "endpoint_groups": endpoint_groups + [{"label": "权限敏感路由", "items": sensitive_items}],
     }
+
+
+def _build_contract_endpoint_groups():
+    from config.api import urlpatterns
+
+    grouped_items: dict[str, list[str]] = {
+        "认证": [],
+        "用户": [],
+        "CMDB": [],
+        "审计": [],
+        "自动化": [],
+        "平台协作": [],
+    }
+    sensitive_items: list[str] = []
+
+    for endpoint in _collect_api_endpoints(urlpatterns):
+        category = _categorize_contract_endpoint(endpoint["path"])
+        if not category:
+            continue
+
+        rendered = f"{endpoint['method']} {endpoint['path']}"
+        permission_label = endpoint["permission"]
+        if permission_label not in {"anonymous", "authenticated"}:
+            sensitive_items.append(f"{rendered}  ({permission_label})")
+
+        grouped_items[category].append(rendered)
+
+    endpoint_groups = []
+    for label, items in grouped_items.items():
+        if items:
+            endpoint_groups.append({"label": label, "items": sorted(dict.fromkeys(items))})
+
+    return endpoint_groups, sorted(dict.fromkeys(sensitive_items))
+
+
+def _collect_api_endpoints(patterns, prefix="/api/v1/"):
+    items = []
+    for pattern in patterns:
+        if isinstance(pattern, URLResolver):
+            items.extend(_collect_api_endpoints(pattern.url_patterns, prefix + _normalize_route_pattern(str(pattern.pattern))))
+            continue
+        if not isinstance(pattern, URLPattern):
+            continue
+        if "format" in str(pattern.pattern):
+            continue
+        callback_cls = getattr(pattern.callback, "cls", None)
+        if callback_cls is None or callback_cls.__name__ == "APIRootView":
+            continue
+
+        path = prefix + _normalize_route_pattern(str(pattern.pattern))
+        methods = _resolve_pattern_methods(pattern)
+        permission = _resolve_permission_label(pattern, methods)
+        for method in methods:
+            items.append({"path": _normalize_full_api_path(path), "method": method, "permission": permission})
+    return items
+
+
+def _normalize_route_pattern(raw: str):
+    import re
+
+    cleaned = re.sub(r"^\^", "", raw)
+    cleaned = re.sub(r"\$$", "", cleaned)
+    cleaned = cleaned.replace("\\", "")
+    cleaned = re.sub(r"\(\?P<([a-zA-Z_][a-zA-Z0-9_]*)>\[\^/\.\]\+\)", r"{\1}", cleaned)
+    cleaned = cleaned.replace("{pk}", "{id}")
+    cleaned = cleaned.replace(".?", "")
+    return cleaned
+
+
+def _normalize_full_api_path(path: str):
+    normalized = path.replace("//", "/")
+    if not normalized.startswith("/"):
+        normalized = f"/{normalized}"
+    if not normalized.endswith("/"):
+        normalized = f"{normalized}/"
+    return normalized
+
+
+def _resolve_pattern_methods(pattern: URLPattern):
+    actions = getattr(pattern.callback, "actions", None)
+    if actions:
+        return sorted({method.upper() for method in actions.keys()})
+
+    callback_cls = getattr(pattern.callback, "cls", None)
+    methods = []
+    for method in ("get", "post", "put", "patch", "delete"):
+        if callback_cls and callable(getattr(callback_cls, method, None)):
+            methods.append(method.upper())
+    return methods or ["GET"]
+
+
+def _resolve_permission_label(pattern: URLPattern, methods: list[str]):
+    callback_cls = getattr(pattern.callback, "cls", None)
+    if callback_cls is None:
+        return "authenticated"
+
+    actions = getattr(pattern.callback, "actions", None)
+    action_name = next(iter(actions.values())) if actions else None
+    view = callback_cls()
+    if action_name:
+        view.action = action_name
+
+    if hasattr(view, "get_permissions"):
+        permission_instances = view.get_permissions()
+        permission_names = [permission.__class__.__name__ for permission in permission_instances]
+    else:
+        permission_names = [permission.__name__ for permission in getattr(callback_cls, "permission_classes", [])]
+
+    if "AllowAny" in permission_names:
+        return "anonymous"
+    if "IsPlatformAdmin" in permission_names:
+        return "platform_admin"
+    if "IsAuditorOrPlatformAdmin" in permission_names:
+        return "auditor | platform_admin"
+    if "IsApproverOrPlatformAdmin" in permission_names:
+        return "approver | platform_admin"
+    if "IsOpsOrPlatformAdmin" in permission_names:
+        return "ops_admin | platform_admin"
+    if "IsAuthenticatedReadOnlyOrOps" in permission_names:
+        if any(method in {"POST", "PUT", "PATCH", "DELETE"} for method in methods):
+            return "ops_admin | platform_admin"
+        return "authenticated"
+    if "IsAuthenticated" in permission_names:
+        return "authenticated"
+    return "authenticated"
+
+
+def _categorize_contract_endpoint(path: str):
+    if path.startswith("/api/v1/auth/"):
+        return "认证"
+    if path.startswith("/api/v1/users/"):
+        return "用户"
+    if path.startswith("/api/v1/cmdb/"):
+        return "CMDB"
+    if path.startswith("/api/v1/audit/"):
+        return "审计"
+    if path.startswith("/api/v1/automation/"):
+        return "自动化"
+    if path in {
+        "/api/v1/health/",
+        "/api/v1/overview/summary/",
+        "/api/v1/agents/runners/",
+        "/api/v1/contract/workbench/",
+    }:
+        return "平台协作"
+    return None
