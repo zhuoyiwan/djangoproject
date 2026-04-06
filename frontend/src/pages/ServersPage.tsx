@@ -17,7 +17,7 @@ import {
   getServerToolQuery,
   updateServer,
 } from "../lib/api";
-import { buildCsvFilename, downloadCsv } from "../lib/export";
+import { downloadRemoteCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTimeZh, formatDateTimeZhParts } from "../lib/format";
 import type {
@@ -516,26 +516,31 @@ export function ServersPage() {
     }
   }
 
-  function handleExportServers() {
-    if (!serverPage?.results.length) {
+  async function handleExportServers() {
+    if (!accessToken) {
       return;
     }
 
-    downloadCsv(
-      buildCsvFilename("服务器资产清单"),
-      [
-        { key: "hostname", label: "主机名" },
-        { key: "internal_ip", label: "内网 IP" },
-        { key: "external_ip", label: "外网 IP" },
-        { key: "idc_name", label: "机房" },
-        { key: "os_version", label: "系统版本" },
-        { key: "environment", label: "环境" },
-        { key: "lifecycle_status", label: "生命周期" },
-        { key: "source", label: "来源" },
-        { key: "updated_at", label: "更新时间" },
-      ],
-      serverPage.results,
-    );
+    const exportQuery = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value && key !== "page" && key !== "page_size") {
+        exportQuery.set(key, value);
+      }
+    });
+
+    try {
+      await downloadRemoteCsv(
+        baseUrl,
+        `/api/v1/cmdb/servers/export/${exportQuery.toString() ? `?${exportQuery.toString()}` : ""}`,
+        accessToken,
+        "服务器资产清单",
+      );
+      setBulkState("success");
+      setBulkSummary("已按当前筛选条件导出服务器资产清单");
+    } catch (error) {
+      setBulkState("error");
+      setBulkSummary(getUserFacingErrorMessage(error));
+    }
   }
 
   const bulkUpdateTooltip = selectedServerIds.length
@@ -655,8 +660,8 @@ export function ServersPage() {
               {createOpen ? "收起新增" : "新增服务器"}
             </button>
           ) : null}
-          <button className="button-ghost" onClick={handleExportServers} type="button">
-            导出当前页
+          <button className="button-ghost" onClick={() => void handleExportServers()} type="button">
+            导出结果
           </button>
         </div>
 

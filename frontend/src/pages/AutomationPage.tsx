@@ -7,7 +7,7 @@ import { PaginationControls } from "../components/PaginationControls";
 import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { bulkCancelJobs, bulkRequeueJobs, createJob, getJobHandoff, getJobToolQuery, getJobs } from "../lib/api";
-import { buildCsvFilename, downloadCsv } from "../lib/export";
+import { downloadRemoteCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime, formatDateTimeZhParts } from "../lib/format";
 import type {
@@ -432,25 +432,31 @@ export function AutomationPage() {
     }
   }
 
-  function handleExportJobs() {
-    if (!jobPage?.results.length) {
+  async function handleExportJobs() {
+    if (!accessToken) {
       return;
     }
 
-    downloadCsv(
-      buildCsvFilename("自动化任务列表"),
-      [
-        { key: "name", label: "任务名称" },
-        { key: "status", label: "执行状态" },
-        { key: "risk_level", label: "风险等级" },
-        { key: "approval_status", label: "审批状态" },
-        { key: "approval_requested_by_username", label: "申请人" },
-        { key: "assigned_agent_key_id", label: "执行器 ID" },
-        { key: "last_reported_by_agent_key", label: "最近上报执行器" },
-        { key: "updated_at", label: "最近更新" },
-      ],
-      jobPage.results,
-    );
+    const exportQuery = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value && key !== "page" && key !== "page_size") {
+        exportQuery.set(key, value);
+      }
+    });
+
+    try {
+      await downloadRemoteCsv(
+        baseUrl,
+        `/api/v1/automation/jobs/export/${exportQuery.toString() ? `?${exportQuery.toString()}` : ""}`,
+        accessToken,
+        "自动化任务列表",
+      );
+      setBatchState("success");
+      setBatchSummary("已按当前筛选条件导出自动化任务列表");
+    } catch (error) {
+      setBatchState("error");
+      setBatchSummary(getUserFacingErrorMessage(error));
+    }
   }
 
   const batchCancelTooltip = selectedJobIds.length
@@ -521,8 +527,8 @@ export function AutomationPage() {
           <button className="button-ghost" onClick={resetQuery} type="button">
             清空筛选
           </button>
-          <button className="button-ghost" onClick={handleExportJobs} type="button">
-            导出当前页
+          <button className="button-ghost" onClick={() => void handleExportJobs()} type="button">
+            导出结果
           </button>
         </div>
 

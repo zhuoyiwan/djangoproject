@@ -7,7 +7,7 @@ import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import { formatDateTime } from "../lib/format";
-import { buildCsvFilename, downloadCsv } from "../lib/export";
+import { downloadRemoteCsv } from "../lib/export";
 import { getAuditLog, getAuditLogs, getAuditToolQuery } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import type { AuditLogRecord, AuditQuery, AuditToolQuery, AuditToolQueryResponse, RequestState } from "../types";
@@ -118,21 +118,29 @@ export function AuditPage() {
   const currentPage = Number(query.page || "1");
   const pageSize = Number(query.page_size || "20");
 
-  function handleExportAudit() {
-    if (!auditPage?.results.length) {
+  async function handleExportAudit() {
+    if (!auditAccessToken) {
       return;
     }
 
-    downloadCsv(
-      buildCsvFilename("操作记录明细"),
-      [
-        { key: "action", label: "动作" },
-        { key: "target", label: "对象" },
-        { key: "actor_username", label: "执行人" },
-        { key: "created_at", label: "时间" },
-      ],
-      auditPage.results,
-    );
+    const exportQuery = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value && key !== "page" && key !== "page_size") {
+        exportQuery.set(key, value);
+      }
+    });
+
+    try {
+      await downloadRemoteCsv(
+        baseUrl,
+        `/api/v1/audit/logs/export/${exportQuery.toString() ? `?${exportQuery.toString()}` : ""}`,
+        auditAccessToken,
+        "操作记录明细",
+      );
+    } catch (error) {
+      const message = getUserFacingErrorMessage(error);
+      console.error(message);
+    }
   }
 
   return (
@@ -170,8 +178,8 @@ export function AuditPage() {
           >
             刷新记录
           </button>
-          <button className="button-ghost" onClick={handleExportAudit} type="button">
-            导出当前页
+          <button className="button-ghost" onClick={() => void handleExportAudit()} type="button">
+            导出结果
           </button>
         </div>
 

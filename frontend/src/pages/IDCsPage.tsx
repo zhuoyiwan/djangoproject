@@ -12,6 +12,7 @@ import {
   getIDCToolQuery,
   updateIDC,
 } from "../lib/api";
+import { downloadRemoteCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTimeZh } from "../lib/format";
 import type {
@@ -240,6 +241,30 @@ export function IDCsPage() {
     }
   }
 
+  async function handleExportIDCs() {
+    if (!accessToken) {
+      return;
+    }
+
+    const exportQuery = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value && key !== "page" && key !== "page_size") {
+        exportQuery.set(key, value);
+      }
+    });
+
+    try {
+      await downloadRemoteCsv(
+        baseUrl,
+        `/api/v1/cmdb/idcs/export/${exportQuery.toString() ? `?${exportQuery.toString()}` : ""}`,
+        accessToken,
+        "机房主数据清单",
+      );
+    } catch (error) {
+      console.error(getUserFacingErrorMessage(error));
+    }
+  }
+
   return (
     <main className="workspace-grid">
       <BorderGlow as="section" className="panel panel-span-8" id="idcs-assets">
@@ -276,6 +301,9 @@ export function IDCsPage() {
             type="button"
           >
             刷新列表
+          </button>
+          <button className="button-ghost" onClick={() => void handleExportIDCs()} type="button">
+            导出结果
           </button>
           {capabilities.canWriteServers ? (
             <button className="button-ghost" onClick={() => setCreateOpen((current) => !current)} type="button">
