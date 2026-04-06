@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
+import { formatDateTimeZh } from "../lib/format";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { getAgentRunnerOverview, getHealth, getOverviewSummary } from "../lib/api";
-import type { AgentRunnerOverviewResponse, OverviewSummaryResponse, RequestState } from "../types";
+import type { AgentRunnerItem, AgentRunnerOverviewResponse, OverviewSummaryResponse, RequestState } from "../types";
 
 export function OverviewPage() {
   const { accessToken, baseUrl, capabilities, profile } = useAuth();
@@ -13,6 +14,7 @@ export function OverviewPage() {
   const [overviewSummary, setOverviewSummary] = useState<OverviewSummaryResponse["summary"] | null>(null);
   const [overviewHint, setOverviewHint] = useState("正在汇总资产、任务与审计摘要...");
   const [agentRunnerSummary, setAgentRunnerSummary] = useState<AgentRunnerOverviewResponse["summary"] | null>(null);
+  const [agentRunnerItems, setAgentRunnerItems] = useState<AgentRunnerItem[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -49,8 +51,10 @@ export function OverviewPage() {
 
         if (runnerResponse) {
           setAgentRunnerSummary(runnerResponse.summary);
+          setAgentRunnerItems(runnerResponse.items);
         } else {
           setAgentRunnerSummary(null);
+          setAgentRunnerItems([]);
         }
       } catch (error) {
         if (!active) {
@@ -60,6 +64,7 @@ export function OverviewPage() {
         setHealthSummary(getUserFacingErrorMessage(error));
         setOverviewHint(getUserFacingErrorMessage(error));
         setAgentRunnerSummary(null);
+        setAgentRunnerItems([]);
       }
     }
 
@@ -167,6 +172,84 @@ export function OverviewPage() {
           </BorderGlow>
         </div>
       </BorderGlow>
+
+      <BorderGlow as="section" className="panel panel-span-12">
+        <div className="panel-heading">
+          <h2>执行器通道</h2>
+          <p>集中查看机器上报、任务认领与执行回报通道的配置状态，便于值班期间快速确认执行侧链路是否可用。</p>
+        </div>
+
+        <p className={`status ${healthState}`}>
+          {agentRunnerSummary
+            ? `当前共 ${agentRunnerSummary.total} 条执行器通道，其中 ${agentRunnerSummary.available} 条可用`
+            : accessToken
+              ? "当前未同步到执行器通道信息"
+              : "登录后可查看执行器通道状态"}
+        </p>
+
+        {agentRunnerItems.length ? (
+          <div className="query-result-grid query-result-grid-compact">
+            {agentRunnerItems.map((item) => (
+              <BorderGlow as="article" className="tool-result-card tool-result-card-compact" key={`${item.channel}-${item.key_id}`}>
+                <div className="tool-result-header">
+                  <div>
+                    <h3>{getRunnerChannelLabel(item.channel)}</h3>
+                    <div className="tool-result-meta">
+                      <span className={`pill ${item.available ? "approved" : "neutral"}`}>
+                        {item.available ? "可用" : "待配置"}
+                      </span>
+                      <span className="pill neutral">{item.key_id}</span>
+                    </div>
+                  </div>
+                </div>
+                <dl className="tool-result-list">
+                  <div>
+                    <dt>能力开关</dt>
+                    <dd>{item.feature_enabled ? "已启用" : "未启用"}</dd>
+                  </div>
+                  <div>
+                    <dt>密钥配置</dt>
+                    <dd>{item.configured ? "已装载" : "未装载"}</dd>
+                  </div>
+                  <div>
+                    <dt>活跃任务</dt>
+                    <dd>{item.active_jobs}</dd>
+                  </div>
+                  <div>
+                    <dt>最近活动</dt>
+                    <dd>{item.last_seen_at ? formatDateTimeZh(item.last_seen_at) : "未记录"}</dd>
+                  </div>
+                  <div>
+                    <dt>最近状态</dt>
+                    <dd>{getRunnerStatusLabel(item.last_status)}</dd>
+                  </div>
+                </dl>
+              </BorderGlow>
+            ))}
+          </div>
+        ) : null}
+      </BorderGlow>
     </main>
   );
+}
+
+function getRunnerChannelLabel(channel: AgentRunnerItem["channel"]) {
+  const labels: Record<AgentRunnerItem["channel"], string> = {
+    server_ingest: "机器上报",
+    automation_claim: "任务认领",
+    automation_report: "执行回报",
+  };
+  return labels[channel];
+}
+
+function getRunnerStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    ingested: "已接收上报",
+    ingested_created: "已创建资产",
+    ingested_updated: "已更新资产",
+    claimed: "已完成认领",
+    reported_completed: "已回报完成",
+    reported_failed: "已回报失败",
+  };
+  return labels[status] || (status ? status : "未记录");
 }
