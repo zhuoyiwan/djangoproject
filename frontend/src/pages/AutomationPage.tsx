@@ -7,7 +7,7 @@ import { PaginationControls } from "../components/PaginationControls";
 import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { bulkCancelJobs, bulkRequeueJobs, createJob, getJobHandoff, getJobToolQuery, getJobs } from "../lib/api";
-import { downloadCsv } from "../lib/export";
+import { buildCsvFilename, downloadCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime, formatDateTimeZhParts } from "../lib/format";
 import type {
@@ -438,7 +438,7 @@ export function AutomationPage() {
     }
 
     downloadCsv(
-      `automation-page-${query.page || "1"}.csv`,
+      buildCsvFilename("自动化任务列表"),
       [
         { key: "name", label: "任务名称" },
         { key: "status", label: "执行状态" },

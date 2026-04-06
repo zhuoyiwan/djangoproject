@@ -7,7 +7,7 @@ import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import { formatDateTime } from "../lib/format";
-import { downloadCsv } from "../lib/export";
+import { buildCsvFilename, downloadCsv } from "../lib/export";
 import { getAuditLog, getAuditLogs, getAuditToolQuery } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import type { AuditLogRecord, AuditQuery, AuditToolQuery, AuditToolQueryResponse, RequestState } from "../types";
@@ -124,7 +124,7 @@ export function AuditPage() {
     }
 
     downloadCsv(
-      `audit-page-${query.page || "1"}.csv`,
+      buildCsvFilename("操作记录明细"),
       [
         { key: "action", label: "动作" },
         { key: "target", label: "对象" },

@@ -17,7 +17,7 @@ import {
   getServerToolQuery,
   updateServer,
 } from "../lib/api";
-import { downloadCsv } from "../lib/export";
+import { buildCsvFilename, downloadCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTimeZh, formatDateTimeZhParts } from "../lib/format";
 import type {
@@ -522,7 +522,7 @@ export function ServersPage() {
     }
 
     downloadCsv(
-      `servers-page-${query.page || "1"}.csv`,
+      buildCsvFilename("服务器资产清单"),
       [
         { key: "hostname", label: "主机名" },
         { key: "internal_ip", label: "内网 IP" },
