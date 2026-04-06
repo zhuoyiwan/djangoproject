@@ -229,3 +229,29 @@ class AgentRunnerOverviewApiTests(TestCase):
         self.assertEqual(idle_item["active_jobs"], 0)
         self.assertIsNone(idle_item["last_seen_at"])
         self.assertEqual(idle_item["last_status"], "")
+
+
+class ContractWorkbenchApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="contract-user", password="password123")
+        self.client.force_authenticate(self.user)
+
+    def test_contract_workbench_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get("/api/v1/contract/workbench/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_contract_workbench_returns_docs_highlights_and_groups(self):
+        response = self.client.get("/api/v1/contract/workbench/")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["docs"]["schema_path"], "/api/schema/")
+        self.assertEqual(payload["docs"]["swagger_path"], "/api/docs/")
+        self.assertEqual(payload["docs"]["redoc_path"], "/api/redoc/")
+        self.assertTrue(any(item["title"] == "认证契约" for item in payload["highlights"]))
+        self.assertTrue(any(group["label"] == "自动化" for group in payload["endpoint_groups"]))
+        automation_group = next(group for group in payload["endpoint_groups"] if group["label"] == "自动化")
+        self.assertIn("GET /api/v1/automation/jobs/{id}/timeline/", automation_group["items"])
+        self.assertIn("POST /api/v1/automation/jobs/bulk-requeue/", automation_group["items"])

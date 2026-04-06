@@ -84,3 +84,27 @@ class AgentRunnerOverviewSerializer(serializers.Serializer):
     request_id = serializers.CharField()
     summary = AgentRunnerSummarySerializer()
     items = AgentRunnerItemSerializer(many=True)
+
+
+class ContractHighlightSerializer(serializers.Serializer):
+    title = serializers.CharField()
+    body = serializers.CharField()
+
+
+class ContractEndpointGroupSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    items = serializers.ListField(child=serializers.CharField())
+
+
+class ContractWorkbenchDocsSerializer(serializers.Serializer):
+    schema_path = serializers.CharField()
+    swagger_path = serializers.CharField()
+    redoc_path = serializers.CharField()
+
+
+class ContractWorkbenchSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    request_id = serializers.CharField()
+    docs = ContractWorkbenchDocsSerializer()
+    highlights = ContractHighlightSerializer(many=True)
+    endpoint_groups = ContractEndpointGroupSerializer(many=True)

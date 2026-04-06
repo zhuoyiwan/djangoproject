@@ -2,6 +2,7 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiType
 from rest_framework import filters, mixins, viewsets
 from rest_framework.decorators import action
 
+from core.csv_export import build_csv_export_response
 from core.permissions import IsAuditorOrPlatformAdmin
 from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
@@ -20,7 +21,7 @@ class AuditLogViewSet(ScopedActionThrottleMixin, mixins.ListModelMixin, mixins.R
     serializer_class = AuditLogSerializer
     permission_classes = [IsAuditorOrPlatformAdmin]
     throttle_scope = "audit_read"
-    throttle_scope_map = {"tool_query": "tool_query"}
+    throttle_scope_map = {"tool_query": "tool_query", "export": "audit_read"}
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("action", "target", "actor__username")
     ordering_fields = ("created_at", "action", "target")
@@ -50,3 +51,24 @@ class AuditLogViewSet(ScopedActionThrottleMixin, mixins.ListModelMixin, mixins.R
         entries = serializer.filter_queryset(self.get_queryset())
         items = AuditLogToolResultSerializer(entries, many=True).data
         return build_normalized_tool_response(request, serializer.validated_data, items)
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        rows = (
+            (
+                item.id,
+                item.action,
+                item.target,
+                item.actor.username if item.actor_id else "",
+                item.detail,
+                item.created_at.isoformat(),
+                item.updated_at.isoformat(),
+            )
+            for item in queryset
+        )
+        return build_csv_export_response(
+            "操作记录明细",
+            ["id", "action", "target", "actor_username", "detail", "created_at", "updated_at"],
+            rows,
+        )

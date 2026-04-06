@@ -122,6 +122,18 @@ class IDCApiTests(TestCase):
         actions = list(AuditLog.objects.filter(target="idc:cn-sh-1").order_by("id").values_list("action", flat=True))
         self.assertEqual(actions, ["idc.created", "idc.updated", "idc.deleted"])
 
+    def test_ops_admin_can_export_idcs_as_csv(self):
+        self.user.groups.add(self.ops_group)
+        IDC.objects.create(code="cn-sh-1", name="Shanghai IDC", location="Shanghai", status="active")
+
+        response = self.client.get("/api/v1/cmdb/idcs/export/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("filename*=UTF-8''", response["Content-Disposition"])
+        self.assertIn("%E6%9C%BA%E6%88%BF%E4%B8%BB%E6%95%B0%E6%8D%AE%E6%B8%85%E5%8D%95_", response["Content-Disposition"])
+        self.assertIn("Shanghai IDC", response.content.decode("utf-8-sig"))
+
 
 @override_settings(
     CACHES={
@@ -395,6 +407,28 @@ class ServerApiTests(TestCase):
         self.assertEqual(entry.target, "db-del-01@10.0.0.61")
         self.assertEqual(entry.detail["environment"], "prod")
         self.assertEqual(entry.detail["lifecycle_status"], "online")
+
+    def test_ops_admin_can_export_servers_as_csv(self):
+        ops_group = Group.objects.create(name="ops_admin")
+        self.user.groups.add(ops_group)
+        Server.objects.create(
+            hostname="db-export-01",
+            internal_ip="10.0.0.71",
+            os_version="Ubuntu 22.04",
+            cpu_cores=8,
+            memory_gb=Decimal("32.00"),
+            environment="prod",
+            lifecycle_status="online",
+            idc=self.idc,
+        )
+
+        response = self.client.get("/api/v1/cmdb/servers/export/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("filename*=UTF-8''", response["Content-Disposition"])
+        self.assertIn("%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%B5%84%E4%BA%A7%E6%B8%85%E5%8D%95_", response["Content-Disposition"])
+        self.assertIn("db-export-01", response.content.decode("utf-8-sig"))
 
 
 @override_settings(

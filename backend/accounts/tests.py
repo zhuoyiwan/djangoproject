@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
+from django.core import mail
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -69,6 +70,80 @@ class AuthenticationApiTests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
+
+    def test_change_password_updates_current_user_password(self):
+        user = get_user_model().objects.create_user(username="alice", password="password123")
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            "/api/v1/auth/change-password/",
+            {"current_password": "password123", "new_password": "AlicePassword#2026"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("AlicePassword#2026"))
+        entry = AuditLog.objects.get(action="accounts.auth.password_changed")
+        self.assertEqual(entry.actor, user)
+        self.assertEqual(entry.target, f"user:{user.id}:alice")
+
+    def test_logout_revokes_refresh_token(self):
+        get_user_model().objects.create_user(username="alice", password="password123")
+        tokens = self.client.post(
+            "/api/v1/auth/login/",
+            {"username": "alice", "password": "password123"},
+            format="json",
+        ).data
+        user = get_user_model().objects.get(username="alice")
+        self.client.force_authenticate(user)
+
+        response = self.client.post(
+            "/api/v1/auth/logout/",
+            {"refresh": tokens["refresh"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        refresh_response = self.client.post(
+            "/api/v1/auth/refresh/",
+            {"refresh": tokens["refresh"]},
+            format="json",
+        )
+        self.assertEqual(refresh_response.status_code, 401)
+        entry = AuditLog.objects.get(action="accounts.auth.logged_out")
+        self.assertEqual(entry.actor, user)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_password_reset_request_and_confirm_flow(self):
+        user = get_user_model().objects.create_user(
+            username="alice",
+            email="alice@example.com",
+            password="password123",
+        )
+
+        request_response = self.client.post(
+            "/api/v1/auth/password-reset/request/",
+            {"account": "alice@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(request_response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0].body
+        token = next(line.split(": ", 1)[1] for line in message.splitlines() if line.startswith("Reset token: "))
+
+        confirm_response = self.client.post(
+            "/api/v1/auth/password-reset/confirm/",
+            {"token": token, "new_password": "ResetPassword#2026"},
+            format="json",
+        )
+
+        self.assertEqual(confirm_response.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("ResetPassword#2026"))
+        self.assertTrue(AuditLog.objects.filter(action="accounts.auth.password_reset_requested").exists())
+        self.assertTrue(AuditLog.objects.filter(action="accounts.auth.password_reset_completed").exists())
 
 
 @override_settings(

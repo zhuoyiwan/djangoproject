@@ -1,6 +1,10 @@
-from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from core.permissions import ROLE_APPROVER, ROLE_AUDITOR, ROLE_OPS_ADMIN, ROLE_PLATFORM_ADMIN, ROLE_VIEWER
 
@@ -40,6 +44,57 @@ class UserAdminUpdateSerializer(serializers.ModelSerializer):
 
 class UserPasswordResetSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
+
+    def validate_password(self, value):
+        user = self.context.get("target_user")
+        validate_password(value, user)
+        return value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
+
+    def validate_current_password(self, value):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect.")
+        return value
+
+    def validate_new_password(self, value):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        validate_password(value, user)
+        return value
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(trim_whitespace=False)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    account = serializers.CharField(max_length=255, trim_whitespace=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, min_length=8, trim_whitespace=False)
+
+
+class RevocableTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        raw_refresh = attrs["refresh"]
+        try:
+            refresh = RefreshToken(raw_refresh)
+        except TokenError as exc:
+            raise InvalidToken(str(exc)) from exc
+
+        is_revoked = self.context.get("is_refresh_token_revoked")
+        if callable(is_revoked) and is_revoked(refresh):
+            raise InvalidToken("Refresh token has been revoked.")
+
+        return super().validate(attrs)
 
 
 class UserRoleAssignmentSerializer(serializers.Serializer):

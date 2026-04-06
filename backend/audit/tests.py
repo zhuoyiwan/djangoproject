@@ -137,3 +137,16 @@ class AuditLogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["items"]), 1)
         self.assertEqual(response.data["items"][0]["target"], "agent:unknown")
+
+    def test_auditor_can_export_audit_logs_as_csv(self):
+        auditor_group = Group.objects.create(name="auditor")
+        self.user.groups.add(auditor_group)
+        AuditLog.objects.create(actor=self.user, action="server.created", target="db-primary@10.0.0.10")
+
+        response = self.client.get("/api/v1/audit/logs/export/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("filename*=UTF-8''", response["Content-Disposition"])
+        self.assertIn("%E6%93%8D%E4%BD%9C%E8%AE%B0%E5%BD%95%E6%98%8E%E7%BB%86_", response["Content-Disposition"])
+        self.assertIn("server.created", response.content.decode("utf-8-sig"))

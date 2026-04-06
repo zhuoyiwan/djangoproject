@@ -190,6 +190,39 @@ class JobBulkActionApiTests(TestCase):
 
 
 @override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "automation-export-tests",
+        }
+    }
+)
+class JobExportApiTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(username="export-ops", password="password123")
+        self.user.groups.add(Group.objects.create(name=ROLE_OPS_ADMIN))
+        self.client.force_authenticate(self.user)
+
+    def test_ops_admin_can_export_jobs_as_csv(self):
+        Job.objects.create(
+            name="export-job-01",
+            status=JobExecutionStatus.READY,
+            risk_level=JobRiskLevel.MEDIUM,
+            approval_status=JobApprovalStatus.NOT_REQUIRED,
+        )
+
+        response = self.client.get("/api/v1/automation/jobs/export/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("filename*=UTF-8''", response["Content-Disposition"])
+        self.assertIn("%E8%87%AA%E5%8A%A8%E5%8C%96%E4%BB%BB%E5%8A%A1%E5%88%97%E8%A1%A8_", response["Content-Disposition"])
+        self.assertIn("export-job-01", response.content.decode("utf-8-sig"))
+
+
+@override_settings(
     AUTOMATION_AGENT_CLAIM_ENABLED=True,
     AUTOMATION_AGENT_CLAIM_HMAC_KEY_ID="automation-agent-default",
     AUTOMATION_AGENT_CLAIM_HMAC_SECRET="automation-agent-secret-for-tests",

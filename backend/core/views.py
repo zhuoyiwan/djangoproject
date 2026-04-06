@@ -14,7 +14,7 @@ from audit.models import AuditLog
 from automation.models import Job, JobApprovalStatus, JobExecutionStatus, JobRiskLevel
 from cmdb.models import Server, ServerLifecycleStatus
 
-from .serializers import AgentRunnerOverviewSerializer, HealthcheckSerializer, OverviewSummarySerializer
+from .serializers import AgentRunnerOverviewSerializer, ContractWorkbenchSerializer, HealthcheckSerializer, OverviewSummarySerializer
 
 
 class HealthcheckView(generics.GenericAPIView):
@@ -41,6 +41,15 @@ class AgentRunnerOverviewView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         payload = build_agent_runner_overview_payload(getattr(request, "request_id", ""))
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class ContractWorkbenchView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ContractWorkbenchSerializer
+
+    def get(self, request, *args, **kwargs):
+        payload = build_contract_workbench_payload(getattr(request, "request_id", ""))
         return Response(payload, status=status.HTTP_200_OK)
 
 
@@ -299,3 +308,111 @@ def _build_runner_status(latest_log: AuditLog | None):
     if latest_log.action.endswith("agent_reported_failed"):
         return "reported_failed"
     return latest_log.action.rsplit(".", 1)[-1]
+
+
+def build_contract_workbench_payload(request_id: str):
+    return {
+        "status": "ok",
+        "request_id": request_id,
+        "docs": {
+            "schema_path": "/api/schema/",
+            "swagger_path": "/api/docs/",
+            "redoc_path": "/api/redoc/",
+        },
+        "highlights": [
+            {
+                "title": "认证契约",
+                "body": "统一使用 JWT Bearer 登录、刷新与当前用户信息均通过 /api/v1/auth/ 下的标准接口提供",
+            },
+            {
+                "title": "分页返回形状",
+                "body": "标准列表接口保持 count、next、previous、results 结构 便于前端统一消费分页数据",
+            },
+            {
+                "title": "统一错误包",
+                "body": "异常响应统一返回 ok=false、error.code、error.message 与 request_id 便于排障与界面提示",
+            },
+            {
+                "title": "只读查询面",
+                "body": "IDC、服务器、审计与自动化任务均提供标准化查询接口 且至少需要一个过滤条件",
+            },
+            {
+                "title": "执行交接与回报",
+                "body": "自动化任务提供 handoff、timeline、comments 与执行器回报视图 便于联调执行侧能力",
+            },
+            {
+                "title": "角色边界",
+                "body": "platform_admin 全域管理 ops_admin 负责 CMDB 与执行 approver 审批 auditor 审计 viewer 保持只读",
+            },
+        ],
+        "endpoint_groups": [
+            {
+                "label": "认证",
+                "items": [
+                    "POST /api/v1/auth/register/",
+                    "POST /api/v1/auth/login/",
+                    "POST /api/v1/auth/refresh/",
+                    "GET /api/v1/auth/me/",
+                ],
+            },
+            {
+                "label": "CMDB",
+                "items": [
+                    "GET /api/v1/cmdb/idcs/",
+                    "GET /api/v1/cmdb/idcs/tool-query/",
+                    "GET /api/v1/cmdb/servers/",
+                    "GET /api/v1/cmdb/servers/tool-query/",
+                    "POST /api/v1/cmdb/servers/agent-ingest/",
+                    "POST /api/v1/cmdb/servers/bulk-import/",
+                    "POST /api/v1/cmdb/servers/bulk-lifecycle/",
+                ],
+            },
+            {
+                "label": "审计",
+                "items": [
+                    "GET /api/v1/audit/logs/  (auditor | platform_admin)",
+                    "GET /api/v1/audit/logs/{id}/",
+                    "GET /api/v1/audit/logs/tool-query/",
+                ],
+            },
+            {
+                "label": "自动化",
+                "items": [
+                    "GET /api/v1/automation/jobs/",
+                    "GET /api/v1/automation/jobs/tool-query/",
+                    "GET /api/v1/automation/jobs/handoff/",
+                    "GET /api/v1/automation/jobs/{id}/timeline/",
+                    "GET /api/v1/automation/jobs/{id}/comments/",
+                    "POST /api/v1/automation/jobs/bulk-cancel/",
+                    "POST /api/v1/automation/jobs/bulk-requeue/",
+                    "POST /api/v1/automation/jobs/{id}/approve/",
+                    "POST /api/v1/automation/jobs/{id}/reject/",
+                    "POST /api/v1/automation/jobs/{id}/mark-ready/",
+                    "POST /api/v1/automation/jobs/{id}/claim/",
+                    "POST /api/v1/automation/jobs/{id}/complete/",
+                    "POST /api/v1/automation/jobs/{id}/fail/",
+                    "POST /api/v1/automation/jobs/{id}/cancel/",
+                    "POST /api/v1/automation/jobs/{id}/requeue/",
+                ],
+            },
+            {
+                "label": "平台协作",
+                "items": [
+                    "GET /api/v1/overview/summary/",
+                    "GET /api/v1/agents/runners/",
+                    "GET /api/v1/contract/workbench/",
+                ],
+            },
+            {
+                "label": "权限敏感路由",
+                "items": [
+                    "GET /api/v1/users/  (platform_admin)",
+                    "CMDB POST/PUT/PATCH/DELETE  (ops_admin | platform_admin)",
+                    "Audit GET  (auditor | platform_admin)",
+                    "Automation DELETE  (ops_admin | platform_admin)",
+                    "Automation approve/reject  (approver | platform_admin)",
+                    "Automation mark-ready/claim/complete/fail/cancel/requeue  (ops_admin | platform_admin)",
+                ],
+            },
+        ],
+    }

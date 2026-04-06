@@ -7,6 +7,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from audit.models import AuditLog
+from core.csv_export import build_csv_export_response
 from core.permissions import (
     ROLE_PLATFORM_ADMIN,
     IsApproverOrPlatformAdmin,
@@ -64,6 +65,7 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     throttle_scope_map = {
         "tool_query": "tool_query",
         "handoff": "handoff",
+        "export": "api_read",
         "timeline": "api_read",
         "comments": "api_read",
         "bulk_cancel": "execution_write",
@@ -713,6 +715,49 @@ class JobViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         jobs = serializer.filter_queryset(self.get_queryset())
         return build_job_handoff_response(request, jobs, serializer.validated_data)
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        rows = (
+            (
+                item.id,
+                item.name,
+                item.status,
+                item.risk_level,
+                item.approval_status,
+                item.approval_requested_by.username if item.approval_requested_by_id else "",
+                item.approved_by.username if item.approved_by_id else "",
+                item.rejected_by.username if item.rejected_by_id else "",
+                item.ready_by.username if item.ready_by_id else "",
+                item.claimed_by.username if item.claimed_by_id else "",
+                item.assigned_agent_key_id,
+                item.last_reported_by_agent_key,
+                item.created_at.isoformat(),
+                item.updated_at.isoformat(),
+            )
+            for item in queryset
+        )
+        return build_csv_export_response(
+            "自动化任务列表",
+            [
+                "id",
+                "name",
+                "status",
+                "risk_level",
+                "approval_status",
+                "approval_requested_by_username",
+                "approved_by_username",
+                "rejected_by_username",
+                "ready_by_username",
+                "claimed_by_username",
+                "assigned_agent_key_id",
+                "last_reported_by_agent_key",
+                "created_at",
+                "updated_at",
+            ],
+            rows,
+        )
 
     @extend_schema(
         parameters=[

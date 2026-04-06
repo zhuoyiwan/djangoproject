@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from audit.models import AuditLog
+from core.csv_export import build_csv_export_response
 from core.permissions import IsAuthenticatedReadOnlyOrOps
 from core.throttling import ScopedActionThrottleMixin
 from core.tool_responses import build_normalized_tool_response
@@ -33,7 +34,7 @@ class IDCViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     serializer_class = IDCSerializer
     permission_classes = [IsAuthenticatedReadOnlyOrOps]
     throttle_scope = "api_read"
-    throttle_scope_map = {"tool_query": "tool_query"}
+    throttle_scope_map = {"tool_query": "tool_query", "export": "api_read"}
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("code", "name", "location", "status")
     ordering_fields = ("created_at", "code", "name", "status")
@@ -103,13 +104,35 @@ class IDCViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         items = IDCToolResultSerializer(idcs, many=True).data
         return build_normalized_tool_response(request, serializer.validated_data, items)
 
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        rows = (
+            (
+                item.id,
+                item.code,
+                item.name,
+                item.location,
+                item.status,
+                item.description,
+                item.created_at.isoformat(),
+                item.updated_at.isoformat(),
+            )
+            for item in queryset
+        )
+        return build_csv_export_response(
+            "机房主数据清单",
+            ["id", "code", "name", "location", "status", "description", "created_at", "updated_at"],
+            rows,
+        )
+
 
 class ServerViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     queryset = Server.objects.select_related("idc").order_by("-created_at")
     serializer_class = ServerSerializer
     permission_classes = [IsAuthenticatedReadOnlyOrOps]
     throttle_scope = "api_read"
-    throttle_scope_map = {"tool_query": "tool_query", "agent_ingest": "agent_ingest"}
+    throttle_scope_map = {"tool_query": "tool_query", "agent_ingest": "agent_ingest", "export": "api_read"}
     filterset_fields = (
         "hostname",
         "internal_ip",
@@ -385,3 +408,50 @@ class ServerViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
         servers = serializer.filter_queryset(self.get_queryset())
         items = ServerToolResultSerializer(servers, many=True).data
         return build_normalized_tool_response(request, serializer.validated_data, items)
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        rows = (
+            (
+                item.id,
+                item.hostname,
+                item.internal_ip,
+                item.external_ip,
+                item.os_version,
+                item.cpu_cores,
+                item.memory_gb,
+                item.disk_summary,
+                item.lifecycle_status,
+                item.environment,
+                item.idc_id,
+                item.idc.name if item.idc_id else "",
+                item.source,
+                item.last_seen_at.isoformat() if item.last_seen_at else "",
+                item.created_at.isoformat(),
+                item.updated_at.isoformat(),
+            )
+            for item in queryset
+        )
+        return build_csv_export_response(
+            "服务器资产清单",
+            [
+                "id",
+                "hostname",
+                "internal_ip",
+                "external_ip",
+                "os_version",
+                "cpu_cores",
+                "memory_gb",
+                "disk_summary",
+                "lifecycle_status",
+                "environment",
+                "idc_id",
+                "idc_name",
+                "source",
+                "last_seen_at",
+                "created_at",
+                "updated_at",
+            ],
+            rows,
+        )

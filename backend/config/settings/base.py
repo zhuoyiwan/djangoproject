@@ -124,6 +124,8 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@chatops.local")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
@@ -172,6 +174,9 @@ SIMPLE_JWT = {
     "ALGORITHM": os.getenv("JWT_ALGORITHM", "HS256"),
     "SIGNING_KEY": JWT_SIGNING_KEY,
 }
+AUTH_REFRESH_REVOKE_CACHE_PREFIX = os.getenv("AUTH_REFRESH_REVOKE_CACHE_PREFIX", "auth:revoked_refresh")
+AUTH_PASSWORD_RESET_CACHE_PREFIX = os.getenv("AUTH_PASSWORD_RESET_CACHE_PREFIX", "auth:password_reset")
+AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS = int(os.getenv("AUTH_PASSWORD_RESET_TOKEN_TTL_SECONDS", "1800"))
 
 CACHES = {
     "default": {
