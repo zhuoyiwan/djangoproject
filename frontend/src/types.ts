@@ -52,11 +52,89 @@ export type UserProfile = {
   first_name: string;
   last_name: string;
   display_name: string;
+  is_active: boolean;
+  roles: string[];
 };
 
 export type UserListQuery = {
   page?: string;
   page_size?: string;
+};
+
+export type UserRole = {
+  id: number;
+  name: string;
+};
+
+export type UserRoleListResponse = {
+  items: UserRole[];
+};
+
+export type UserUpdateInput = {
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+  is_active?: boolean;
+};
+
+export type UserPasswordResetInput = {
+  password: string;
+};
+
+export type UserRoleAssignmentInput = {
+  roles: string[];
+};
+
+export type HealthResponse = {
+  status: "ok" | "degraded";
+  request_id: string;
+  checks: {
+    database: {
+      status: "ok" | "error";
+      detail: string;
+    };
+    cache: {
+      status: "ok" | "error";
+      detail: string;
+    };
+  };
+  features: {
+    agent_ingest_enabled: boolean;
+    automation_agent_claim_enabled: boolean;
+    automation_agent_report_enabled: boolean;
+  };
+};
+
+export type OverviewSummaryResponse = {
+  status: "ok";
+  request_id: string;
+  summary: {
+    servers: {
+      total: number;
+      online: number;
+      offline: number;
+      maintenance: number;
+      pre_allocated: number;
+    };
+    automation: {
+      total: number;
+      draft: number;
+      awaiting_approval: number;
+      ready: number;
+      claimed: number;
+      completed: number;
+      failed: number;
+      canceled: number;
+      high_risk_pending: number;
+    };
+    audit: {
+      total: number;
+      last_24h: number;
+      security_events_last_24h: number;
+    };
+  };
 };
 
 export type JobExecutionStatus =

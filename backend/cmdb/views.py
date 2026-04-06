@@ -34,6 +34,48 @@ class IDCViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
     search_fields = ("code", "name", "location", "status")
     ordering_fields = ("created_at", "code", "name", "status")
 
+    def perform_create(self, serializer):
+        idc = serializer.save()
+        AuditLog.objects.create(
+            actor=self.request.user,
+            action="idc.created",
+            target=f"idc:{idc.code}",
+            detail={
+                "request_id": getattr(self.request, "request_id", ""),
+                "code": idc.code,
+                "name": idc.name,
+                "status": idc.status,
+            },
+        )
+
+    def perform_update(self, serializer):
+        idc = serializer.save()
+        AuditLog.objects.create(
+            actor=self.request.user,
+            action="idc.updated",
+            target=f"idc:{idc.code}",
+            detail={
+                "request_id": getattr(self.request, "request_id", ""),
+                "code": idc.code,
+                "name": idc.name,
+                "status": idc.status,
+            },
+        )
+
+    def perform_destroy(self, instance):
+        AuditLog.objects.create(
+            actor=self.request.user,
+            action="idc.deleted",
+            target=f"idc:{instance.code}",
+            detail={
+                "request_id": getattr(self.request, "request_id", ""),
+                "code": instance.code,
+                "name": instance.name,
+                "status": instance.status,
+            },
+        )
+        instance.delete()
+
     @extend_schema(
         parameters=[
             OpenApiParameter(name="q", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False),
@@ -83,6 +125,7 @@ class ServerViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             action="server.created",
             target=f"{server.hostname}@{server.internal_ip}",
             detail={
+                "request_id": getattr(self.request, "request_id", ""),
                 "hostname": server.hostname,
                 "internal_ip": str(server.internal_ip),
                 "environment": server.environment,
@@ -97,12 +140,28 @@ class ServerViewSet(ScopedActionThrottleMixin, viewsets.ModelViewSet):
             action="server.updated",
             target=f"{server.hostname}@{server.internal_ip}",
             detail={
+                "request_id": getattr(self.request, "request_id", ""),
                 "hostname": server.hostname,
                 "internal_ip": str(server.internal_ip),
                 "environment": server.environment,
                 "lifecycle_status": server.lifecycle_status,
             },
         )
+
+    def perform_destroy(self, instance):
+        AuditLog.objects.create(
+            actor=self.request.user,
+            action="server.deleted",
+            target=f"{instance.hostname}@{instance.internal_ip}",
+            detail={
+                "request_id": getattr(self.request, "request_id", ""),
+                "hostname": instance.hostname,
+                "internal_ip": str(instance.internal_ip),
+                "environment": instance.environment,
+                "lifecycle_status": instance.lifecycle_status,
+            },
+        )
+        instance.delete()
 
     @extend_schema(
         request=AgentServerIngestSerializer,

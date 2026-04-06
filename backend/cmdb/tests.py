@@ -50,6 +50,7 @@ class IDCApiTests(TestCase):
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
         self.client.force_authenticate(self.user)
+        self.ops_group = Group.objects.create(name="ops_admin")
 
     def test_tool_query_requires_at_least_one_filter(self):
         response = self.client.get("/api/v1/cmdb/idcs/tool-query/")
@@ -91,6 +92,35 @@ class IDCApiTests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
+
+    def test_ops_admin_writes_audit_log_for_idc_create_update_delete(self):
+        self.user.groups.add(self.ops_group)
+        create_response = self.client.post(
+            "/api/v1/cmdb/idcs/",
+            {
+                "code": "cn-sh-1",
+                "name": "Shanghai IDC",
+                "location": "Shanghai",
+                "status": "active",
+                "description": "primary",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        idc_id = create_response.data["id"]
+
+        update_response = self.client.patch(
+            f"/api/v1/cmdb/idcs/{idc_id}/",
+            {"status": "maintenance"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, 200)
+
+        delete_response = self.client.delete(f"/api/v1/cmdb/idcs/{idc_id}/")
+        self.assertEqual(delete_response.status_code, 204)
+
+        actions = list(AuditLog.objects.filter(target="idc:cn-sh-1").order_by("id").values_list("action", flat=True))
+        self.assertEqual(actions, ["idc.created", "idc.updated", "idc.deleted"])
 
 
 @override_settings(
@@ -264,6 +294,29 @@ class ServerApiTests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(third.status_code, 429)
         self.assertEqual(third.data["error"]["code"], "rate_limited")
+
+    def test_ops_admin_writes_audit_log_for_server_delete(self):
+        ops_group = Group.objects.create(name="ops_admin")
+        self.user.groups.add(ops_group)
+        server = Server.objects.create(
+            hostname="db-del-01",
+            internal_ip="10.0.0.61",
+            os_version="Ubuntu 22.04",
+            cpu_cores=8,
+            memory_gb=Decimal("32.00"),
+            environment="prod",
+            lifecycle_status="online",
+            idc=self.idc,
+        )
+
+        response = self.client.delete(f"/api/v1/cmdb/servers/{server.id}/")
+        self.assertEqual(response.status_code, 204)
+
+        entry = AuditLog.objects.get(action="server.deleted")
+        self.assertEqual(entry.actor, self.user)
+        self.assertEqual(entry.target, "db-del-01@10.0.0.61")
+        self.assertEqual(entry.detail["environment"], "prod")
+        self.assertEqual(entry.detail["lifecycle_status"], "online")
 
 
 @override_settings(

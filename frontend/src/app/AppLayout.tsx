@@ -1,19 +1,150 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth";
 import { BorderGlow } from "../components/BorderGlow";
 import RotatingText from "../components/RotatingText";
 import ShapeBlur from "../components/ShapeBlur";
+import { scrollToHashSection } from "../hooks/useHashSectionScroll";
 
 const logoStarPath =
   "M 100 -56 L 113 -28 L 146 -14 L 113 0 L 100 28 L 87 0 L 54 -14 L 87 -28 Z";
 const logoInfinityPath =
   "M 32 60 C 40 39, 72 29, 100 60 C 128 91, 160 81, 168 60 C 160 39, 128 29, 100 60 C 72 91, 40 81, 32 60";
 
+const NAV_HOVER_DELAY_MS = 400;
+
+type NavMenuItem = {
+  key: string;
+  label: string;
+  to: string;
+  submenu?: {
+    label: string;
+    hash: string;
+  }[];
+};
+
 export function AppLayout() {
   const { accessToken, authSummary, capabilities, profile, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const displayName = profile?.display_name || profile?.username || "访客";
   const showNav = !(location.pathname === "/login" && !accessToken);
+  const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+
+  const navItems = useMemo<NavMenuItem[]>(() => {
+    if (!accessToken) {
+      return [{ key: "login", label: "登录", to: "/login" }];
+    }
+
+    const items: NavMenuItem[] = [
+      { key: "overview", label: "总览", to: "/overview" },
+      {
+        key: "servers",
+        label: "服务器",
+        to: "/servers",
+        submenu: [
+          { label: "服务器资产", hash: "servers-assets" },
+          { label: "机器上报监控", hash: "servers-agent-monitor" },
+          { label: "高级资产查询", hash: "servers-advanced-query" },
+        ],
+      },
+      {
+        key: "idcs",
+        label: "机房",
+        to: "/idcs",
+        submenu: [
+          { label: "机房主数据", hash: "idcs-assets" },
+          { label: "高级机房查询", hash: "idcs-advanced-query" },
+        ],
+      },
+    ];
+
+    if (capabilities.canManageUsers) {
+      items.push({ key: "users", label: "用户", to: "/users" });
+      items.push({ key: "contract", label: "契约", to: "/contract" });
+    }
+
+    items.push({
+      key: "automation",
+      label: "自动化",
+      to: "/automation",
+      submenu: [
+        { label: "自动化任务", hash: "automation-tasks" },
+        { label: "高级任务查询", hash: "automation-advanced-query" },
+        { label: "执行交接视图", hash: "automation-handoff" },
+        { label: "执行器认领监控", hash: "automation-agent-claim" },
+        { label: "执行器上报监控", hash: "automation-agent-report" },
+      ],
+    });
+
+    if (capabilities.canReadAudit) {
+      items.push({
+        key: "audit",
+        label: "记录",
+        to: "/audit",
+        submenu: [
+          { label: "操作记录", hash: "audit-records" },
+          { label: "高级记录查询", hash: "audit-advanced-query" },
+        ],
+      });
+    }
+
+    return items;
+  }, [accessToken, capabilities.canManageUsers, capabilities.canReadAudit]);
+
+  function clearHoverTimer() {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }
+
+  function scheduleMenuOpen(menuKey: string) {
+    clearHoverTimer();
+    hoverTimerRef.current = window.setTimeout(() => {
+      setOpenMenuKey(menuKey);
+      hoverTimerRef.current = null;
+    }, NAV_HOVER_DELAY_MS);
+  }
+
+  function handleNavGroupEnter(item: NavMenuItem) {
+    if (!item.submenu?.length) {
+      clearHoverTimer();
+      setOpenMenuKey(null);
+      return;
+    }
+
+    if (openMenuKey === item.key) {
+      return;
+    }
+
+    scheduleMenuOpen(item.key);
+  }
+
+  function handleNavGroupLeave() {
+    clearHoverTimer();
+    setOpenMenuKey(null);
+  }
+
+  function handleSubmenuNavigate(to: string, hash: string) {
+    clearHoverTimer();
+    setOpenMenuKey(null);
+
+    const nextHash = `#${hash}`;
+    if (location.pathname === to && location.hash === nextHash) {
+      scrollToHashSection(hash);
+      return;
+    }
+
+    navigate({ pathname: to, hash: nextHash });
+  }
+
+  useEffect(() => {
+    setOpenMenuKey(null);
+  }, [location.pathname, location.hash]);
+
+  useEffect(() => () => clearHoverTimer(), []);
 
   return (
     <div className="app-shell">
@@ -119,40 +250,35 @@ export function AppLayout() {
 
       {showNav ? (
         <nav className="workspace-nav">
-          {accessToken ? (
-            <>
-              <NavLink to="/overview" className={({ isActive }) => navClassName(isActive)}>
-                总览
-              </NavLink>
-              <NavLink to="/servers" className={({ isActive }) => navClassName(isActive)}>
-                服务器
-              </NavLink>
-              <NavLink to="/idcs" className={({ isActive }) => navClassName(isActive)}>
-                机房
-              </NavLink>
-              {capabilities.canManageUsers ? (
-                <NavLink to="/users" className={({ isActive }) => navClassName(isActive)}>
-                  用户
+          {navItems.map((item) =>
+            item.submenu?.length ? (
+              <div
+                className={`nav-group${openMenuKey === item.key ? " is-open" : ""}`}
+                key={item.key}
+                onMouseEnter={() => handleNavGroupEnter(item)}
+                onMouseLeave={handleNavGroupLeave}
+              >
+                <NavLink to={item.to} className={({ isActive }) => navClassName(isActive, true)}>
+                  {item.label}
                 </NavLink>
-              ) : null}
-              {capabilities.canManageUsers ? (
-                <NavLink to="/contract" className={({ isActive }) => navClassName(isActive)}>
-                  契约
-                </NavLink>
-              ) : null}
-              <NavLink to="/automation" className={({ isActive }) => navClassName(isActive)}>
-                自动化
+                <div className="nav-submenu" role="menu" aria-label={`${item.label}导航`}>
+                  {item.submenu.map((entry) => (
+                    <button
+                      className="nav-submenu-link"
+                      key={entry.hash}
+                      onClick={() => handleSubmenuNavigate(item.to, entry.hash)}
+                      type="button"
+                    >
+                      {entry.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <NavLink key={item.key} to={item.to} className={({ isActive }) => navClassName(isActive)}>
+                {item.label}
               </NavLink>
-              {capabilities.canReadAudit ? (
-                <NavLink to="/audit" className={({ isActive }) => navClassName(isActive)}>
-                  记录
-                </NavLink>
-              ) : null}
-            </>
-          ) : (
-            <NavLink to="/login" className={({ isActive }) => navClassName(isActive)}>
-              登录
-            </NavLink>
+            ),
           )}
           <div className="nav-spacer" />
           {accessToken ? (
@@ -168,6 +294,6 @@ export function AppLayout() {
   );
 }
 
-function navClassName(isActive: boolean) {
-  return isActive ? "nav-link active" : "nav-link";
+function navClassName(isActive: boolean, hasMenu = false) {
+  return `${isActive ? "nav-link active" : "nav-link"}${hasMenu ? " nav-link-with-menu" : ""}`;
 }

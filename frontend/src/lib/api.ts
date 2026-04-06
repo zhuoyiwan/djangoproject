@@ -3,6 +3,7 @@ import type {
   AuditQuery,
   AuditToolQuery,
   AuditToolQueryResponse,
+  HealthResponse,
   IDCListQuery,
   IDCMutationInput,
   IDCRecord,
@@ -26,8 +27,13 @@ import type {
   ServerToolQuery,
   ServerToolQueryResponse,
   ServerUpdateInput,
+  OverviewSummaryResponse,
   UserProfile,
   UserListQuery,
+  UserPasswordResetInput,
+  UserRoleAssignmentInput,
+  UserRoleListResponse,
+  UserUpdateInput,
 } from "../types";
 
 const API_PREFIX = "/api/v1";
@@ -121,7 +127,11 @@ async function requestStatus(
 }
 
 export async function getHealth(baseUrl: string) {
-  return request<Record<string, unknown>>(baseUrl, "/api/v1/health/");
+  return request<HealthResponse>(baseUrl, "/api/v1/health/");
+}
+
+export async function getOverviewSummary(baseUrl: string, token: string) {
+  return request<OverviewSummaryResponse>(baseUrl, `${API_PREFIX}/overview/summary/`, {}, token);
 }
 
 export async function getIDCToolQuery(baseUrl: string, token: string, query: IDCToolQuery) {
@@ -178,6 +188,46 @@ export async function getUsers(baseUrl: string, token: string, query: UserListQu
 
 export async function getUser(baseUrl: string, token: string, userId: number) {
   return request<UserProfile>(baseUrl, `${API_PREFIX}/users/${userId}/`, {}, token);
+}
+
+export async function updateUser(baseUrl: string, token: string, userId: number, payload: UserUpdateInput) {
+  return request<UserProfile>(
+    baseUrl,
+    `${API_PREFIX}/users/${userId}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function getUserRoles(baseUrl: string, token: string) {
+  return request<UserRoleListResponse>(baseUrl, `${API_PREFIX}/users/roles/`, {}, token);
+}
+
+export async function setUserRoles(baseUrl: string, token: string, userId: number, payload: UserRoleAssignmentInput) {
+  return request<UserProfile>(
+    baseUrl,
+    `${API_PREFIX}/users/${userId}/set-roles/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function resetUserPassword(baseUrl: string, token: string, userId: number, payload: UserPasswordResetInput) {
+  return request<UserProfile>(
+    baseUrl,
+    `${API_PREFIX}/users/${userId}/set-password/`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
 }
 
 export async function getServers(baseUrl: string, token: string, query: ServerQuery) {

@@ -3,6 +3,7 @@ import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
+import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import { PaginationControls } from "../components/PaginationControls";
 import {
@@ -14,6 +15,7 @@ import {
   getServerToolQuery,
   updateServer,
 } from "../lib/api";
+import { downloadCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTimeZh, formatDateTimeZhParts } from "../lib/format";
 import type {
@@ -95,6 +97,14 @@ const initialAgentMonitorQuery: ServerQuery = {
   source: "agent",
 };
 
+const initialBulkImportForm = {
+  os_version: "Ubuntu 22.04",
+  environment: "dev" as ServerCreateInput["environment"],
+  lifecycle_status: "online" as ServerCreateInput["lifecycle_status"],
+  idc: null as number | null,
+  lines: "",
+};
+
 function getHeartbeatState(lastSeenAt: string | null) {
   if (!lastSeenAt) {
     return "missing";
@@ -109,6 +119,7 @@ function getHeartbeatState(lastSeenAt: string | null) {
 
 export function ServersPage() {
   const { accessToken, baseUrl, capabilities } = useAuth();
+  useHashSectionScroll();
   const [query, setQuery] = useState<ServerQuery>(initialQuery);
   const [agentMonitorQuery, setAgentMonitorQuery] = useState<ServerQuery>(initialAgentMonitorQuery);
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
@@ -116,6 +127,13 @@ export function ServersPage() {
   const [createForm, setCreateForm] = useState<ServerCreateInput>(initialCreateForm);
   const [createState, setCreateState] = useState<RequestState>("idle");
   const [createSummary, setCreateSummary] = useState("在此补录服务器基础档案，提交后系统会刷新资产清单并自动定位到新记录。");
+  const [selectedServerIds, setSelectedServerIds] = useState<number[]>([]);
+  const [bulkLifecycleStatus, setBulkLifecycleStatus] = useState<ServerRecord["lifecycle_status"]>("maintenance");
+  const [bulkState, setBulkState] = useState<RequestState>("idle");
+  const [bulkSummary, setBulkSummary] = useState("支持对当前页选中服务器批量更新生命周期，并保留原有资产字段不变。");
+  const [bulkImportForm, setBulkImportForm] = useState(initialBulkImportForm);
+  const [bulkImportState, setBulkImportState] = useState<RequestState>("idle");
+  const [bulkImportSummary, setBulkImportSummary] = useState("支持按行导入服务器清单，共用系统版本、环境、生命周期与所属机房参数。");
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<ServerUpdateInput>(initialCreateForm);
   const [editState, setEditState] = useState<RequestState>("idle");
@@ -172,6 +190,11 @@ export function ServersPage() {
     void loadIDCs();
   }, [accessToken, baseUrl]);
 
+  useEffect(() => {
+    const pageIds = new Set((serverPage?.results || []).map((item) => item.id));
+    setSelectedServerIds((current) => current.filter((id) => pageIds.has(id)));
+  }, [serverPage?.results]);
+
   function updateQuery<K extends keyof ServerQuery>(key: K, value: ServerQuery[K]) {
     setQuery((current) => ({
       ...current,
@@ -207,6 +230,30 @@ export function ServersPage() {
       page: "1",
       [key]: value,
     }));
+  }
+
+  function updateBulkImportForm<K extends keyof typeof initialBulkImportForm>(
+    key: K,
+    value: (typeof initialBulkImportForm)[K],
+  ) {
+    setBulkImportForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function toggleServerSelection(serverId: number) {
+    setSelectedServerIds((current) =>
+      current.includes(serverId) ? current.filter((id) => id !== serverId) : [...current, serverId],
+    );
+  }
+
+  function toggleAllServerSelection() {
+    const pageIds = serverPage?.results.map((item) => item.id) || [];
+    if (!pageIds.length) {
+      return;
+    }
+    setSelectedServerIds((current) => (current.length === pageIds.length ? [] : pageIds));
   }
 
   async function loadIDCs() {
@@ -322,6 +369,22 @@ export function ServersPage() {
     );
   }
 
+  function renderDateTimeInline(value: string | null) {
+    if (!value) {
+      return "未记录";
+    }
+    const { date, time } = formatDateTimeZhParts(value);
+    return [date, time].filter(Boolean).join(" ");
+  }
+
+  function focusServerDetail(serverId: number) {
+    setSelectedServerId(serverId);
+    window.requestAnimationFrame(() => {
+      const detailPanel = document.getElementById("servers-selected-detail");
+      detailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   async function handleSaveServer() {
     if (!accessToken || !selectedServer) {
       return;
@@ -350,6 +413,145 @@ export function ServersPage() {
       setEditSummary(getUserFacingErrorMessage(error));
     }
   }
+
+  async function handleBulkLifecycleUpdate() {
+    if (!accessToken || !selectedServerIds.length) {
+      setBulkState("error");
+      setBulkSummary("请先勾选当前页需要处理的服务器。");
+      return;
+    }
+
+    setBulkState("loading");
+    setBulkSummary(`正在更新 ${selectedServerIds.length} 台服务器的生命周期...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const serverId of selectedServerIds) {
+      try {
+        const detail = await getServer(baseUrl, accessToken, serverId);
+        await updateServer(baseUrl, accessToken, serverId, {
+          hostname: detail.hostname,
+          internal_ip: detail.internal_ip,
+          external_ip: detail.external_ip,
+          os_version: detail.os_version,
+          cpu_cores: detail.cpu_cores,
+          memory_gb: detail.memory_gb,
+          disk_summary: detail.disk_summary,
+          lifecycle_status: bulkLifecycleStatus,
+          environment: detail.environment,
+          idc: detail.idc,
+        });
+        successCount += 1;
+      } catch {
+        failCount += 1;
+      }
+    }
+
+    await refreshServers();
+    if (selectedServerId) {
+      await refreshServerDetail(selectedServerId);
+    }
+    setBulkState(failCount ? "error" : "success");
+    setBulkSummary(`批量更新完成：成功 ${successCount} 台，失败 ${failCount} 台。`);
+    setSelectedServerIds([]);
+  }
+
+  async function handleBulkImportServers() {
+    if (!accessToken) {
+      setBulkImportState("error");
+      setBulkImportSummary("请先登录后再执行批量导入。");
+      return;
+    }
+    if (!bulkImportForm.idc) {
+      setBulkImportState("error");
+      setBulkImportSummary("请先选择所属机房后再批量导入。");
+      return;
+    }
+
+    const lines = bulkImportForm.lines
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!lines.length) {
+      setBulkImportState("error");
+      setBulkImportSummary("请先输入至少一行服务器导入数据。");
+      return;
+    }
+
+    setBulkImportState("loading");
+    setBulkImportSummary(`正在导入 ${lines.length} 台服务器...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const line of lines) {
+      const [hostname, internal_ip, external_ip = "", cpu = "4", memory = "8.00", disk_summary = ""] = line
+        .split(",")
+        .map((item) => item.trim());
+
+      if (!hostname || !internal_ip) {
+        failCount += 1;
+        continue;
+      }
+
+      try {
+        await createServer(baseUrl, accessToken, {
+          hostname,
+          internal_ip,
+          external_ip: external_ip || null,
+          os_version: bulkImportForm.os_version,
+          cpu_cores: Number(cpu) || 4,
+          memory_gb: memory || "8.00",
+          disk_summary,
+          lifecycle_status: bulkImportForm.lifecycle_status,
+          environment: bulkImportForm.environment,
+          idc: bulkImportForm.idc,
+        });
+        successCount += 1;
+      } catch {
+        failCount += 1;
+      }
+    }
+
+    const response = await refreshServers();
+    setSelectedServerId(response?.results[0]?.id ?? null);
+    setBulkImportState(failCount ? "error" : "success");
+    setBulkImportSummary(`批量导入完成：成功 ${successCount} 台，失败 ${failCount} 台。`);
+    if (!failCount) {
+      setBulkImportForm(initialBulkImportForm);
+    }
+  }
+
+  function handleExportServers() {
+    if (!serverPage?.results.length) {
+      return;
+    }
+
+    downloadCsv(
+      `servers-page-${query.page || "1"}.csv`,
+      [
+        { key: "hostname", label: "主机名" },
+        { key: "internal_ip", label: "内网 IP" },
+        { key: "external_ip", label: "外网 IP" },
+        { key: "idc_name", label: "机房" },
+        { key: "os_version", label: "系统版本" },
+        { key: "environment", label: "环境" },
+        { key: "lifecycle_status", label: "生命周期" },
+        { key: "source", label: "来源" },
+        { key: "updated_at", label: "更新时间" },
+      ],
+      serverPage.results,
+    );
+  }
+
+  const bulkUpdateTooltip = selectedServerIds.length
+    ? "批量更新已选服务器的生命周期"
+    : "请先勾选目标服务器";
+  const clearSelectionTooltip = selectedServerIds.length
+    ? "清空当前选择"
+    : "当前没有已选服务器";
 
   async function handleDeleteServer() {
     if (!accessToken || !selectedServer) {
@@ -407,7 +609,7 @@ export function ServersPage() {
 
   return (
     <main className="workspace-grid">
-      <BorderGlow as="section" className="panel panel-span-8">
+      <BorderGlow as="section" className="panel panel-span-8" id="servers-assets">
         <div className="panel-heading">
           <h2>服务器资产</h2>
           <p>集中查看服务器台账，支持按关键词、环境与生命周期筛选，便于快速完成资产核对与状态确认。</p>
@@ -461,6 +663,9 @@ export function ServersPage() {
               {createOpen ? "收起新增" : "新增服务器"}
             </button>
           ) : null}
+          <button className="button-ghost" onClick={handleExportServers} type="button">
+            导出当前页
+          </button>
         </div>
 
         {!capabilities.canWriteServers ? (
@@ -585,15 +790,123 @@ export function ServersPage() {
             </div>
 
             <p className={`status ${createState}`}>{createSummary}</p>
+
+            <div className="advanced-divider" />
+
+            <div className="panel-heading server-create-heading">
+              <h2>批量导入</h2>
+              <p>按行导入服务器清单。每行格式为：主机名,内网IP,外网IP,CPU核数,内存GB,磁盘摘要。</p>
+            </div>
+
+            <div className="form-grid server-create-grid">
+              <label className="field">
+                <span>系统版本</span>
+                <input
+                  value={bulkImportForm.os_version}
+                  onChange={(event) => updateBulkImportForm("os_version", event.target.value)}
+                />
+              </label>
+              <div className="field">
+                <span>环境</span>
+                <GlassSelect
+                  options={createEnvironmentOptions}
+                  value={bulkImportForm.environment}
+                  onChange={(value) => updateBulkImportForm("environment", value as ServerCreateInput["environment"])}
+                />
+              </div>
+              <div className="field">
+                <span>生命周期</span>
+                <GlassSelect
+                  options={createLifecycleOptions}
+                  value={bulkImportForm.lifecycle_status}
+                  onChange={(value) =>
+                    updateBulkImportForm("lifecycle_status", value as ServerCreateInput["lifecycle_status"])
+                  }
+                />
+              </div>
+              <div className="field">
+                <span className="field-label-nowrap">所属机房</span>
+                <GlassSelect
+                  disabled={idcState === "loading" || !idcOptions.length}
+                  options={idcOptions}
+                  placeholder={idcState === "loading" ? "正在加载机房列表" : "请选择机房"}
+                  value={bulkImportForm.idc ? String(bulkImportForm.idc) : ""}
+                  onChange={(value) => updateBulkImportForm("idc", value ? Number(value) : null)}
+                />
+              </div>
+            </div>
+
+            <label className="field stacked-field">
+              <span>导入内容</span>
+              <textarea
+                className="server-create-textarea bulk-import-textarea"
+                placeholder={"例如：\napp-prod-01,10.0.0.21,1.2.3.4,8,16.00,system:100G data:300G\napp-prod-02,10.0.0.22,,8,16.00,system:100G data:300G"}
+                rows={6}
+                value={bulkImportForm.lines}
+                onChange={(event) => updateBulkImportForm("lines", event.target.value)}
+              />
+            </label>
+
+            <div className="actions">
+              <button onClick={() => void handleBulkImportServers()} type="button">
+                执行导入
+              </button>
+              <button className="button-ghost" onClick={() => setBulkImportForm(initialBulkImportForm)} type="button">
+                清空内容
+              </button>
+            </div>
+
+            <p className={`status ${bulkImportState}`}>{bulkImportSummary}</p>
           </div>
         ) : null}
 
         <p className={`status ${serverState}`}>{serverSummary}</p>
 
+        {capabilities.canWriteServers ? (
+          <div className="batch-toolbar">
+            <div className="batch-toolbar-inline">
+              <span className="filter-chip">已选 {selectedServerIds.length} 台</span>
+            </div>
+            <div className="field batch-toolbar-field">
+              <span>批量生命周期</span>
+              <GlassSelect
+                options={createLifecycleOptions}
+                value={bulkLifecycleStatus}
+                onChange={(value) => setBulkLifecycleStatus(value as ServerRecord["lifecycle_status"])}
+              />
+            </div>
+            <div className="actions">
+              <span className="action-tooltip" data-tooltip={bulkUpdateTooltip}>
+                <button disabled={!selectedServerIds.length} onClick={() => void handleBulkLifecycleUpdate()} type="button">
+                  批量更新
+                </button>
+              </span>
+              <span className="action-tooltip" data-tooltip={clearSelectionTooltip}>
+                <button className="button-ghost" disabled={!selectedServerIds.length} onClick={() => setSelectedServerIds([])} type="button">
+                  清空选择
+                </button>
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {capabilities.canWriteServers && bulkState !== "idle" ? <p className={`status ${bulkState}`}>{bulkSummary}</p> : null}
+
         <div className="table-shell">
           <table className="server-assets-table">
             <thead>
               <tr>
+                {capabilities.canWriteServers ? (
+                  <th className="table-select-cell">
+                    <input
+                      aria-label="选择当前页全部服务器"
+                      checked={Boolean(serverPage?.results.length) && selectedServerIds.length === (serverPage?.results.length || 0)}
+                      className="table-checkbox"
+                      onChange={toggleAllServerSelection}
+                      type="checkbox"
+                    />
+                  </th>
+                ) : null}
                 <th>主机名</th>
                 <th>内网 IP</th>
                 <th>IDC</th>
@@ -612,6 +925,17 @@ export function ServersPage() {
                     key={server.id}
                     onClick={() => setSelectedServerId(server.id)}
                   >
+                    {capabilities.canWriteServers ? (
+                      <td className="table-select-cell" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          aria-label={`选择服务器 ${server.hostname}`}
+                          checked={selectedServerIds.includes(server.id)}
+                          className="table-checkbox"
+                          onChange={() => toggleServerSelection(server.id)}
+                          type="checkbox"
+                        />
+                      </td>
+                    ) : null}
                     <td>{server.hostname}</td>
                     <td>{server.internal_ip}</td>
                     <td>{server.idc_name || "未记录"}</td>
@@ -624,7 +948,7 @@ export function ServersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8}>当前没有加载到服务器数据。</td>
+                  <td colSpan={capabilities.canWriteServers ? 9 : 8}>当前没有加载到服务器数据。</td>
                 </tr>
               )}
             </tbody>
@@ -640,7 +964,7 @@ export function ServersPage() {
         />
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-4 panel-fit-content">
+      <BorderGlow as="section" className="panel panel-span-4 panel-fit-content" id="servers-selected-detail">
         <div className="panel-heading">
           <h2>选中服务器</h2>
           <p>展示当前服务器的关键配置、网络信息与最近状态，便于快速核对资产信息与运行概况。</p>
@@ -844,7 +1168,7 @@ export function ServersPage() {
         )}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="servers-agent-monitor">
         <div className="panel-heading">
           <h2>机器上报监控</h2>
           <p>聚合展示由 agent 同步的资产记录，重点关注最近心跳、来源元数据与待核验主机，便于快速判断机器侧同步是否正常。</p>
@@ -912,7 +1236,7 @@ export function ServersPage() {
                         </span>
                       </div>
                     </div>
-                    <button className="button-ghost query-action-button" onClick={() => setSelectedServerId(server.id)} type="button">
+                    <button className="button-ghost query-action-button" onClick={() => focusServerDetail(server.id)} type="button">
                       查看详情
                     </button>
                   </div>
@@ -927,7 +1251,7 @@ export function ServersPage() {
                     </div>
                     <div>
                       <dt>最近心跳</dt>
-                      <dd>{renderDateTime(server.last_seen_at)}</dd>
+                      <dd>{renderDateTimeInline(server.last_seen_at)}</dd>
                     </div>
                     <div>
                       <dt>Agent 版本</dt>
@@ -941,7 +1265,7 @@ export function ServersPage() {
         ) : null}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="servers-advanced-query">
         <div className="panel-heading">
           <h2>高级资产查询</h2>
           <p>面向问题排查、归属核验与环境盘点场景，可通过主机名、IP、环境、生命周期与机房编码快速缩小检索范围。</p>
@@ -1023,7 +1347,7 @@ export function ServersPage() {
                         <span className="pill neutral">{item.lifecycle_status}</span>
                       </div>
                     </div>
-                    <button className="button-ghost query-action-button" onClick={() => setSelectedServerId(item.id)} type="button">
+                    <button className="button-ghost query-action-button" onClick={() => focusServerDetail(item.id)} type="button">
                       查看详情
                     </button>
                   </div>

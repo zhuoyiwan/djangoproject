@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
 import { PaginationControls } from "../components/PaginationControls";
+import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
-import { createJob, getJobHandoff, getJobToolQuery, getJobs } from "../lib/api";
+import { cancelJob, createJob, getJobHandoff, getJobToolQuery, getJobs, requeueJob } from "../lib/api";
+import { downloadCsv } from "../lib/export";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import { formatDateTime, formatDateTimeZhParts } from "../lib/format";
 import type {
@@ -141,8 +143,13 @@ const initialAgentReportQuery: JobToolQuery = {
 export function AutomationPage() {
   const { accessToken, baseUrl, capabilities } = useAuth();
   const location = useLocation();
+  useHashSectionScroll();
   const [query, setQuery] = useState<JobQuery>(initialQuery);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+  const [selectedJobIds, setSelectedJobIds] = useState<number[]>([]);
+  const [batchComment, setBatchComment] = useState("由工作台发起批量处理。");
+  const [batchState, setBatchState] = useState<RequestState>("idle");
+  const [batchSummary, setBatchSummary] = useState("支持对当前页任务批量终止或重新调度，适用于集中清理和任务回补。");
   const [form, setForm] = useState(initialForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [toolQuery, setToolQuery] = useState<JobToolQuery>(initialToolQuery);
@@ -367,6 +374,11 @@ export function AutomationPage() {
     [query],
   );
 
+  useEffect(() => {
+    const pageIds = new Set((jobPage?.results || []).map((item) => item.id));
+    setSelectedJobIds((current) => current.filter((id) => pageIds.has(id)));
+  }, [jobPage?.results]);
+
   function renderDateTimeStack(value: string | null) {
     const { date, time } = formatDateTimeZhParts(value);
     return (
@@ -377,9 +389,100 @@ export function AutomationPage() {
     );
   }
 
+  function toggleJobSelection(jobId: number) {
+    setSelectedJobIds((current) =>
+      current.includes(jobId) ? current.filter((id) => id !== jobId) : [...current, jobId],
+    );
+  }
+
+  function toggleAllJobSelection() {
+    const pageIds = jobPage?.results.map((item) => item.id) || [];
+    if (!pageIds.length) {
+      return;
+    }
+    setSelectedJobIds((current) => (current.length === pageIds.length ? [] : pageIds));
+  }
+
+  async function handleBatchAction(action: "cancel" | "requeue") {
+    if (!accessToken || !selectedJobIds.length) {
+      setBatchState("error");
+      setBatchSummary("请先勾选当前页需要处理的任务。");
+      return;
+    }
+
+    setBatchState("loading");
+    setBatchSummary(`正在执行 ${selectedJobIds.length} 条任务的批量处理...`);
+
+    const selectedJobs = (jobPage?.results || []).filter((job) => selectedJobIds.includes(job.id));
+    let successCount = 0;
+    let skippedCount = 0;
+    let failCount = 0;
+
+    for (const job of selectedJobs) {
+      const allowed =
+        action === "cancel"
+          ? job.status === "ready" || job.status === "claimed"
+          : job.status === "claimed" || job.status === "failed";
+      if (!allowed) {
+        skippedCount += 1;
+        continue;
+      }
+
+      try {
+        if (action === "cancel") {
+          await cancelJob(baseUrl, accessToken, job.id, batchComment.trim() || "由工作台发起批量终止。");
+        } else {
+          await requeueJob(baseUrl, accessToken, job.id, batchComment.trim() || "由工作台发起批量重调度。");
+        }
+        successCount += 1;
+      } catch {
+        failCount += 1;
+      }
+    }
+
+    const refreshed = await refreshJobs();
+    if (refreshed) {
+      setSelectedJobId(refreshed.results[0]?.id ?? null);
+    }
+    setSelectedJobIds([]);
+    setBatchState(failCount ? "error" : "success");
+    setBatchSummary(`批量处理完成：成功 ${successCount} 条，跳过 ${skippedCount} 条，失败 ${failCount} 条。`);
+  }
+
+  function handleExportJobs() {
+    if (!jobPage?.results.length) {
+      return;
+    }
+
+    downloadCsv(
+      `automation-page-${query.page || "1"}.csv`,
+      [
+        { key: "name", label: "任务名称" },
+        { key: "status", label: "执行状态" },
+        { key: "risk_level", label: "风险等级" },
+        { key: "approval_status", label: "审批状态" },
+        { key: "approval_requested_by_username", label: "申请人" },
+        { key: "assigned_agent_key_id", label: "执行器 ID" },
+        { key: "last_reported_by_agent_key", label: "最近上报执行器" },
+        { key: "updated_at", label: "最近更新" },
+      ],
+      jobPage.results,
+    );
+  }
+
+  const batchCancelTooltip = selectedJobIds.length
+    ? "批量终止已选任务 仅处理待执行或已认领任务"
+    : "请先勾选目标任务";
+  const batchRequeueTooltip = selectedJobIds.length
+    ? "批量重调度已选任务 仅处理已认领或失败任务"
+    : "请先勾选目标任务";
+  const batchClearTooltip = selectedJobIds.length
+    ? "清空当前选择"
+    : "当前没有已选任务";
+
   return (
     <main className="workspace-grid">
-      <BorderGlow as="section" className="panel panel-span-8">
+      <BorderGlow as="section" className="panel panel-span-8" id="automation-tasks">
         <div className="panel-heading">
           <h2>自动化任务</h2>
           <p>集中查看自动化任务的申请、审批与执行进度，支持按条件筛选，便于持续跟进任务处理状态。</p>
@@ -435,6 +538,9 @@ export function AutomationPage() {
           <button className="button-ghost" onClick={resetQuery} type="button">
             清空筛选
           </button>
+          <button className="button-ghost" onClick={handleExportJobs} type="button">
+            导出当前页
+          </button>
         </div>
 
         {activeFilterTags.length ? (
@@ -450,10 +556,52 @@ export function AutomationPage() {
         {flashMessage ? <p className={`status ${flashState}`}>{flashMessage}</p> : null}
         <p className={`status ${jobState}`}>{jobSummary}</p>
 
+        {capabilities.canExecuteAutomation ? (
+          <div className="batch-toolbar">
+            <div className="batch-toolbar-inline">
+              <span className="filter-chip">已选 {selectedJobIds.length} 条</span>
+            </div>
+            <label className="field batch-toolbar-field">
+              <span>批量备注</span>
+              <input value={batchComment} onChange={(event) => setBatchComment(event.target.value)} />
+            </label>
+            <div className="actions">
+              <span className="action-tooltip" data-tooltip={batchCancelTooltip}>
+                <button disabled={!selectedJobIds.length} onClick={() => void handleBatchAction("cancel")} type="button">
+                  批量终止
+                </button>
+              </span>
+              <span className="action-tooltip" data-tooltip={batchRequeueTooltip}>
+                <button disabled={!selectedJobIds.length} onClick={() => void handleBatchAction("requeue")} type="button">
+                  批量重调度
+                </button>
+              </span>
+              <span className="action-tooltip" data-tooltip={batchClearTooltip}>
+                <button className="button-ghost" disabled={!selectedJobIds.length} onClick={() => setSelectedJobIds([])} type="button">
+                  清空选择
+                </button>
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {capabilities.canExecuteAutomation && batchState !== "idle" ? <p className={`status ${batchState}`}>{batchSummary}</p> : null}
+
         <div className="table-shell">
           <table className="automation-task-table">
             <thead>
               <tr>
+                {capabilities.canExecuteAutomation ? (
+                  <th className="table-select-cell">
+                    <input
+                      aria-label="选择当前页全部任务"
+                      checked={Boolean(jobPage?.results.length) && selectedJobIds.length === (jobPage?.results.length || 0)}
+                      className="table-checkbox"
+                      onChange={toggleAllJobSelection}
+                      type="checkbox"
+                    />
+                  </th>
+                ) : null}
                 <th>任务名称</th>
                 <th>执行状态</th>
                 <th>风险等级</th>
@@ -470,6 +618,17 @@ export function AutomationPage() {
                     key={job.id}
                     onClick={() => setSelectedJobId(job.id)}
                   >
+                    {capabilities.canExecuteAutomation ? (
+                      <td className="table-select-cell" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          aria-label={`选择任务 ${job.name}`}
+                          checked={selectedJobIds.includes(job.id)}
+                          className="table-checkbox"
+                          onChange={() => toggleJobSelection(job.id)}
+                          type="checkbox"
+                        />
+                      </td>
+                    ) : null}
                     <td>
                       <Link className="inline-link" to={`/automation/${job.id}`} onClick={(event) => event.stopPropagation()}>
                         {job.name}
@@ -488,7 +647,7 @@ export function AutomationPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6}>当前筛选条件下暂无可展示的自动化任务。</td>
+                  <td colSpan={capabilities.canExecuteAutomation ? 7 : 6}>当前筛选条件下暂无可展示的自动化任务。</td>
                 </tr>
               )}
             </tbody>
@@ -603,7 +762,7 @@ export function AutomationPage() {
         </BorderGlow>
       </div>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="automation-advanced-query">
         <div className="panel-heading">
           <h2>高级任务查询</h2>
           <p>面向审批排查、执行回溯与任务归因场景，可通过任务状态、风险等级、审批状态与执行器信息快速缩小范围。</p>
@@ -721,7 +880,7 @@ export function AutomationPage() {
         ) : null}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="automation-handoff">
         <div className="panel-heading">
           <h2>执行交接视图</h2>
           <p>聚焦待执行与已认领任务，便于执行侧确认交接池、识别当前负责人并快速进入具体任务。</p>
@@ -847,7 +1006,7 @@ export function AutomationPage() {
         ) : null}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="automation-agent-claim">
         <div className="panel-heading">
           <h2>执行器认领监控</h2>
           <p>聚焦已由 runner 接手的任务，帮助执行器运营视角快速确认认领主体、接手时间与当前任务池状态。</p>
@@ -952,7 +1111,7 @@ export function AutomationPage() {
         ) : null}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="automation-agent-report">
         <div className="panel-heading">
           <h2>执行器上报监控</h2>
           <p>面向 runner 回报结果的只读视图，可按最近上报执行器、状态与风险等级快速检索，并直接进入任务详情查看完整执行上下文。</p>

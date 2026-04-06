@@ -84,6 +84,7 @@ class UserApiPermissionTests(TestCase):
         cache.clear()
         self.client = APIClient()
         self.user = get_user_model().objects.create_user(username="alice", password="password123")
+        self.target_user = get_user_model().objects.create_user(username="bob", password="password123", email="bob@example.com")
         self.client.force_authenticate(self.user)
 
     def test_non_admin_cannot_list_users(self):
@@ -116,3 +117,77 @@ class UserApiPermissionTests(TestCase):
         self.assertEqual(entry.target, "GET /api/v1/users/")
         self.assertEqual(entry.detail["status_code"], 403)
         self.assertEqual(entry.detail["username"], "alice")
+
+    def test_me_returns_current_user_roles(self):
+        approver_group = Group.objects.create(name="approver")
+        self.user.groups.add(approver_group)
+        response = self.client.get("/api/v1/users/me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["username"], "alice")
+        self.assertEqual(response.data["roles"], ["approver"])
+
+    def test_platform_admin_can_update_user_profile_and_active_state(self):
+        admin_group = Group.objects.create(name="platform_admin")
+        self.user.groups.add(admin_group)
+        response = self.client.patch(
+            f"/api/v1/users/{self.target_user.id}/",
+            {
+                "display_name": "Bob Lee",
+                "email": "bob.lee@example.com",
+                "is_active": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.target_user.refresh_from_db()
+        self.assertEqual(self.target_user.display_name, "Bob Lee")
+        self.assertEqual(self.target_user.email, "bob.lee@example.com")
+        self.assertFalse(self.target_user.is_active)
+        entry = AuditLog.objects.get(action="accounts.user.updated")
+        self.assertEqual(entry.actor, self.user)
+        self.assertEqual(entry.target, f"user:{self.target_user.id}:bob")
+
+    def test_platform_admin_can_list_available_roles(self):
+        admin_group = Group.objects.create(name="platform_admin")
+        self.user.groups.add(admin_group)
+        response = self.client.get("/api/v1/users/roles/")
+        self.assertEqual(response.status_code, 200)
+        role_names = [item["name"] for item in response.data["items"]]
+        self.assertCountEqual(role_names, ["platform_admin", "ops_admin", "auditor", "viewer", "approver"])
+
+    def test_platform_admin_can_assign_roles_to_user(self):
+        admin_group = Group.objects.create(name="platform_admin")
+        self.user.groups.add(admin_group)
+        response = self.client.post(
+            f"/api/v1/users/{self.target_user.id}/set-roles/",
+            {"roles": ["ops_admin", "auditor"]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(list(self.target_user.groups.values_list("name", flat=True)), ["ops_admin", "auditor"])
+        entry = AuditLog.objects.get(action="accounts.user.roles_updated")
+        self.assertEqual(entry.actor, self.user)
+        self.assertCountEqual(entry.detail["roles"], ["ops_admin", "auditor"])
+
+    def test_platform_admin_can_reset_user_password(self):
+        admin_group = Group.objects.create(name="platform_admin")
+        self.user.groups.add(admin_group)
+        response = self.client.post(
+            f"/api/v1/users/{self.target_user.id}/set-password/",
+            {"password": "new-password-123"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.target_user.refresh_from_db()
+        self.assertTrue(self.target_user.check_password("new-password-123"))
+        entry = AuditLog.objects.get(action="accounts.user.password_reset")
+        self.assertEqual(entry.actor, self.user)
+        self.assertEqual(entry.target, f"user:{self.target_user.id}:bob")
+
+    def test_non_admin_cannot_assign_roles(self):
+        response = self.client.post(
+            f"/api/v1/users/{self.target_user.id}/set-roles/",
+            {"roles": ["ops_admin"]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)

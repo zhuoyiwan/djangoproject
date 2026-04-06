@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from accounts.views import UserViewSet
 from audit.views import AuditLogViewSet
 from cmdb.views import IDCViewSet, ServerViewSet
-from core.views import HealthcheckView
+from core.views import HealthcheckView, OverviewSummaryView
 from automation.views import JobViewSet
 
 router = DefaultRouter()
@@ -17,5 +17,6 @@ router.register("automation/jobs", JobViewSet, basename="job")
 urlpatterns = [
     path("auth/", include("accounts.urls")),
     path("health/", HealthcheckView.as_view(), name="api-healthcheck"),
+    path("overview/summary/", OverviewSummaryView.as_view(), name="api-overview-summary"),
     path("", include(router.urls)),
 ]

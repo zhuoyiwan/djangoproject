@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { getUserFacingErrorMessage } from "../lib/errors";
-import { getHealth } from "../lib/api";
-import type { RequestState } from "../types";
+import { getHealth, getOverviewSummary } from "../lib/api";
+import type { OverviewSummaryResponse, RequestState } from "../types";
 
 export function OverviewPage() {
-  const { baseUrl, capabilities, profile } = useAuth();
+  const { accessToken, baseUrl, capabilities, profile } = useAuth();
   const [healthState, setHealthState] = useState<RequestState>("loading");
   const [healthSummary, setHealthSummary] = useState("正在同步工作区服务状态...");
+  const [overviewSummary, setOverviewSummary] = useState<OverviewSummaryResponse["summary"] | null>(null);
+  const [overviewHint, setOverviewHint] = useState("正在汇总资产、任务与审计摘要...");
 
   useEffect(() => {
     let active = true;
@@ -17,19 +19,38 @@ export function OverviewPage() {
     async function syncHealth() {
       setHealthState("loading");
       setHealthSummary("正在同步工作区服务状态...");
+      setOverviewHint("正在汇总资产、任务与审计摘要...");
       try {
-        const response = await getHealth(baseUrl);
+        const [healthResponse, summaryResponse] = await Promise.all([
+          getHealth(baseUrl),
+          accessToken ? getOverviewSummary(baseUrl, accessToken) : Promise.resolve(null),
+        ]);
         if (!active) {
           return;
         }
-        setHealthState("success");
-        setHealthSummary(`工作区服务正常，已返回 ${Object.keys(response).length} 个状态字段。`);
+        setHealthState(healthResponse.status === "ok" ? "success" : "error");
+        setHealthSummary(
+          healthResponse.status === "ok"
+            ? `数据库与缓存状态正常，Agent 能力开关已完成装载。`
+            : `服务处于降级状态，数据库为 ${healthResponse.checks.database.status}，缓存为 ${healthResponse.checks.cache.status}。`,
+        );
+
+        if (summaryResponse) {
+          setOverviewSummary(summaryResponse.summary);
+          setOverviewHint(
+            `当前共纳管 ${summaryResponse.summary.servers.total} 台服务器、${summaryResponse.summary.automation.total} 个任务，近 24 小时新增 ${summaryResponse.summary.audit.last_24h} 条记录。`,
+          );
+        } else {
+          setOverviewSummary(null);
+          setOverviewHint("登录后可加载当前工作区的聚合统计信息。");
+        }
       } catch (error) {
         if (!active) {
           return;
         }
         setHealthState("error");
         setHealthSummary(getUserFacingErrorMessage(error));
+        setOverviewHint(getUserFacingErrorMessage(error));
       }
     }
 
@@ -37,10 +58,10 @@ export function OverviewPage() {
     return () => {
       active = false;
     };
-  }, [baseUrl]);
+  }, [accessToken, baseUrl]);
 
   const serviceLabel =
-    healthState === "success" ? "服务在线" : healthState === "error" ? "连接异常" : "同步中";
+    healthState === "success" ? "服务在线" : healthState === "error" ? "降级运行" : "同步中";
 
   return (
     <main className="workspace-grid">
@@ -62,9 +83,39 @@ export function OverviewPage() {
             <small>{healthSummary}</small>
           </BorderGlow>
           <BorderGlow as="article" className="summary-card">
-            <span>常用入口</span>
-            <strong>资源、任务、记录</strong>
-            <small>从常用入口快速进入核心页面，持续处理当日运维事项。</small>
+            <span>工作区摘要</span>
+            <strong>
+              {overviewSummary ? `${overviewSummary.servers.total} 台资产 / ${overviewSummary.automation.total} 个任务` : "等待汇总"}
+            </strong>
+            <small>{overviewHint}</small>
+          </BorderGlow>
+        </div>
+
+        <div className="summary-grid overview-summary-secondary">
+          <BorderGlow as="article" className="summary-card">
+            <span>服务器概况</span>
+            <strong>
+              {overviewSummary
+                ? `${overviewSummary.servers.online} 在线 / ${overviewSummary.servers.maintenance} 维护`
+                : "等待汇总"}
+            </strong>
+            <small>离线 {overviewSummary?.servers.offline ?? 0} 台，预分配 {overviewSummary?.servers.pre_allocated ?? 0} 台。</small>
+          </BorderGlow>
+          <BorderGlow as="article" className="summary-card">
+            <span>任务态势</span>
+            <strong>
+              {overviewSummary
+                ? `${overviewSummary.automation.ready} 待执行 / ${overviewSummary.automation.awaiting_approval} 待审批`
+                : "等待汇总"}
+            </strong>
+            <small>认领中 {overviewSummary?.automation.claimed ?? 0} 个，高风险待批 {overviewSummary?.automation.high_risk_pending ?? 0} 个。</small>
+          </BorderGlow>
+          <BorderGlow as="article" className="summary-card">
+            <span>审计留痕</span>
+            <strong>
+              {overviewSummary ? `24h 内 ${overviewSummary.audit.last_24h} 条` : "等待汇总"}
+            </strong>
+            <small>其中安全事件 {overviewSummary?.audit.security_events_last_24h ?? 0} 条。</small>
           </BorderGlow>
         </div>
 

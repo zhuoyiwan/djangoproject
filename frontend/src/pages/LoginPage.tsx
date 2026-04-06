@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, Network, Sparkles, UserRound } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { AnimatedCharactersLoginArt } from "../components/AnimatedCharactersLoginArt";
@@ -9,6 +9,8 @@ import { getUserFacingErrorMessage } from "../lib/errors";
 export function LoginPage() {
   const {
     accessToken,
+    authState,
+    authSummary,
     baseUrl,
     loginWithPassword,
     registerWithPassword,
@@ -34,8 +36,7 @@ export function LoginPage() {
   const [fieldFocused, setFieldFocused] = useState(false);
 
   const navigate = useNavigate();
-  const location = useLocation();
-  const nextPath = typeof location.state?.from === "string" ? location.state.from : "/overview";
+  const nextPath = "/overview";
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -189,6 +190,8 @@ export function LoginPage() {
                   </button>
                 </div>
               </form>
+
+              {authState !== "idle" ? <p className={`status ${authState}`}>{authSummary}</p> : null}
 
               <details className="advanced-settings login-advanced-settings">
                 <summary className="advanced-settings-toggle">

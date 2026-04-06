@@ -143,9 +143,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(response);
       setAuthState("success");
       setAuthSummary(`当前身份：${response.display_name || response.username}。`);
-      void syncCapabilities(activeToken);
+      await syncCapabilities(activeToken);
     } catch (error) {
       setProfile(null);
+      setAccessToken("");
+      setRefreshToken("");
       setAuthState("error");
       setAuthSummary(getUserFacingErrorMessage(error));
       setCapabilities(emptyCapabilities);
@@ -163,6 +165,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setCapabilityState("loading");
     try {
+      const safeProbe = async (probe: () => Promise<boolean>) => {
+        try {
+          return await probe();
+        } catch {
+          return false;
+        }
+      };
+
       const [
         canReadAudit,
         canManageUsers,
@@ -171,12 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         canApproveAutomation,
         canExecuteAutomation,
       ] = await Promise.all([
-        probeAuditReadAccess(baseUrl, activeToken),
-        probeUserAdminAccess(baseUrl, activeToken),
-        probeServerWriteAccess(baseUrl, activeToken),
-        probeAutomationWriteAccess(baseUrl, activeToken),
-        probeAutomationApproveAccess(baseUrl, activeToken),
-        probeAutomationExecuteAccess(baseUrl, activeToken),
+        safeProbe(() => probeAuditReadAccess(baseUrl, activeToken)),
+        safeProbe(() => probeUserAdminAccess(baseUrl, activeToken)),
+        safeProbe(() => probeServerWriteAccess(baseUrl, activeToken)),
+        safeProbe(() => probeAutomationWriteAccess(baseUrl, activeToken)),
+        safeProbe(() => probeAutomationApproveAccess(baseUrl, activeToken)),
+        safeProbe(() => probeAutomationExecuteAccess(baseUrl, activeToken)),
       ]);
 
       setCapabilities({
@@ -205,6 +215,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthSummary("认证成功，正在加载平台访问上下文...");
       await refreshProfile(tokens.access, true);
     } catch (error) {
+      setAccessToken("");
+      setRefreshToken("");
       setProfile(null);
       setAuthState("error");
       setAuthSummary(getUserFacingErrorMessage(error));
@@ -239,6 +251,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthSummary("账号创建成功，正在加载平台访问上下文...");
       await refreshProfile(tokens.access, true);
     } catch (error) {
+      setAccessToken("");
+      setRefreshToken("");
       setProfile(null);
       setAuthState("error");
       setAuthSummary(getUserFacingErrorMessage(error));

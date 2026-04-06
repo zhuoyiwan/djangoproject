@@ -3,9 +3,11 @@ import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect } from "../components/GlassSelect";
 import { PaginationControls } from "../components/PaginationControls";
+import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import { useResourceDetail } from "../hooks/useResourceDetail";
 import { formatDateTime } from "../lib/format";
+import { downloadCsv } from "../lib/export";
 import { getAuditLog, getAuditLogs, getAuditToolQuery } from "../lib/api";
 import { getUserFacingErrorMessage } from "../lib/errors";
 import type { AuditLogRecord, AuditQuery, AuditToolQuery, AuditToolQueryResponse, RequestState } from "../types";
@@ -36,6 +38,7 @@ const initialToolQuery: AuditToolQuery = {
 
 export function AuditPage() {
   const { accessToken, baseUrl, capabilities, capabilityState } = useAuth();
+  useHashSectionScroll();
   const [query, setQuery] = useState<AuditQuery>(initialQuery);
   const [toolQuery, setToolQuery] = useState<AuditToolQuery>(initialToolQuery);
   const [toolState, setToolState] = useState<RequestState>("idle");
@@ -115,9 +118,26 @@ export function AuditPage() {
   const currentPage = Number(query.page || "1");
   const pageSize = Number(query.page_size || "20");
 
+  function handleExportAudit() {
+    if (!auditPage?.results.length) {
+      return;
+    }
+
+    downloadCsv(
+      `audit-page-${query.page || "1"}.csv`,
+      [
+        { key: "action", label: "动作" },
+        { key: "target", label: "对象" },
+        { key: "actor_username", label: "执行人" },
+        { key: "created_at", label: "时间" },
+      ],
+      auditPage.results,
+    );
+  }
+
   return (
     <main className="workspace-grid">
-      <BorderGlow as="section" className="panel panel-span-8">
+      <BorderGlow as="section" className="panel panel-span-8" id="audit-records">
         <div className="panel-heading">
           <h2>操作记录</h2>
           <p>集中查看近期关键操作留痕，支持按关键词检索，便于回溯平台内已发生的业务动作与处理过程。</p>
@@ -149,6 +169,9 @@ export function AuditPage() {
             type="button"
           >
             刷新记录
+          </button>
+          <button className="button-ghost" onClick={handleExportAudit} type="button">
+            导出当前页
           </button>
         </div>
 
@@ -238,7 +261,7 @@ export function AuditPage() {
         ) : null}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="audit-advanced-query">
         <div className="panel-heading">
           <h2>高级记录查询</h2>
           <p>面向审计复盘、安全排查与责任追踪场景，可通过动作、对象、执行人、访问路径与原因关键词快速定位目标留痕。</p>

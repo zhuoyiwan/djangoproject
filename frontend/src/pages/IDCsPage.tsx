@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../app/auth";
 import { BorderGlow } from "../components/BorderGlow";
 import { GlassSelect, type GlassSelectOption } from "../components/GlassSelect";
+import { useHashSectionScroll } from "../hooks/useHashSectionScroll";
 import { PaginationControls } from "../components/PaginationControls";
 import { usePaginatedResource } from "../hooks/usePaginatedResource";
 import {
@@ -62,6 +63,7 @@ const initialToolQuery: IDCToolQuery = {
 
 export function IDCsPage() {
   const { accessToken, baseUrl, capabilities } = useAuth();
+  useHashSectionScroll();
   const [query, setQuery] = useState<IDCListQuery>(initialQuery);
   const [selectedIdcId, setSelectedIdcId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -240,7 +242,7 @@ export function IDCsPage() {
 
   return (
     <main className="workspace-grid">
-      <BorderGlow as="section" className="panel panel-span-8">
+      <BorderGlow as="section" className="panel panel-span-8" id="idcs-assets">
         <div className="panel-heading">
           <h2>机房主数据</h2>
           <p>维护机房编码、名称、地理位置与运行状态，作为服务器资产归属与资源规划的基础主数据。</p>
@@ -506,7 +508,7 @@ export function IDCsPage() {
         )}
       </BorderGlow>
 
-      <BorderGlow as="section" className="panel panel-span-12">
+      <BorderGlow as="section" className="panel panel-span-12" id="idcs-advanced-query">
         <div className="panel-heading">
           <h2>高级机房查询</h2>
           <p>面向资产归属核验、资源规划与主数据复核场景，可通过编码、名称、位置与运行状态快速缩小检索范围。</p>
