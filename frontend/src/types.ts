@@ -36,6 +36,15 @@ export type AuthRefreshTokens = {
   refresh?: string;
 };
 
+export type RegisterInput = {
+  username: string;
+  email?: string;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+};
+
 export type UserProfile = {
   id: number;
   username: string;

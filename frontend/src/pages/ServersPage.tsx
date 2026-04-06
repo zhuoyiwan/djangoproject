@@ -85,9 +85,32 @@ const initialToolQuery: ServerToolQuery = {
   limit: "6",
 };
 
+const initialAgentMonitorQuery: ServerQuery = {
+  search: "",
+  ordering: "-created_at",
+  page: "1",
+  page_size: "6",
+  environment: "",
+  lifecycle_status: "",
+  source: "agent",
+};
+
+function getHeartbeatState(lastSeenAt: string | null) {
+  if (!lastSeenAt) {
+    return "missing";
+  }
+  const seenAt = new Date(lastSeenAt).getTime();
+  if (Number.isNaN(seenAt)) {
+    return "missing";
+  }
+  const ageMs = Date.now() - seenAt;
+  return ageMs > 24 * 60 * 60 * 1000 ? "stale" : "healthy";
+}
+
 export function ServersPage() {
   const { accessToken, baseUrl, capabilities } = useAuth();
   const [query, setQuery] = useState<ServerQuery>(initialQuery);
+  const [agentMonitorQuery, setAgentMonitorQuery] = useState<ServerQuery>(initialAgentMonitorQuery);
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<ServerCreateInput>(initialCreateForm);
@@ -117,6 +140,24 @@ export function ServersPage() {
     missingTokenSummary: "请先登录后再查询 CMDB 服务器。",
     loadingSummary: "正在查询实时 CMDB 数据...",
     successSummary: (response) => `已加载 ${response.results.length} 台服务器，共 ${response.count} 台。`,
+    fetcher: (token, activeQuery) => getServers(baseUrl, token, activeQuery),
+  });
+  const {
+    page: agentMonitorPage,
+    state: agentMonitorState,
+    summary: agentMonitorSummary,
+    refresh: refreshAgentMonitor,
+  } = usePaginatedResource<ServerRecord, ServerQuery>({
+    accessToken,
+    query: agentMonitorQuery,
+    initialSummary: "查看机器上报资产与最近心跳状态。",
+    missingTokenSummary: "请先登录后再查看机器上报监控。",
+    loadingSummary: "正在同步机器上报资产与心跳状态...",
+    successSummary: (response) => {
+      const staleCount = response.results.filter((item) => getHeartbeatState(item.last_seen_at) === "stale").length;
+      const missingCount = response.results.filter((item) => getHeartbeatState(item.last_seen_at) === "missing").length;
+      return `已同步 ${response.results.length} 台机器上报资产，本页异常心跳 ${staleCount} 台，待核验 ${missingCount} 台。`;
+    },
     fetcher: (token, activeQuery) => getServers(baseUrl, token, activeQuery),
   });
 
@@ -156,6 +197,14 @@ export function ServersPage() {
   function updateToolQuery<K extends keyof ServerToolQuery>(key: K, value: ServerToolQuery[K]) {
     setToolQuery((current) => ({
       ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateAgentMonitorQuery<K extends keyof ServerQuery>(key: K, value: ServerQuery[K]) {
+    setAgentMonitorQuery((current) => ({
+      ...current,
+      page: "1",
       [key]: value,
     }));
   }
@@ -793,6 +842,103 @@ export function ServersPage() {
         ) : (
           <p className="status idle">请先从左侧列表中选择目标服务器，以查看详细资产信息。</p>
         )}
+      </BorderGlow>
+
+      <BorderGlow as="section" className="panel panel-span-12">
+        <div className="panel-heading">
+          <h2>机器上报监控</h2>
+          <p>聚合展示由 agent 同步的资产记录，重点关注最近心跳、来源元数据与待核验主机，便于快速判断机器侧同步是否正常。</p>
+        </div>
+
+        <div className="filter-grid">
+          <label className="field">
+            <span>主机关键词</span>
+            <input
+              value={agentMonitorQuery.search || ""}
+              onChange={(event) => updateAgentMonitorQuery("search", event.target.value)}
+            />
+          </label>
+          <div className="field">
+            <span>环境</span>
+            <GlassSelect
+              options={environmentOptions}
+              value={agentMonitorQuery.environment || ""}
+              onChange={(value) => updateAgentMonitorQuery("environment", value)}
+            />
+          </div>
+          <div className="field">
+            <span>生命周期</span>
+            <GlassSelect
+              options={lifecycleOptions}
+              value={agentMonitorQuery.lifecycle_status || ""}
+              onChange={(value) => updateAgentMonitorQuery("lifecycle_status", value)}
+            />
+          </div>
+        </div>
+
+        <div className="actions">
+          <button onClick={() => void refreshAgentMonitor()} type="button">
+            同步监控
+          </button>
+          <button
+            className="button-ghost"
+            onClick={() => setAgentMonitorQuery(initialAgentMonitorQuery)}
+            type="button"
+          >
+            重置条件
+          </button>
+        </div>
+
+        <p className={`status ${agentMonitorState}`}>{agentMonitorSummary}</p>
+
+        {agentMonitorPage?.results.length ? (
+          <div className="query-result-grid query-result-grid-compact">
+            {agentMonitorPage.results.map((server) => {
+              const heartbeatState = getHeartbeatState(server.last_seen_at);
+              const heartbeatLabel =
+                heartbeatState === "healthy" ? "心跳正常" : heartbeatState === "stale" ? "待核验" : "未上报";
+              const agentVersion =
+                typeof server.metadata?.agent_version === "string" ? server.metadata.agent_version : "未记录";
+
+              return (
+                <BorderGlow as="article" className="tool-result-card tool-result-card-compact" key={server.id}>
+                  <div className="tool-result-header">
+                    <div>
+                      <h3>{server.hostname}</h3>
+                      <div className="tool-result-meta">
+                        <span className="pill neutral">{server.environment}</span>
+                        <span className={`pill ${heartbeatState === "healthy" ? "approved" : heartbeatState === "stale" ? "pending" : "neutral"}`}>
+                          {heartbeatLabel}
+                        </span>
+                      </div>
+                    </div>
+                    <button className="button-ghost query-action-button" onClick={() => setSelectedServerId(server.id)} type="button">
+                      查看详情
+                    </button>
+                  </div>
+                  <dl className="tool-result-list">
+                    <div>
+                      <dt>内网 IP</dt>
+                      <dd>{server.internal_ip}</dd>
+                    </div>
+                    <div>
+                      <dt>所属机房</dt>
+                      <dd>{server.idc_name || "未记录"}</dd>
+                    </div>
+                    <div>
+                      <dt>最近心跳</dt>
+                      <dd>{renderDateTime(server.last_seen_at)}</dd>
+                    </div>
+                    <div>
+                      <dt>Agent 版本</dt>
+                      <dd>{agentVersion}</dd>
+                    </div>
+                  </dl>
+                </BorderGlow>
+              );
+            })}
+          </div>
+        ) : null}
       </BorderGlow>
 
       <BorderGlow as="section" className="panel panel-span-12">

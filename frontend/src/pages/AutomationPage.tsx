@@ -118,6 +118,26 @@ const initialHandoffQuery: JobHandoffQuery = {
   limit: "6",
 };
 
+const initialAgentClaimQuery: JobHandoffQuery = {
+  q: "",
+  status: "claimed",
+  risk_level: "",
+  approval_status: "",
+  assigned_agent_key_id: "",
+  last_reported_by_agent_key: "",
+  limit: "6",
+};
+
+const initialAgentReportQuery: JobToolQuery = {
+  q: "",
+  status: "completed",
+  risk_level: "",
+  approval_status: "",
+  assigned_agent_key_id: "",
+  last_reported_by_agent_key: "",
+  limit: "6",
+};
+
 export function AutomationPage() {
   const { accessToken, baseUrl, capabilities } = useAuth();
   const location = useLocation();
@@ -133,6 +153,14 @@ export function AutomationPage() {
   const [handoffState, setHandoffState] = useState<RequestState>("idle");
   const [handoffSummary, setHandoffSummary] = useState("查看待执行与已认领任务的交接视图，便于执行侧确认当前处理池与接手顺序。");
   const [handoffResponse, setHandoffResponse] = useState<JobHandoffResponse | null>(null);
+  const [agentClaimQuery, setAgentClaimQuery] = useState<JobHandoffQuery>(initialAgentClaimQuery);
+  const [agentClaimState, setAgentClaimState] = useState<RequestState>("idle");
+  const [agentClaimSummary, setAgentClaimSummary] = useState("查看已由执行器接手的任务，用于跟踪 runner 认领结果与当前处理责任。");
+  const [agentClaimResponse, setAgentClaimResponse] = useState<JobHandoffResponse | null>(null);
+  const [agentReportQuery, setAgentReportQuery] = useState<JobToolQuery>(initialAgentReportQuery);
+  const [agentReportState, setAgentReportState] = useState<RequestState>("idle");
+  const [agentReportSummary, setAgentReportSummary] = useState("查看已产生机器回报的任务，用于追踪 runner 上报结果、执行摘要与最近回传主体。");
+  const [agentReportResponse, setAgentReportResponse] = useState<JobToolQueryResponse | null>(null);
   const flashMessage = typeof location.state?.flashMessage === "string" ? location.state.flashMessage : "";
   const flashState = location.state?.flashState === "error" ? "error" : "success";
 
@@ -209,6 +237,20 @@ export function AutomationPage() {
     }));
   }
 
+  function updateAgentClaimQuery<K extends keyof JobHandoffQuery>(key: K, value: JobHandoffQuery[K]) {
+    setAgentClaimQuery((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function updateAgentReportQuery<K extends keyof JobToolQuery>(key: K, value: JobToolQuery[K]) {
+    setAgentReportQuery((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
   async function handleToolQuery() {
     if (!accessToken) {
       setToolState("error");
@@ -256,6 +298,56 @@ export function AutomationPage() {
       setHandoffResponse(null);
       setHandoffState("error");
       setHandoffSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handleAgentClaimQuery() {
+    if (!accessToken) {
+      setAgentClaimState("error");
+      setAgentClaimSummary("请先登录后再查看执行器认领监控。");
+      return;
+    }
+
+    const activeQuery = Object.fromEntries(
+      Object.entries(agentClaimQuery).filter(([, value]) => Boolean(value)),
+    ) as JobHandoffQuery;
+
+    setAgentClaimState("loading");
+    setAgentClaimSummary("正在同步执行器认领视图...");
+    try {
+      const response = await getJobHandoff(baseUrl, accessToken, activeQuery);
+      setAgentClaimResponse(response);
+      setAgentClaimState("success");
+      setAgentClaimSummary(`已返回 ${response.summary.returned} 条执行器认领任务，共命中 ${response.summary.count} 条。`);
+    } catch (error) {
+      setAgentClaimResponse(null);
+      setAgentClaimState("error");
+      setAgentClaimSummary(getUserFacingErrorMessage(error));
+    }
+  }
+
+  async function handleAgentReportQuery() {
+    if (!accessToken) {
+      setAgentReportState("error");
+      setAgentReportSummary("请先登录后再查看执行器上报监控。");
+      return;
+    }
+
+    const activeQuery = Object.fromEntries(
+      Object.entries(agentReportQuery).filter(([, value]) => Boolean(value)),
+    ) as JobToolQuery;
+
+    setAgentReportState("loading");
+    setAgentReportSummary("正在同步执行器上报视图...");
+    try {
+      const response = await getJobToolQuery(baseUrl, accessToken, activeQuery);
+      setAgentReportResponse(response);
+      setAgentReportState("success");
+      setAgentReportSummary(`已返回 ${response.summary.returned} 条执行器上报任务，共命中 ${response.summary.count} 条。`);
+    } catch (error) {
+      setAgentReportResponse(null);
+      setAgentReportState("error");
+      setAgentReportSummary(getUserFacingErrorMessage(error));
     }
   }
 
@@ -748,6 +840,225 @@ export function AutomationPage() {
                     <span>任务载荷摘要</span>
                     <pre className="json-block">{JSON.stringify(item.payload, null, 2)}</pre>
                   </div>
+                </BorderGlow>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </BorderGlow>
+
+      <BorderGlow as="section" className="panel panel-span-12">
+        <div className="panel-heading">
+          <h2>执行器认领监控</h2>
+          <p>聚焦已由 runner 接手的任务，帮助执行器运营视角快速确认认领主体、接手时间与当前任务池状态。</p>
+        </div>
+
+        <div className="filter-grid">
+          <label className="field">
+            <span>综合关键词</span>
+            <input value={agentClaimQuery.q || ""} onChange={(event) => updateAgentClaimQuery("q", event.target.value)} />
+          </label>
+          <div className="field">
+            <span>认领状态</span>
+            <GlassSelect
+              options={[
+                { value: "claimed", label: "已认领" },
+                { value: "ready", label: "待执行" },
+              ]}
+              value={agentClaimQuery.status || "claimed"}
+              onChange={(value) => updateAgentClaimQuery("status", value as JobHandoffQuery["status"])}
+            />
+          </div>
+          <label className="field">
+            <span>执行器 ID</span>
+            <input
+              value={agentClaimQuery.assigned_agent_key_id || ""}
+              onChange={(event) => updateAgentClaimQuery("assigned_agent_key_id", event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>最近上报执行器</span>
+            <input
+              value={agentClaimQuery.last_reported_by_agent_key || ""}
+              onChange={(event) => updateAgentClaimQuery("last_reported_by_agent_key", event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="actions">
+          <button onClick={() => void handleAgentClaimQuery()} type="button">
+            同步认领视图
+          </button>
+          <button
+            className="button-ghost"
+            onClick={() => {
+              setAgentClaimQuery(initialAgentClaimQuery);
+              setAgentClaimResponse(null);
+              setAgentClaimState("idle");
+              setAgentClaimSummary("查看已由执行器接手的任务，用于跟踪 runner 认领结果与当前处理责任。");
+            }}
+            type="button"
+          >
+            重置条件
+          </button>
+        </div>
+
+        <p className={`status ${agentClaimState}`}>{agentClaimSummary}</p>
+
+        {agentClaimResponse ? (
+          <>
+            <div className="tool-summary-strip">
+              <span className="filter-chip">返回 {agentClaimResponse.summary.returned} 条</span>
+              <span className="filter-chip">命中 {agentClaimResponse.summary.count} 条</span>
+              {agentClaimResponse.summary.truncated ? <span className="filter-chip">结果已截断</span> : null}
+            </div>
+            <div className="query-result-grid">
+              {agentClaimResponse.items.map((item) => (
+                <BorderGlow as="article" className="tool-result-card handoff-card" key={item.id}>
+                  <div className="tool-result-header">
+                    <div>
+                      <h3>{item.name}</h3>
+                      <div className="tool-result-meta">
+                        <span className={`pill ${item.status}`}>{getJobStatusLabel(item.status)}</span>
+                        <span className="pill neutral">{item.assigned_agent_key_id || "未绑定"}</span>
+                      </div>
+                    </div>
+                    <Link className="button-link button-link-ghost query-action-button" to={`/automation/${item.id}`}>
+                      打开详情
+                    </Link>
+                  </div>
+                  <dl className="tool-result-list">
+                    <div>
+                      <dt>认领时间</dt>
+                      <dd>{item.claimed_at ? renderDateTimeStack(item.claimed_at) : "未记录"}</dd>
+                    </div>
+                    <div>
+                      <dt>认领人</dt>
+                      <dd>{item.claimed_by_username || "执行器认领"}</dd>
+                    </div>
+                    <div>
+                      <dt>最近更新</dt>
+                      <dd>{renderDateTimeStack(item.updated_at)}</dd>
+                    </div>
+                    <div>
+                      <dt>审批状态</dt>
+                      <dd>{getApprovalStatusLabel(item.approval_status)}</dd>
+                    </div>
+                  </dl>
+                </BorderGlow>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </BorderGlow>
+
+      <BorderGlow as="section" className="panel panel-span-12">
+        <div className="panel-heading">
+          <h2>执行器上报监控</h2>
+          <p>面向 runner 回报结果的只读视图，可按最近上报执行器、状态与风险等级快速检索，并直接进入任务详情查看完整执行上下文。</p>
+        </div>
+
+        <div className="filter-grid">
+          <label className="field">
+            <span>综合关键词</span>
+            <input value={agentReportQuery.q || ""} onChange={(event) => updateAgentReportQuery("q", event.target.value)} />
+          </label>
+          <div className="field">
+            <span>上报结果</span>
+            <GlassSelect
+              options={[
+                { value: "completed", label: "已完成" },
+                { value: "failed", label: "失败" },
+                { value: "claimed", label: "已认领" },
+              ]}
+              value={agentReportQuery.status || "completed"}
+              onChange={(value) => updateAgentReportQuery("status", value as JobToolQuery["status"])}
+            />
+          </div>
+          <div className="field">
+            <span>风险等级</span>
+            <GlassSelect
+              options={riskOptions}
+              value={agentReportQuery.risk_level || ""}
+              onChange={(value) => updateAgentReportQuery("risk_level", value as JobToolQuery["risk_level"])}
+            />
+          </div>
+          <label className="field">
+            <span>执行器 ID</span>
+            <input
+              value={agentReportQuery.assigned_agent_key_id || ""}
+              onChange={(event) => updateAgentReportQuery("assigned_agent_key_id", event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>最近上报执行器</span>
+            <input
+              value={agentReportQuery.last_reported_by_agent_key || ""}
+              onChange={(event) => updateAgentReportQuery("last_reported_by_agent_key", event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="actions">
+          <button onClick={() => void handleAgentReportQuery()} type="button">
+            同步上报视图
+          </button>
+          <button
+            className="button-ghost"
+            onClick={() => {
+              setAgentReportQuery(initialAgentReportQuery);
+              setAgentReportResponse(null);
+              setAgentReportState("idle");
+              setAgentReportSummary("查看已产生机器回报的任务，用于追踪 runner 上报结果、执行摘要与最近回传主体。");
+            }}
+            type="button"
+          >
+            重置条件
+          </button>
+        </div>
+
+        <p className={`status ${agentReportState}`}>{agentReportSummary}</p>
+
+        {agentReportResponse ? (
+          <>
+            <div className="tool-summary-strip">
+              <span className="filter-chip">返回 {agentReportResponse.summary.returned} 条</span>
+              <span className="filter-chip">命中 {agentReportResponse.summary.count} 条</span>
+              {agentReportResponse.summary.truncated ? <span className="filter-chip">结果已截断</span> : null}
+            </div>
+            <div className="query-result-grid query-result-grid-compact">
+              {agentReportResponse.items.map((item) => (
+                <BorderGlow as="article" className="tool-result-card tool-result-card-compact" key={item.id}>
+                  <div className="tool-result-header">
+                    <div>
+                      <h3>{item.name}</h3>
+                      <div className="tool-result-meta">
+                        <span className={`pill ${item.status}`}>{getJobStatusLabel(item.status)}</span>
+                        <span className="pill neutral">{item.last_reported_by_agent_key || "未回报"}</span>
+                      </div>
+                    </div>
+                    <Link className="button-link button-link-ghost query-action-button" to={`/automation/${item.id}`}>
+                      打开详情
+                    </Link>
+                  </div>
+                  <dl className="tool-result-list">
+                    <div>
+                      <dt>执行器</dt>
+                      <dd>{item.assigned_agent_key_id || "未绑定"}</dd>
+                    </div>
+                    <div>
+                      <dt>最近上报</dt>
+                      <dd>{item.last_reported_by_agent_key || "未记录"}</dd>
+                    </div>
+                    <div>
+                      <dt>风险等级</dt>
+                      <dd>{getRiskLabel(item.risk_level)}</dd>
+                    </div>
+                    <div>
+                      <dt>最近更新</dt>
+                      <dd>{renderDateTimeStack(item.updated_at)}</dd>
+                    </div>
+                  </dl>
                 </BorderGlow>
               ))}
             </div>

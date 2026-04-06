@@ -9,6 +9,7 @@ import { getUserFacingErrorMessage } from "../lib/errors";
 import {
   getCurrentUser,
   login,
+  register,
   probeAuditReadAccess,
   probeAutomationApproveAccess,
   probeAutomationExecuteAccess,
@@ -18,6 +19,7 @@ import {
   probeUserAdminAccess,
 } from "../lib/api";
 import type { FrontendCapabilities, RequestState, UserProfile } from "../types";
+import type { RegisterInput } from "../types";
 
 const TOKEN_STORAGE_KEY = "chatops-cmdb-access-token";
 const REFRESH_TOKEN_STORAGE_KEY = "chatops-cmdb-refresh-token";
@@ -36,6 +38,7 @@ type AuthContextValue = {
   capabilityState: RequestState;
   capabilities: FrontendCapabilities;
   loginWithPassword: (username: string, password: string) => Promise<void>;
+  registerWithPassword: (payload: RegisterInput) => Promise<void>;
   setTokenManually: (token: string) => void;
   refreshProfile: (tokenOverride?: string, silent?: boolean) => Promise<void>;
   signOut: () => void;
@@ -224,6 +227,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthSummary("访问令牌已保存，可继续校验其有效性。");
   }
 
+  async function registerWithPassword(payload: RegisterInput) {
+    setAuthState("loading");
+    setAuthSummary("正在创建账号并初始化访问上下文...");
+    try {
+      await register(baseUrl, payload);
+      const tokens = await login(baseUrl, payload.username, payload.password);
+      setAccessToken(tokens.access);
+      setRefreshToken(tokens.refresh);
+      setAuthState("success");
+      setAuthSummary("账号创建成功，正在加载平台访问上下文...");
+      await refreshProfile(tokens.access, true);
+    } catch (error) {
+      setProfile(null);
+      setAuthState("error");
+      setAuthSummary(getUserFacingErrorMessage(error));
+      throw error;
+    }
+  }
+
   function signOut() {
     setAccessToken("");
     setRefreshToken("");
@@ -266,6 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         capabilityState,
         capabilities,
         loginWithPassword,
+        registerWithPassword,
         setTokenManually,
         refreshProfile,
         signOut,

@@ -11,6 +11,7 @@ import type {
   ApiErrorShape,
   AuthRefreshTokens,
   AuthTokens,
+  RegisterInput,
   JobCreateInput,
   JobHandoffQuery,
   JobHandoffResponse,
@@ -145,6 +146,13 @@ export async function login(baseUrl: string, username: string, password: string)
   return request<AuthTokens>(baseUrl, `${API_PREFIX}/auth/login/`, {
     method: "POST",
     body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function register(baseUrl: string, payload: RegisterInput) {
+  return request(baseUrl, `${API_PREFIX}/auth/register/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
