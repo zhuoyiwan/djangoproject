@@ -48,9 +48,13 @@ export function ContractPage() {
     };
   }, [accessToken, baseUrl]);
 
-  const schemaUrl = `${normalizedBaseUrl}${workbench?.docs.schema_path || "/api/schema/"}`;
-  const swaggerUrl = `${normalizedBaseUrl}${workbench?.docs.swagger_path || "/api/docs/"}`;
-  const redocUrl = `${normalizedBaseUrl}${workbench?.docs.redoc_path || "/api/redoc/"}`;
+  const docs = workbench?.docs ?? null;
+  const schemaUrl = docs ? `${normalizedBaseUrl}${docs.schema_path}` : null;
+  const swaggerUrl = docs ? `${normalizedBaseUrl}${docs.swagger_path}` : null;
+  const redocUrl = docs ? `${normalizedBaseUrl}${docs.redoc_path}` : null;
+  const highlights = workbench?.highlights ?? [];
+  const endpointGroups = workbench?.endpoint_groups ?? [];
+  const hasWorkbenchPayload = Boolean(workbench && (highlights.length || endpointGroups.length || docs));
 
   return (
     <main className="workspace-grid">
@@ -80,20 +84,22 @@ export function ContractPage() {
 
         <p className={`status ${state}`}>{summary}</p>
 
-        <div className="actions contract-entry-actions">
-          <a className="button-link" href={swaggerUrl} rel="noreferrer" target="_blank">
-            打开 Swagger
-          </a>
-          <a className="button-link" href={redocUrl} rel="noreferrer" target="_blank">
-            打开 Redoc
-          </a>
-          <a className="button-link button-link-ghost" href={schemaUrl} rel="noreferrer" target="_blank">
-            查看 Schema JSON
-          </a>
-        </div>
+        {docs ? (
+          <div className="actions contract-entry-actions">
+            <a className="button-link" href={swaggerUrl || undefined} rel="noreferrer" target="_blank">
+              打开 Swagger
+            </a>
+            <a className="button-link" href={redocUrl || undefined} rel="noreferrer" target="_blank">
+              打开 Redoc
+            </a>
+            <a className="button-link button-link-ghost" href={schemaUrl || undefined} rel="noreferrer" target="_blank">
+              查看 Schema JSON
+            </a>
+          </div>
+        ) : null}
 
         <div className="highlight-grid">
-          {(workbench?.highlights || []).map((item) => (
+          {highlights.map((item) => (
             <BorderGlow as="article" className="highlight-card" key={item.title}>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
@@ -102,7 +108,7 @@ export function ContractPage() {
         </div>
 
         <div className="endpoint-grid">
-          {(workbench?.endpoint_groups || []).map((group) => (
+          {endpointGroups.map((group) => (
             <BorderGlow as="article" className="endpoint-card" key={group.label}>
               <h3>{group.label}</h3>
               <ul>
@@ -114,10 +120,19 @@ export function ContractPage() {
           ))}
         </div>
 
-        <BorderGlow as="article" className="highlight-card compact-card contract-entry-card">
-          <h3>联调入口</h3>
-          <p>当前页面已承接在线 Schema、Swagger 与 Redoc 入口，可作为接口核对与联调协作的统一起点。</p>
-        </BorderGlow>
+        {state === "success" && !hasWorkbenchPayload ? (
+          <BorderGlow as="article" className="highlight-card compact-card contract-entry-card">
+            <h3>暂无契约数据</h3>
+            <p>当前服务尚未返回可展示的契约要点或接口资源，请先检查后端契约工作台接口输出。</p>
+          </BorderGlow>
+        ) : null}
+
+        {docs ? (
+          <BorderGlow as="article" className="highlight-card compact-card contract-entry-card">
+            <h3>联调入口</h3>
+            <p>当前页面已直接承接服务端返回的 Schema、Swagger 与 Redoc 入口，可作为接口核对与联调协作的统一起点。</p>
+          </BorderGlow>
+        ) : null}
       </BorderGlow>
     </main>
   );

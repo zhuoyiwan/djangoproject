@@ -309,19 +309,6 @@ export function AutomationDetailPage() {
     : !capabilities.canWriteAutomation
       ? "当前账号未开通任务写入权限，不能编辑任务。"
       : "已认领任务不能编辑，请先完成、登记失败、终止或重新调度。";
-  const fallbackTimelineItems = job
-    ? [
-        { key: "created", label: "任务创建", actor: job.approval_requested_by_username || "系统", time: job.created_at, detail: "任务已创建并进入平台流程。" },
-        { key: "request", label: "发起申请", actor: job.approval_requested_by_username || "未记录", time: job.approval_requested_at, detail: "已提交审批申请。" },
-        { key: "approved", label: "审批通过", actor: job.approved_by_username || "未记录", time: job.approved_at, detail: job.approval_comment || "审批已通过。" },
-        { key: "rejected", label: "审批驳回", actor: job.rejected_by_username || "未记录", time: job.rejected_at, detail: job.approval_comment || "审批未通过。" },
-        { key: "ready", label: "转入待执行", actor: job.ready_by_username || "未记录", time: job.ready_at, detail: "任务已进入待执行池。" },
-        { key: "claimed", label: "任务认领", actor: job.claimed_by_username || "未记录", time: job.claimed_at, detail: job.assigned_agent_key_id ? `执行器：${job.assigned_agent_key_id}` : "已由处理方接手。" },
-        { key: "completed", label: "执行完成", actor: job.claimed_by_username || "未记录", time: job.completed_at, detail: job.execution_summary || "任务已完成执行。" },
-        { key: "failed", label: "执行失败", actor: job.claimed_by_username || "未记录", time: job.failed_at, detail: job.execution_summary || "任务执行失败，等待后续处理。" },
-      ].filter((item) => item.time)
-    : [];
-
   return (
     <main className="workspace-grid">
       <BorderGlow as="section" className="panel panel-span-12">
@@ -429,22 +416,6 @@ export function AutomationDetailPage() {
                         </div>
                         <p>{item.actor_name}</p>
                         <small>{item.summary || "已完成该节点流转"}</small>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : fallbackTimelineItems.length ? (
-                <div className="timeline-list">
-                  {fallbackTimelineItems.map((item) => (
-                    <div className="timeline-item" key={item.key}>
-                      <span className="timeline-point" aria-hidden="true" />
-                      <div className="timeline-body">
-                        <div className="timeline-header">
-                          <strong>{item.label}</strong>
-                          <span>{formatDateTime(item.time)}</span>
-                        </div>
-                        <p>{item.actor}</p>
-                        <small>{item.detail}</small>
                       </div>
                     </div>
                   ))}
