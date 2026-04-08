@@ -1507,6 +1507,75 @@ a {
   margin-top: 30px;
 }
 
+.contract-break-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.contract-endpoint-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.contract-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.contract-modal-count {
+  margin-top: 2px;
+}
+
+.contract-modal-list-wrap {
+  max-height: min(56vh, 560px);
+  padding-right: 6px;
+  overflow: auto;
+}
+
+.contract-modal-list {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+  color: var(--text-muted);
+}
+
+.contract-modal-list li {
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.contract-modal-actions {
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.contract-doc-paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.contract-doc-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 0.38rem 0.82rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.36);
+  border: 1px solid rgba(145, 167, 193, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  font-size: 0.84rem;
+  line-break: strict;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .auth-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1848,6 +1917,9 @@ a {
 .tool-result-header h3 {
   margin: 0;
   letter-spacing: -0.03em;
+  line-break: strict;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .highlight-card p,
@@ -1857,8 +1929,18 @@ a {
   margin-bottom: 0;
 }
 
+.highlight-card p,
+.compact-card p,
+.summary-card small,
+.summary-card strong {
+  line-break: strict;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
 .endpoint-card ul {
   margin-top: 14px;
+  margin-bottom: 0;
   padding-left: 20px;
   display: grid;
   gap: 10px;
@@ -1869,6 +1951,113 @@ a {
 .endpoint-card li {
   line-height: 1.5;
   font-size: 0.9rem;
+}
+
+.endpoint-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.endpoint-button-card {
+  padding: 0;
+}
+
+.endpoint-entry-button {
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  gap: 16px;
+  padding: 22px 20px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  box-shadow: none;
+  transition:
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.endpoint-entry-button:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.endpoint-entry-button:focus-visible {
+  outline: 2px solid rgba(105, 136, 182, 0.42);
+  outline-offset: -2px;
+}
+
+.endpoint-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.endpoint-card-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.endpoint-card-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0.16rem 0.62rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(145, 167, 193, 0.16);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.endpoint-card-count {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0.2rem 0.72rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(145, 167, 193, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.endpoint-card-description {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.62;
+}
+
+.endpoint-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 38px;
+  padding: 0.58rem 0.92rem;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 250, 255, 0.5)),
+    rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(120, 157, 206, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 10px 22px rgba(160, 180, 205, 0.1);
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .field {
@@ -3025,6 +3214,14 @@ tbody tr:hover {
   .tool-result-card,
   .hero-card {
     padding: 18px;
+  }
+
+  .contract-modal-header {
+    flex-direction: column;
+  }
+
+  .contract-modal-count {
+    margin-top: 0;
   }
 }
 
